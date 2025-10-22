@@ -1,5 +1,11 @@
 use std::{fs::File, io::Write};
 
+pub struct Pipe {
+    pub a: f32,
+    pub b: f32,
+    pub c: f32,
+}
+
 /**
  * Mesh vertex, location given in Cartesian coordinates.
  */
@@ -13,9 +19,9 @@ pub struct Vertex {
  * Triangular face with three vertex indices. Vertex indices start with 0.
  */
 struct Face {
-    pub v1: u32,
-    pub v2: u32,
-    pub v3: u32,
+    pub v1: usize,
+    pub v2: usize,
+    pub v3: usize,
 }
 
 struct Mesh {
@@ -25,9 +31,9 @@ struct Mesh {
 
 impl Mesh {
     fn cylinder() -> Self {
-        let half_height = 1.0;
+        let half_height = 5.0;
         let radius = 1.0;
-        let linear_segments = 10;
+        let linear_segments = 30;
         let radial_segments = 30;
 
         // Vertex indices: i * radial_segments + j
@@ -70,6 +76,40 @@ impl Mesh {
         Mesh { vertices, faces }
     }
 
+    fn transform_pipe(self, pipe: &Pipe, w: f32) -> Self {
+        let new_vertices = self.vertices.into_iter().map(|vertex| {
+            Vertex {
+                x: vertex.x * pipe.a + vertex.y * pipe.b + pipe.c * w,
+                y: -vertex.x * pipe.b + vertex.y * pipe.a + pipe.c * vertex.z,
+                z: vertex.z,
+            }
+        }).collect::<Vec<_>>();
+        Mesh { vertices: new_vertices, faces: self.faces }
+    }
+
+    fn offset_indices(faces: Vec<Face>, offset: usize) -> Vec<Face> {
+        faces.into_iter().map(|face| {
+            Face {
+                v1: face.v1 + offset,
+                v2: face.v2 + offset,
+                v3: face.v3 + offset,
+            }
+        }).collect::<Vec<_>>()
+    }
+
+    fn merge(meshes: Vec<Self>) -> Self {
+        let mut vertices = vec![];
+        let mut faces = vec![];
+        let mut offset = 0usize;
+        for mesh in meshes {
+            let num_vertices = mesh.vertices.len();
+            faces.extend(Mesh::offset_indices(mesh.faces, offset));
+            vertices.extend(mesh.vertices);
+            offset += num_vertices;
+        }
+        Mesh { vertices, faces }
+    }
+
     fn write_obj<W: Write>(&self, buffer: &mut W) -> std::io::Result<()> {
         for vertex in &self.vertices {
             write!(buffer, "v {} {} {}\n", vertex.x, vertex.y, vertex.z)?;
@@ -83,7 +123,13 @@ impl Mesh {
 }
 
 fn main() -> std::io::Result<()> {
-    let mesh = Mesh::cylinder();
+    let w = 0.0;
+    let mesh = Mesh::merge(vec![
+        Pipe { a: 1.0, b: 0.5, c: 0.2 },
+        Pipe { a: 1.0, b: 0.0, c: 0.0 },
+    ].iter().map(|pipe| {
+        Mesh::cylinder().transform_pipe(&pipe, w)
+    }).collect::<Vec<_>>());
     let mut buffer = File::create("out.obj")?;
     mesh.write_obj(&mut buffer)?;
     Ok(())
