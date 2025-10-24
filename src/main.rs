@@ -1,18 +1,19 @@
-use std::{fs::File, io::Write};
+use std::{fs::File, io::{Read, Write}};
+use serde::Deserialize;
 
 pub struct Pipe {
-    pub a: f32,
-    pub b: f32,
-    pub c: f32,
+    pub a: f64,
+    pub b: f64,
+    pub c: f64,
 }
 
 /**
  * Mesh vertex, location given in Cartesian coordinates.
  */
 pub struct Vertex {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 
 /**
@@ -39,10 +40,10 @@ impl Mesh {
         // Vertex indices: i * radial_segments + j
         let mut vertices: Vec<Vertex> = vec![];
         for i in 0..=linear_segments {
-            let i_unipolar = (i as f32) / (linear_segments as f32);
+            let i_unipolar = (i as f64) / (linear_segments as f64);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
             for j in 0..radial_segments {
-                let theta = (j as f32) * std::f32::consts::TAU / (radial_segments as f32);
+                let theta = (j as f64) * std::f64::consts::TAU / (radial_segments as f64);
                 let x = theta.cos() * radius;
                 let y = theta.sin() * radius;
                 let z = i_bipolar * half_height; 
@@ -76,7 +77,7 @@ impl Mesh {
         Mesh { vertices, faces }
     }
 
-    fn transform_pipe(self, pipe: &Pipe, w: f32) -> Self {
+    fn transform_pipe(self, pipe: &Pipe, w: f64) -> Self {
         let new_vertices = self.vertices.into_iter().map(|vertex| {
             Vertex {
                 x: vertex.x * pipe.a + vertex.y * pipe.b + pipe.c * w,
@@ -122,14 +123,29 @@ impl Mesh {
     }
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
+struct Polytwister {
+    logs: Vec<Vec<f64>>,
+}
+
 fn main() -> std::io::Result<()> {
+    let mut string = String::new();
+    let mut file = File::open("quasitetratwister.json")?;
+    file.read_to_string(&mut string)?;
+
+    let result: Polytwister = serde_json::from_str(&string)?;
+
+    let pipes = result.logs.iter().map(|log: &Vec<f64>| {
+        Pipe { a: log[0], b: log[1], c: log[2] }
+    });
+
     let w = 0.0;
-    let mesh = Mesh::merge(vec![
-        Pipe { a: 1.0, b: 0.5, c: 0.2 },
-        Pipe { a: 1.0, b: 0.0, c: 0.0 },
-    ].iter().map(|pipe| {
+    let meshes = pipes.map(|pipe| {
         Mesh::cylinder().transform_pipe(&pipe, w)
-    }).collect::<Vec<_>>());
+    }).collect::<Vec<_>>();
+    println!("{}", meshes.len());
+    let mesh = Mesh::merge(meshes);
     let mut buffer = File::create("out.obj")?;
     mesh.write_obj(&mut buffer)?;
     Ok(())
