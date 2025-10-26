@@ -1,6 +1,11 @@
 use std::{fs::File, io::{Read, Write}};
 use serde::Deserialize;
 
+fn squared(x: f64) -> f64 {
+    x * x
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct Pipe {
     pub a: f64,
     pub b: f64,
@@ -10,6 +15,7 @@ pub struct Pipe {
 /**
  * Mesh vertex, location given in Cartesian coordinates.
  */
+#[derive(Clone, Copy, Debug)]
 pub struct Vertex {
     pub x: f64,
     pub y: f64,
@@ -19,6 +25,7 @@ pub struct Vertex {
 /**
  * Triangular face with three vertex indices. Vertex indices start with 0.
  */
+#[derive(Clone, Copy, Debug)]
 struct Face {
     pub v1: usize,
     pub v2: usize,
@@ -30,12 +37,43 @@ struct Mesh {
     pub faces: Vec<Face>,
 }
 
+impl Pipe {
+    fn as_mesh(&self, w: f64) -> Mesh {
+        if self.a == 0.0 && self.b == 0.0 {
+            let tmp = 1.0 / squared(self.c) - squared(w);
+            if tmp <= 0.0 {
+                return Mesh::empty();
+            }
+            let z = tmp.sqrt();
+            return Mesh::merge(vec![
+                Mesh::plane(z),
+                Mesh::plane(-z),
+            ])
+        }
+        Mesh::cylinder().transform_pipe(&self, w)
+    }
+
+    /**
+     * Return a signed value which is 0.0 on the pipe, negative inside the pipe, and positive
+     * outside it.
+     */
+    fn evaluate(&self, point: &Vertex, w: f64) -> f64 {
+        squared(self.a * point.x + self.b * point.y + self.c * point.z)
+        + squared(self.b * point.x - self.a * point.y - self.c * w)
+        - 1.0
+    }
+}
+
 impl Mesh {
+    fn empty() -> Self {
+        Mesh { vertices: vec![], faces: vec![] }
+    }
+
     fn cylinder() -> Self {
-        let half_height = 5.0;
+        let half_height = 2.0;
         let radius = 1.0;
-        let linear_segments = 30;
-        let radial_segments = 30;
+        let linear_segments = 500;
+        let radial_segments = 200;
 
         // Vertex indices: i * radial_segments + j
         let mut vertices: Vec<Vertex> = vec![];
@@ -77,13 +115,80 @@ impl Mesh {
         Mesh { vertices, faces }
     }
 
+    /**
+     * Make a plane parallel to the xy-plane at coordinate z.
+     */
+    fn plane(z: f64) -> Self {
+        let radius = 5.0;
+        let segments = 30;
+
+        // Vertex indices: i * segments + j
+        let mut vertices: Vec<Vertex> = vec![];
+        for i in 0..=segments {
+            let i_unipolar = (i as f64) / (segments as f64);
+            let i_bipolar = i_unipolar * 2.0 - 1.0;
+            for j in 0..=segments {
+                let j_unipolar = (j as f64) / (segments as f64);
+                let j_bipolar = j_unipolar * 2.0 - 1.0;
+                let x = i_bipolar * radius;
+                let y = j_bipolar * radius;
+                vertices.push(Vertex { x, y, z });
+            }
+        }
+
+        let mut faces: Vec<Face> = vec![];
+        for i in 0..segments {
+            for j in 0..segments {
+                let v1 = i * segments + j;
+                let v2 = i * segments + (j + 1);
+                let v3 = (i + 1) * segments + j;
+                let v4 = (i + 1) * segments + (j + 1);
+
+                // v1 -- v2
+                // | ,--' |
+                // v3 -- v4
+                faces.push(Face {
+                    v1: v1,
+                    v2: v2,
+                    v3: v3,
+                });
+                faces.push(Face {
+                    v1: v2,
+                    v2: v4,
+                    v3: v3,
+                });
+            }
+        }
+        Mesh { vertices, faces }
+    }
+
     fn transform_pipe(self, pipe: &Pipe, w: f64) -> Self {
         let new_vertices = self.vertices.into_iter().map(|vertex| {
-            Vertex {
-                x: vertex.x * pipe.a + vertex.y * pipe.b + pipe.c * w,
-                y: -vertex.x * pipe.b + vertex.y * pipe.a + pipe.c * vertex.z,
-                z: vertex.z,
-            }
+            let (xp, yp, zp) = (vertex.x, vertex.y, vertex.z);
+            let (a, b, c) = (pipe.a, pipe.b, pipe.c);
+            /*
+            Derivation: the pipe is P(a + bi, c + 0i) and we take its cross section at w. From the
+            formula for pipes we have the implicit equation
+
+                (ax + by + cz)^2 + (bx - ay - cw)^2 = 1.
+
+            Let
+                
+                x' = ax + by + cz    (1)
+                y' = bx - ay - cw
+                z' = z
+                
+            so that x'^2 + y'^2 = 1 forms the implicit equation for the cylinder (x', y', z') of
+            radius 1 and parallel to the z-axis. Thus we have an affine transformation relating
+            (x, y, z) to (x', y', z').  Inverting this transformation lets us transform a base
+            cylinder to a pipe cross section. The inversion is done by solving the system of
+            equations (1) for x and y.
+            */
+            let tmp = 1.0 / (a * a + b * b);
+            let z = zp;
+            let x = (a * xp + b * yp + b * c * w - a * c * z) * tmp;
+            let y = (b * xp - a * yp + a * c * w - b * c * z) * tmp;
+            Vertex { x, y, z }
         }).collect::<Vec<_>>();
         Mesh { vertices: new_vertices, faces: self.faces }
     }
@@ -121,6 +226,39 @@ impl Mesh {
         }
         Ok(())
     }
+
+    /**
+     * Given a predicate on vertex locations, return a new Mesh that removes all vertices that do
+     * not satisfy that predicate, and any faces that are connected to said vertices.
+     */
+    fn filter_vertices<F: Fn(&Vertex) -> bool>(&self, predicate: F) -> Self {
+        let mut vertices = vec![];
+        let mut new_index = 0usize;
+        // Vector of vertex indices whose length is equal to self.vertices.len() such that
+        // old_to_new_indices[old_index] is Some(new_vertex_index) if the vertex is kept, and None
+        // otherwise.
+        let mut old_to_new_indices: Vec<Option<usize>> = vec![];
+        for vertex in self.vertices.iter() {
+            if predicate(&vertex) {
+                vertices.push(vertex.clone());
+                old_to_new_indices.push(Some(new_index));
+                new_index += 1;
+            } else {
+                old_to_new_indices.push(None);
+            }
+        }
+        let faces = self.faces.iter().filter_map(|face| {
+            let v1_new = old_to_new_indices[face.v1];
+            let v2_new = old_to_new_indices[face.v2];
+            let v3_new = old_to_new_indices[face.v3];
+            if let (Some(v1), Some(v2), Some(v3)) = (v1_new, v2_new, v3_new) {
+                Some(Face { v1, v2, v3 })
+            } else {
+                None
+            }
+        }).collect::<Vec<_>>();
+        Mesh { vertices, faces }
+    }
 }
 
 #[derive(Deserialize)]
@@ -136,15 +274,22 @@ fn main() -> std::io::Result<()> {
 
     let result: Polytwister = serde_json::from_str(&string)?;
 
-    let pipes = result.logs.iter().map(|log: &Vec<f64>| {
+    let pipes: Vec<Pipe> = result.logs.iter().map(|log: &Vec<f64>| {
         Pipe { a: log[0], b: log[1], c: log[2] }
-    });
+    }).collect::<Vec<_>>();
 
     let w = 0.0;
-    let meshes = pipes.map(|pipe| {
-        Mesh::cylinder().transform_pipe(&pipe, w)
+    let meshes = pipes.iter().enumerate().map(|(i, pipe)| {
+        pipe.as_mesh(w).filter_vertices(|vertex: &Vertex| -> bool {
+            for (j, pipe2) in pipes.iter().enumerate() {
+                if i != j && (pipe2.evaluate(vertex, w) >= 0.0) {
+                    return false;
+                }
+            }
+            true
+        })
     }).collect::<Vec<_>>();
-    println!("{}", meshes.len());
+
     let mesh = Mesh::merge(meshes);
     let mut buffer = File::create("out.obj")?;
     mesh.write_obj(&mut buffer)?;
