@@ -1,5 +1,7 @@
 use std::{fs::File, io::{Read, Write}};
 use serde::Deserialize;
+extern crate nalgebra as na;
+use na::Vector3;
 
 fn squared(x: f64) -> f64 {
     x * x
@@ -15,12 +17,7 @@ pub struct Pipe {
 /**
  * Mesh vertex, location given in Cartesian coordinates.
  */
-#[derive(Clone, Copy, Debug)]
-pub struct Vertex {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-}
+type Vertex = Vector3<f64>;
 
 /**
  * Triangular face with three vertex indices. Vertex indices start with 0.
@@ -85,7 +82,7 @@ impl Mesh {
                 let x = theta.cos() * radius;
                 let y = theta.sin() * radius;
                 let z = i_bipolar * half_height; 
-                vertices.push(Vertex { x, y, z });
+                vertices.push(Vertex::new(x, y, z));
             }
         }
 
@@ -132,7 +129,7 @@ impl Mesh {
                 let j_bipolar = j_unipolar * 2.0 - 1.0;
                 let x = i_bipolar * radius;
                 let y = j_bipolar * radius;
-                vertices.push(Vertex { x, y, z });
+                vertices.push(Vector3::new(x, y, z));
             }
         }
 
@@ -188,7 +185,7 @@ impl Mesh {
             let z = zp;
             let x = (a * xp + b * yp + b * c * w - a * c * z) * tmp;
             let y = (b * xp - a * yp + a * c * w - b * c * z) * tmp;
-            Vertex { x, y, z }
+            Vector3::new(x, y, z)
         }).collect::<Vec<_>>();
         Mesh { vertices: new_vertices, faces: self.faces }
     }
