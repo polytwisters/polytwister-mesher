@@ -8,10 +8,11 @@ fn squared(x: f64) -> f64 {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Pipe {
+pub struct PipeSection {
     pub a: f64,
     pub b: f64,
     pub c: f64,
+    pub w: f64,
 }
 
 /**
@@ -34,10 +35,10 @@ struct Mesh {
     pub faces: Vec<Face>,
 }
 
-impl Pipe {
-    fn as_mesh(&self, w: f64) -> Mesh {
+impl PipeSection {
+    fn as_mesh(&self) -> Mesh {
         if self.a == 0.0 && self.b == 0.0 {
-            let tmp = 1.0 / squared(self.c) - squared(w);
+            let tmp = 1.0 / squared(self.c) - squared(self.w);
             if tmp <= 0.0 {
                 return Mesh::empty();
             }
@@ -47,16 +48,16 @@ impl Pipe {
                 Mesh::plane(-z),
             ])
         }
-        Mesh::cylinder().transform_pipe(&self, w)
+        Mesh::cylinder().transform_pipe(&self)
     }
 
     /**
      * Return a signed value which is 0.0 on the pipe, negative inside the pipe, and positive
      * outside it.
      */
-    fn evaluate(&self, point: &Vertex, w: f64) -> f64 {
+    fn evaluate(&self, point: &Vertex) -> f64 {
         squared(self.a * point.x + self.b * point.y + self.c * point.z)
-        + squared(self.b * point.x - self.a * point.y - self.c * w)
+        + squared(self.b * point.x - self.a * point.y - self.c * self.w)
         - 1.0
     }
 }
@@ -159,10 +160,10 @@ impl Mesh {
         Mesh { vertices, faces }
     }
 
-    fn transform_pipe(self, pipe: &Pipe, w: f64) -> Self {
+    fn transform_pipe(self, pipe: &PipeSection) -> Self {
         let new_vertices = self.vertices.into_iter().map(|vertex| {
             let (xp, yp, zp) = (vertex.x, vertex.y, vertex.z);
-            let (a, b, c) = (pipe.a, pipe.b, pipe.c);
+            let (a, b, c, w) = (pipe.a, pipe.b, pipe.c, pipe.w);
             /*
             Derivation: the pipe is P(a + bi, c + 0i) and we take its cross section at w. From the
             formula for pipes we have the implicit equation
@@ -271,15 +272,15 @@ fn main() -> std::io::Result<()> {
 
     let result: Polytwister = serde_json::from_str(&string)?;
 
-    let pipes: Vec<Pipe> = result.logs.iter().map(|log: &Vec<f64>| {
-        Pipe { a: log[0], b: log[1], c: log[2] }
+    let w = 0.0;
+    let pipes: Vec<PipeSection> = result.logs.iter().map(|log: &Vec<f64>| {
+        PipeSection { a: log[0], b: log[1], c: log[2], w }
     }).collect::<Vec<_>>();
 
-    let w = 0.0;
     let meshes = pipes.iter().enumerate().map(|(i, pipe)| {
-        pipe.as_mesh(w).filter_vertices(|vertex: &Vertex| -> bool {
+        pipe.as_mesh().filter_vertices(|vertex: &Vertex| -> bool {
             for (j, pipe2) in pipes.iter().enumerate() {
-                if i != j && (pipe2.evaluate(vertex, w) >= 0.0) {
+                if i != j && (pipe2.evaluate(vertex) >= 0.0) {
                     return false;
                 }
             }
