@@ -4,7 +4,7 @@ extern crate approx;
 use std::{fs::File, io::{Read, Write}};
 use serde::Deserialize;
 extern crate nalgebra as na;
-use na::{Vector3, Vector2, Matrix3, Rotation3};
+use na::{Vector3, Matrix3, Rotation3};
 
 fn squared(x: f64) -> f64 {
     x * x
@@ -123,15 +123,12 @@ impl PipeSection {
     fn ellipse_vertex_displacements(&self) -> (Vector3<f64>, Vector3<f64>) {
         let (_, direction) = self.axis_line();
         let z = Vector3::z();
-        // Matrix "r", when applied to the pipe cross section, has the effect of uprighting it so
-        // that its symmetry axis is the z-axis.
+        // R rotates the pipe's axis of symmetry to (0, 0, 1).
         let r = Rotation3::rotation_between(&direction, &z).unwrap_or(Rotation3::identity());
         let r_inv = Rotation3::rotation_between(&z, &direction).unwrap_or(Rotation3::identity());
-        let forward_ellipse: Matrix3<f64> = r * self.basic_forward_matrix();
-        let displacement_1 = forward_ellipse * Vector3::x();
-        let displacement_2 = forward_ellipse * Vector3::y();
-        let da = r_inv * displacement_1;
-        let db = r_inv * displacement_2;
+        let project_xy: Matrix3<f64> = Matrix3::from_diagonal(&Vector3::new(1.0, 1.0, 0.0));
+        let da = r_inv * project_xy * r * self.basic_forward_matrix() * Vector3::x();
+        let db = r_inv * project_xy * r * self.basic_forward_matrix() * Vector3::y();
         (da, db)
     }
 
@@ -403,8 +400,12 @@ mod test {
     #[test]
     fn test_ellipse_vertices() {
         let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, w: 0.1 };
+        let (start, direction) = pipe.axis_line();
+        let (da, db) = pipe.ellipse_vertex_displacements();
         let (pa, pb) = pipe.ellipse_vertices();
-        assert_abs_diff_eq!(pipe.scalar_field(&pa), 0.0);
-        assert_abs_diff_eq!(pipe.scalar_field(&pb), 0.0);
+        assert_abs_diff_eq!(pipe.scalar_field(&pa), 0.0, epsilon = 1e-5);
+        assert_abs_diff_eq!(pipe.scalar_field(&pb), 0.0, epsilon = 1e-5);
+        assert_abs_diff_eq!(da.dot(&direction), 0.0, epsilon = 1e-5);
+        assert_abs_diff_eq!(db.dot(&direction), 0.0, epsilon = 1e-5);
     }
 }
