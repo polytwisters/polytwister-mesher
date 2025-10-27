@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate approx;
+
 use std::{fs::File, io::{Read, Write}};
 use serde::Deserialize;
 extern crate nalgebra as na;
@@ -7,6 +10,9 @@ fn squared(x: f64) -> f64 {
     x * x
 }
 
+/**
+ * A 3D cross section of a pipe. (PipeCrossSection felt too long.)
+ */
 #[derive(Clone, Copy, Debug)]
 pub struct PipeSection {
     pub a: f64,
@@ -16,12 +22,7 @@ pub struct PipeSection {
 }
 
 /**
- * Mesh vertex, location given in Cartesian coordinates.
- */
-type Vertex = Vector3<f64>;
-
-/**
- * Triangular face with three vertex indices. Vertex indices start with 0.
+ * Triangular face with three vertex indices. Vector3<f64> indices start with 0.
  */
 #[derive(Clone, Copy, Debug)]
 struct Face {
@@ -31,7 +32,7 @@ struct Face {
 }
 
 struct Mesh {
-    pub vertices: Vec<Vertex>,
+    pub vertices: Vec<Vector3<f64>>,
     pub faces: Vec<Face>,
 }
 
@@ -52,13 +53,35 @@ impl PipeSection {
     }
 
     /**
-     * Return a signed value which is 0.0 on the pipe, negative inside the pipe, and positive
-     * outside it.
+     * Evaluate the scalar field associated with this pipe cross section:
+     * 
+     *     F(x, y, z) = (ax + by + cz)^2 + (bx - ay - cw)^2 - 1
+     * 
+     * The pipe cross section is given by the isosurface F(x, y, z) = 0. For other points, if
+     * F(x, y, z) < 0 then the point is inside the pipe, F(x, y, z) > 0 is outside the pipe, and
+     * F(x, y, z) = -1 is on the pipe's symmetry axis (plane of symmetry if a = b = 0).
      */
-    fn evaluate(&self, point: &Vertex) -> f64 {
+    fn scalar_field(&self, point: &Vector3<f64>) -> f64 {
         squared(self.a * point.x + self.b * point.y + self.c * point.z)
         + squared(self.b * point.x - self.a * point.y - self.c * self.w)
         - 1.0
+    }
+
+    fn abcw(&self) -> (f64, f64, f64, f64) {
+        (self.a, self.b, self.c, self.w)
+    }
+
+    /**
+     * Return an explicit parametrization of the line which is this pipe section's symmetry axis.
+     * The parametrization is v(t) = v_0 + d * t and returned as (v_0, d) so that v_0 is the
+     * starting point and d is the direction vector. d is always a unit vector.
+     */
+    fn axis_line(&self) -> (Vector3<f64>, Vector3<f64>) {
+        let (a, b, c, w) = self.abcw();
+        let tmp = 1.0 / (squared(a) + squared(b));
+        let direction_vector = Vector3::new( -a * c * tmp, -b * c * tmp, 1.0).normalize();
+        let start = Vector3::new(b * c * w * tmp, -a * c * w * tmp, 0.0);
+        return (start, direction_vector);
     }
 }
 
@@ -74,7 +97,7 @@ impl Mesh {
         let radial_segments = 200;
 
         // Vertex indices: i * radial_segments + j
-        let mut vertices: Vec<Vertex> = vec![];
+        let mut vertices: Vec<Vector3<f64>> = vec![];
         for i in 0..=linear_segments {
             let i_unipolar = (i as f64) / (linear_segments as f64);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
@@ -83,7 +106,7 @@ impl Mesh {
                 let x = theta.cos() * radius;
                 let y = theta.sin() * radius;
                 let z = i_bipolar * half_height; 
-                vertices.push(Vertex::new(x, y, z));
+                vertices.push(Vector3::new(x, y, z));
             }
         }
 
@@ -120,8 +143,8 @@ impl Mesh {
         let radius = 5.0;
         let segments = 30;
 
-        // Vertex indices: i * segments + j
-        let mut vertices: Vec<Vertex> = vec![];
+        // Vector3<f64> indices: i * segments + j
+        let mut vertices: Vec<Vector3<f64>> = vec![];
         for i in 0..=segments {
             let i_unipolar = (i as f64) / (segments as f64);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
@@ -229,7 +252,7 @@ impl Mesh {
      * Given a predicate on vertex locations, return a new Mesh that removes all vertices that do
      * not satisfy that predicate, and any faces that are connected to said vertices.
      */
-    fn filter_vertices<F: Fn(&Vertex) -> bool>(&self, predicate: F) -> Self {
+    fn filter_vertices<F: Fn(&Vector3<f64>) -> bool>(&self, predicate: F) -> Self {
         let mut vertices = vec![];
         let mut new_index = 0usize;
         // Vector of vertex indices whose length is equal to self.vertices.len() such that
@@ -278,9 +301,9 @@ fn main() -> std::io::Result<()> {
     }).collect::<Vec<_>>();
 
     let meshes = pipes.iter().enumerate().map(|(i, pipe)| {
-        pipe.as_mesh().filter_vertices(|vertex: &Vertex| -> bool {
+        pipe.as_mesh().filter_vertices(|vertex: &Vector3<f64>| -> bool {
             for (j, pipe2) in pipes.iter().enumerate() {
-                if i != j && (pipe2.evaluate(vertex) >= 0.0) {
+                if i != j && (pipe2.scalar_field(vertex) >= 0.0) {
                     return false;
                 }
             }
@@ -292,4 +315,21 @@ fn main() -> std::io::Result<()> {
     let mut buffer = File::create("out.obj")?;
     mesh.write_obj(&mut buffer)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use crate::PipeSection;
+
+    #[test]
+    fn test_pipe_axis() {
+        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, w: 0.1 };
+        let (start, direction) = pipe.axis_line();
+        assert_abs_diff_eq!(pipe.scalar_field(&start), -1.0);
+        let point_2 = start + direction;
+        assert_abs_diff_eq!(pipe.scalar_field(&point_2), -1.0);
+        let point_3 = start + direction * 1.2345;
+        assert_abs_diff_eq!(pipe.scalar_field(&point_3), -1.0);
+    }
+
 }
