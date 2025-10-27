@@ -4,7 +4,7 @@ extern crate approx;
 use std::{fs::File, io::{Read, Write}};
 use serde::Deserialize;
 extern crate nalgebra as na;
-use na::Vector3;
+use na::{Vector3, Vector2, Matrix3, Rotation3};
 
 fn squared(x: f64) -> f64 {
     x * x
@@ -82,6 +82,57 @@ impl PipeSection {
         let direction_vector = Vector3::new( -a * c * tmp, -b * c * tmp, 1.0).normalize();
         let start = Vector3::new(b * c * w * tmp, -a * c * w * tmp, 0.0);
         return (start, direction_vector);
+    }
+
+    /**
+     * Return a 3x3 matrix that turns this pipe into the "base cylinder" x^2 + y^2 = 1, z in R.
+     * It is assumed that a = b = 0 does not hold. Translation due to w is ignored.
+     * 
+     * This is called the "basic" backward matrix because it comes directly from the implicit
+     * equations. Although it transforms the z-axis to the cylinder's axis of symmetry, it does not
+     * preserve distance along that line.
+     */
+    fn basic_backward_matrix(&self) -> Matrix3<f64> {
+        let (a, b, c, _) = self.abcw();
+        Matrix3::new(
+            a, b, c,
+            b, -a, 0.0,
+            0.0, 0.0, 1.0,
+        )
+    }
+
+    /**
+     * Return a 3x3 matrix that turns the "base cylinder" x^2 + y^2 = 1, z in R into this pipe.
+     * It is assumed that a = b = 0 does not hold. Translation due to w is ignored.
+     * 
+     * This is the inverse of the basic_backward_matrix.
+     */
+    fn basic_forward_matrix(&self) -> Matrix3<f64> {
+        let (a, b, c, _) = self.abcw();
+        let tmp = 1.0 / (squared(a) + squared(b));
+        Matrix3::new(
+            a * tmp, b * tmp, -a * c * tmp,
+            b * tmp, -a * tmp, -b * c * tmp,
+            0.0, 0.0, 1.0,
+        )
+    }
+
+    /**
+     * Compute the two displacement vectors that span the elliptic cross-section of the pipe.
+     */
+    fn ellipse_vertex_displacements(&self) -> (Vector3<f64>, Vector3<f64>) {
+        let (start, direction) = self.axis_line();
+        let z = Vector3::z();
+        // Matrix "r", when applied to the pipe cross section, has the effect of uprighting it so
+        // that its symmetry axis is the z-axis.
+        let r = Rotation3::rotation_between(&direction, &z).unwrap();
+        let r_inv = Rotation3::rotation_between(&z, &direction).unwrap();
+        let forward_ellipse: Matrix3<f64> = r * self.basic_forward_matrix();
+        let displacement_1 = forward_ellipse * Vector3::x();
+        let displacement_2 = forward_ellipse * Vector3::y();
+        let point_a = r_inv * displacement_1;
+        let point_b = r_inv * displacement_2;
+        (start + point_a, start + point_b)
     }
 }
 
@@ -319,6 +370,8 @@ fn main() -> std::io::Result<()> {
 
 #[cfg(test)]
 mod test {
+    use na::Matrix3;
+
     use crate::PipeSection;
 
     #[test]
@@ -332,4 +385,20 @@ mod test {
         assert_abs_diff_eq!(pipe.scalar_field(&point_3), -1.0);
     }
 
+    #[test]
+    fn test_forward_inverse_matrices() {
+        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, w: 0.1 };
+        assert_abs_diff_eq!(
+            pipe.basic_forward_matrix() * pipe.basic_backward_matrix(),
+            Matrix3::identity()
+        )
+    }
+
+    #[test]
+    fn test_ellipse() {
+        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, w: 0.1 };
+        let (point_a, point_b) = pipe.ellipse_vertex_displacements();
+        assert_abs_diff_eq!(pipe.scalar_field(&point_a), 0.0);
+        assert_abs_diff_eq!(pipe.scalar_field(&point_b), 0.0);
+    }
 }
