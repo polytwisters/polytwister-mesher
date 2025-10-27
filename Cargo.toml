@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 approx = "0.5.1"
+ellip = "0.5.6"
 nalgebra = "0.34.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"

@@ -1,13 +1,113 @@
 #[macro_use]
 extern crate approx;
 
+use core::{f32, f64};
 use std::{fs::File, io::{Read, Write}};
 use serde::Deserialize;
 extern crate nalgebra as na;
 use na::{Vector3, Matrix3, Rotation3};
 
+use ellip;
+
 fn squared(x: f64) -> f64 {
     x * x
+}
+
+/**
+ * Compute the incomplete elliptic integral of the second kind E(phi, k):
+ * 
+ *     E(phi, k) = int_0^phi sqrt(1 - k^2 sin^2(t)) dt
+ * 
+ * This wraps ellip's functionality by using the "k" parameter instead of the "m" parameter,
+ * defined as k^2 = m.
+ */
+fn elliptic_e_incomplete(phi: f64, k: f64) -> f64 {
+    ellip::legendre::ellipeinc(phi, k * k).unwrap()
+}
+
+/**
+ * Approximate a solution to the equation E(phi, k) = e with k and e given and phi unknown. The
+ * precision is not very high but it's good enough for this application.
+ */
+fn elliptic_e_incomplete_inverse(e: f64, k: f64) -> f64 {
+    // E(phi, k) = phi is a very good approximation if k is low.
+    let mut phi = e;
+    for _ in 0..10 {
+        let error = elliptic_e_incomplete(phi, k) - e;
+        if error.abs() < 1e-5 {
+            return phi;
+        }
+        let derivative_error = (1.0 - squared(k * phi.sin())).sqrt();
+        phi -= error / derivative_error;
+    }
+    phi
+}
+
+fn elliptic_e_complete(k: f64) -> f64 {
+    ellip::legendre::ellipe(k * k).unwrap()
+}
+
+/**
+ * Map the interval [0, 1] -> [0, 1] with a warping function. Given an ellipse parametrized as
+ * (x, y) = (a sin theta, b cos theta) with a > b, with eccentricity k = sqrt(1 - b^2/a^2),
+ * let theta = warp(i / (pi / 2)) * (pi / 2) with i ranging from 0 to 1. If i values are evenly
+ * spaced, the points on the ellipse are evenly spaced.
+ */
+fn elliptic_warp_core(q: f64, k: f64) -> f64 {
+    elliptic_e_incomplete_inverse(q * elliptic_e_complete(k), k)
+    / f64::consts::FRAC_PI_2
+}
+
+fn elliptic_warp(q: f64, k: f64, flip: bool) -> f64 {
+    if flip {
+        1.0 - elliptic_warp_core(1.0 - q, k)
+    } else {
+        elliptic_warp_core(q, k)
+    }
+}
+
+/*
+ * a = y axis, b = x axis
+ */
+fn warp_elliptic_angle(phi: f64, a: f64, b: f64) -> f64 {
+    // q = number of quarter turns
+    let q = phi / f64::consts::FRAC_PI_2;
+    let qw = if a >= b {
+        let k = (1.0 - squared(b / a)).sqrt();
+        match q as u8 {
+            0 => elliptic_warp(q, k, false),
+            1 => 1.0 + elliptic_warp(q - 1.0, k, true),
+            2 => 2.0 + elliptic_warp(q - 2.0, k, false),
+            _ => 3.0 + elliptic_warp(q - 3.0, k, true),
+        }
+    } else {
+        let k = (1.0 - squared(a / b)).sqrt();
+        match q as u8 {
+            0 => elliptic_warp(q, k, true),
+            1 => 1.0 + elliptic_warp(q - 1.0, k, false),
+            2 => 2.0 + elliptic_warp(q - 2.0, k, true),
+            _ => 3.0 + elliptic_warp(q - 3.0, k, false),
+        }
+    };
+    dbg!(qw);
+    qw * f64::consts::FRAC_PI_2
+}
+
+fn evenly_spaced_ellipse_points(a: f64, b: f64, n: usize) -> Vec<(f64, f64)> {
+    (0..n).into_iter().map(|i| {
+        let phi = (i as f64) / (n as f64) * f64::consts::TAU;
+        let phi2 = warp_elliptic_angle(phi, a, b);
+        // Note the use of sin for X-axis and cos with Y-axis. This is intentional for consistency
+        // with https://dlmf.nist.gov/19.30.
+        (a * phi2.sin(), b * phi2.cos())
+    }).collect::<Vec<(f64, f64)>>()
+}
+
+fn naively_spaced_ellipse_points(a: f64, b: f64, n: usize) -> Vec<(f64, f64)> {
+    (0..n).into_iter().map(|i| {
+        let phi = (i as f64) / (n as f64) * f64::consts::TAU;
+        (a * phi.sin(), b * phi.cos())
+    }).collect::<Vec<(f64, f64)>>()
 }
 
 /**
@@ -357,9 +457,11 @@ fn main() -> std::io::Result<()> {
 
 #[cfg(test)]
 mod test {
-    use na::Matrix3;
+    use core::f64;
+    use std::iter::zip;
 
-    use crate::PipeSection;
+    use na::Matrix3;
+    use crate::*;
 
     #[test]
     fn test_pipe_axis() {
@@ -398,5 +500,47 @@ mod test {
         let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, w: 0.1 };
         let point = pipe.surface_coords_to_cartesian(-1.34, 0.3);
         assert_abs_diff_eq!(pipe.scalar_field(&point), 0.0, epsilon = 1e-5);
+    }
+
+    #[test]
+    fn test_ellip_inverse() {
+        let k = 0.95;
+        let phi = f64::consts::FRAC_PI_2 * 0.94;
+        let e = elliptic_e_incomplete(phi, k);
+        let phi_2 = elliptic_e_incomplete_inverse(e, k);
+        assert_abs_diff_eq!(phi, phi_2, epsilon = 1e-5);
+    }
+
+    fn consecutive_distances(points: &Vec<(f64, f64)>) -> Vec<f64> {
+        zip(&points[1..], &points[..points.len() - 1]).map(|((x1, y1), (x2, y2))| {
+            f64::hypot(x1 - x2, y1 - y2)
+        }).collect::<Vec<f64>>()
+    }
+
+    fn distance_range(points: &Vec<(f64, f64)>) -> f64 {
+        let distances = consecutive_distances(&points);
+        dbg!(&distances);
+        distances.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b))
+        - distances.iter().fold(f64::INFINITY, |a, &b| a.min(b))
+    }
+
+    #[test]
+    fn test_evenly_spaced_points() {
+        let a = 3.0;
+        let b = 1.0;
+        let n = 32;
+        let evenly_spaced_points = evenly_spaced_ellipse_points(a, b, n);
+        let naively_spaced_points = naively_spaced_ellipse_points(a, b, n);
+        assert!(distance_range(&naively_spaced_points) > distance_range(&evenly_spaced_points));
+    }
+
+    #[test]
+    fn test_evenly_spaced_points_2() {
+        let a = 1.0;
+        let b = 1.5;
+        let n = 32;
+        let evenly_spaced_points = evenly_spaced_ellipse_points(a, b, n);
+        let naively_spaced_points = naively_spaced_ellipse_points(a, b, n);
+        assert!(distance_range(&naively_spaced_points) > distance_range(&evenly_spaced_points));
     }
 }
