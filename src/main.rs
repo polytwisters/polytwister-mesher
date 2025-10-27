@@ -129,13 +129,25 @@ impl PipeSection {
         let project_xy: Matrix3<f64> = Matrix3::from_diagonal(&Vector3::new(1.0, 1.0, 0.0));
         let da = r_inv * project_xy * r * self.basic_forward_matrix() * Vector3::x();
         let db = r_inv * project_xy * r * self.basic_forward_matrix() * Vector3::y();
-        (da, db)
+        if db.norm_squared() > da.norm_squared() {
+            (db, da)
+        } else {
+            (da, db)
+        }
     }
 
     fn ellipse_vertices(&self) -> (Vector3<f64>, Vector3<f64>) {
         let (start, _) = self.axis_line();
         let (da, db) = self.ellipse_vertex_displacements();
         (start + da, start + db)
+    }
+
+    fn surface_coords_to_cartesian(&self, u: f64, theta: f64) -> Vector3<f64> {
+        let (start, direction) = self.axis_line();
+        let (da, db) = self.ellipse_vertex_displacements();
+        let cx = theta.cos();
+        let cy = theta.sin();
+        start + u * direction + cx * da + cy * db
     }
 }
 
@@ -407,5 +419,12 @@ mod test {
         assert_abs_diff_eq!(pipe.scalar_field(&pb), 0.0, epsilon = 1e-5);
         assert_abs_diff_eq!(da.dot(&direction), 0.0, epsilon = 1e-5);
         assert_abs_diff_eq!(db.dot(&direction), 0.0, epsilon = 1e-5);
+    }
+
+    #[test]
+    fn test_surface_to_cartesian() {
+        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, w: 0.1 };
+        let point = pipe.surface_coords_to_cartesian(-1.34, 0.3);
+        assert_abs_diff_eq!(pipe.scalar_field(&point), 0.0, epsilon = 1e-5);
     }
 }
