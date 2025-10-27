@@ -118,21 +118,27 @@ impl PipeSection {
     }
 
     /**
-     * Compute the two displacement vectors that span the elliptic cross-section of the pipe.
+     * Compute the two displacement vectors that form the elliptic cross-section of the pipe.
      */
     fn ellipse_vertex_displacements(&self) -> (Vector3<f64>, Vector3<f64>) {
-        let (start, direction) = self.axis_line();
+        let (_, direction) = self.axis_line();
         let z = Vector3::z();
         // Matrix "r", when applied to the pipe cross section, has the effect of uprighting it so
         // that its symmetry axis is the z-axis.
-        let r = Rotation3::rotation_between(&direction, &z).unwrap();
-        let r_inv = Rotation3::rotation_between(&z, &direction).unwrap();
+        let r = Rotation3::rotation_between(&direction, &z).unwrap_or(Rotation3::identity());
+        let r_inv = Rotation3::rotation_between(&z, &direction).unwrap_or(Rotation3::identity());
         let forward_ellipse: Matrix3<f64> = r * self.basic_forward_matrix();
         let displacement_1 = forward_ellipse * Vector3::x();
         let displacement_2 = forward_ellipse * Vector3::y();
-        let point_a = r_inv * displacement_1;
-        let point_b = r_inv * displacement_2;
-        (start + point_a, start + point_b)
+        let da = r_inv * displacement_1;
+        let db = r_inv * displacement_2;
+        (da, db)
+    }
+
+    fn ellipse_vertices(&self) -> (Vector3<f64>, Vector3<f64>) {
+        let (start, _) = self.axis_line();
+        let (da, db) = self.ellipse_vertex_displacements();
+        (start + da, start + db)
     }
 }
 
@@ -395,10 +401,10 @@ mod test {
     }
 
     #[test]
-    fn test_ellipse() {
+    fn test_ellipse_vertices() {
         let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, w: 0.1 };
-        let (point_a, point_b) = pipe.ellipse_vertex_displacements();
-        assert_abs_diff_eq!(pipe.scalar_field(&point_a), 0.0);
-        assert_abs_diff_eq!(pipe.scalar_field(&point_b), 0.0);
+        let (pa, pb) = pipe.ellipse_vertices();
+        assert_abs_diff_eq!(pipe.scalar_field(&pa), 0.0);
+        assert_abs_diff_eq!(pipe.scalar_field(&pb), 0.0);
     }
 }
