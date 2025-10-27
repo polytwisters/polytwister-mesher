@@ -75,21 +75,20 @@ fn warp_elliptic_angle(phi: f64, a: f64, b: f64) -> f64 {
     let qw = if a >= b {
         let k = (1.0 - squared(b / a)).sqrt();
         match q as u8 {
-            0 => elliptic_warp(q, k, false),
-            1 => 1.0 + elliptic_warp(q - 1.0, k, true),
-            2 => 2.0 + elliptic_warp(q - 2.0, k, false),
-            _ => 3.0 + elliptic_warp(q - 3.0, k, true),
-        }
-    } else {
-        let k = (1.0 - squared(a / b)).sqrt();
-        match q as u8 {
             0 => elliptic_warp(q, k, true),
             1 => 1.0 + elliptic_warp(q - 1.0, k, false),
             2 => 2.0 + elliptic_warp(q - 2.0, k, true),
             _ => 3.0 + elliptic_warp(q - 3.0, k, false),
         }
+    } else {
+        let k = (1.0 - squared(a / b)).sqrt();
+        match q as u8 {
+            0 => elliptic_warp(q, k, false),
+            1 => 1.0 + elliptic_warp(q - 1.0, k, true),
+            2 => 2.0 + elliptic_warp(q - 2.0, k, false),
+            _ => 3.0 + elliptic_warp(q - 3.0, k, true),
+        }
     };
-    dbg!(qw);
     qw * f64::consts::FRAC_PI_2
 }
 
@@ -97,16 +96,14 @@ fn evenly_spaced_ellipse_points(a: f64, b: f64, n: usize) -> Vec<(f64, f64)> {
     (0..n).into_iter().map(|i| {
         let phi = (i as f64) / (n as f64) * f64::consts::TAU;
         let phi2 = warp_elliptic_angle(phi, a, b);
-        // Note the use of sin for X-axis and cos with Y-axis. This is intentional for consistency
-        // with https://dlmf.nist.gov/19.30.
-        (a * phi2.sin(), b * phi2.cos())
+        (a * phi2.cos(), b * phi2.sin())
     }).collect::<Vec<(f64, f64)>>()
 }
 
 fn naively_spaced_ellipse_points(a: f64, b: f64, n: usize) -> Vec<(f64, f64)> {
     (0..n).into_iter().map(|i| {
         let phi = (i as f64) / (n as f64) * f64::consts::TAU;
-        (a * phi.sin(), b * phi.cos())
+        (a * phi.cos(), b * phi.sin())
     }).collect::<Vec<(f64, f64)>>()
 }
 
@@ -519,7 +516,6 @@ mod test {
 
     fn distance_range(points: &Vec<(f64, f64)>) -> f64 {
         let distances = consecutive_distances(&points);
-        dbg!(&distances);
         distances.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b))
         - distances.iter().fold(f64::INFINITY, |a, &b| a.min(b))
     }
