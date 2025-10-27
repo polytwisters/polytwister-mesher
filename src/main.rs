@@ -37,21 +37,6 @@ struct Mesh {
 }
 
 impl PipeSection {
-    fn as_mesh(&self) -> Mesh {
-        if self.a == 0.0 && self.b == 0.0 {
-            let tmp = 1.0 / squared(self.c) - squared(self.w);
-            if tmp <= 0.0 {
-                return Mesh::empty();
-            }
-            let z = tmp.sqrt();
-            return Mesh::merge(vec![
-                Mesh::plane(z),
-                Mesh::plane(-z),
-            ])
-        }
-        Mesh::cylinder().transform_pipe(&self)
-    }
-
     /**
      * Evaluate the scalar field associated with this pipe cross section:
      * 
@@ -149,18 +134,23 @@ impl PipeSection {
         let cy = theta.sin();
         start + u * direction + cx * da + cy * db
     }
-}
 
-impl Mesh {
-    fn empty() -> Self {
-        Mesh { vertices: vec![], faces: vec![] }
-    }
+    fn as_mesh(&self) -> Mesh {
+        if self.a == 0.0 && self.b == 0.0 {
+            let tmp = 1.0 / squared(self.c) - squared(self.w);
+            if tmp <= 0.0 {
+                return Mesh::empty();
+            }
+            let z = tmp.sqrt();
+            return Mesh::merge(vec![
+                Mesh::plane(z),
+                Mesh::plane(-z),
+            ])
+        }
 
-    fn cylinder() -> Self {
         let half_height = 2.0;
-        let radius = 1.0;
-        let linear_segments = 500;
-        let radial_segments = 200;
+        let linear_segments = 50;
+        let radial_segments = 50;
 
         // Vertex indices: i * radial_segments + j
         let mut vertices: Vec<Vector3<f64>> = vec![];
@@ -169,10 +159,10 @@ impl Mesh {
             let i_bipolar = i_unipolar * 2.0 - 1.0;
             for j in 0..radial_segments {
                 let theta = (j as f64) * std::f64::consts::TAU / (radial_segments as f64);
-                let x = theta.cos() * radius;
-                let y = theta.sin() * radius;
-                let z = i_bipolar * half_height; 
-                vertices.push(Vector3::new(x, y, z));
+                let u = i_bipolar * half_height; 
+                vertices.push(
+                    self.surface_coords_to_cartesian(u, theta)
+                );
             }
         }
 
@@ -200,6 +190,12 @@ impl Mesh {
             }
         }
         Mesh { vertices, faces }
+    }
+}
+
+impl Mesh {
+    fn empty() -> Self {
+        Mesh { vertices: vec![], faces: vec![] }
     }
 
     /**
@@ -251,31 +247,7 @@ impl Mesh {
 
     fn transform_pipe(self, pipe: &PipeSection) -> Self {
         let new_vertices = self.vertices.into_iter().map(|vertex| {
-            let (xp, yp, zp) = (vertex.x, vertex.y, vertex.z);
-            let (a, b, c, w) = (pipe.a, pipe.b, pipe.c, pipe.w);
-            /*
-            Derivation: the pipe is P(a + bi, c + 0i) and we take its cross section at w. From the
-            formula for pipes we have the implicit equation
-
-                (ax + by + cz)^2 + (bx - ay - cw)^2 = 1.
-
-            Let
-                
-                x' = ax + by + cz    (1)
-                y' = bx - ay - cw
-                z' = z
-                
-            so that x'^2 + y'^2 = 1 forms the implicit equation for the cylinder (x', y', z') of
-            radius 1 and parallel to the z-axis. Thus we have an affine transformation relating
-            (x, y, z) to (x', y', z').  Inverting this transformation lets us transform a base
-            cylinder to a pipe cross section. The inversion is done by solving the system of
-            equations (1) for x and y.
-            */
-            let tmp = 1.0 / (a * a + b * b);
-            let z = zp;
-            let x = (a * xp + b * yp + b * c * w - a * c * z) * tmp;
-            let y = (b * xp - a * yp + a * c * w - b * c * z) * tmp;
-            Vector3::new(x, y, z)
+            pipe.basic_forward_matrix() * vertex
         }).collect::<Vec<_>>();
         Mesh { vertices: new_vertices, faces: self.faces }
     }
