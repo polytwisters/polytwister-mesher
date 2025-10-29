@@ -47,6 +47,12 @@ fn elliptic_e_complete(k: f64) -> f64 {
     ellip::legendre::ellipe(k * k).unwrap()
 }
 
+fn ellipse_circumference(width: f64, height: f64) -> f64 {
+    let (a, b) = if width >= height { (width, height) } else { (height, width) };
+    let k = (1.0 - squared(b / a)).sqrt();
+    4.0 * a * elliptic_e_complete(k)
+}
+
 /**
  * Map the interval [0, 1] -> [0, 1] with a warping function. Given an ellipse parametrized as
  * (x, y) = (a sin theta, b cos theta) with a > b, with eccentricity k = sqrt(1 - b^2/a^2),
@@ -66,9 +72,6 @@ fn elliptic_warp(q: f64, k: f64, flip: bool) -> f64 {
     }
 }
 
-/*
- * a = y axis, b = x axis
- */
 fn warp_elliptic_angle(phi: f64, a: f64, b: f64) -> f64 {
     // q = number of quarter turns
     let q = phi / f64::consts::FRAC_PI_2;
@@ -227,9 +230,17 @@ impl PipeSection {
     fn surface_coords_to_cartesian(&self, u: f64, theta: f64) -> Vector3<f64> {
         let (start, direction) = self.axis_line();
         let (da, db) = self.ellipse_vertex_displacements();
-        let cx = theta.cos();
-        let cy = theta.sin();
+        let a = da.norm();
+        let b = db.norm();
+        let theta_warped = warp_elliptic_angle(theta, a, b);
+        let cx = theta_warped.cos();
+        let cy = theta_warped.sin();
         start + u * direction + cx * da + cy * db
+    }
+
+    fn ellipse_circumference(&self) -> f64 {
+        let (da, db) = self.ellipse_vertex_displacements();
+        ellipse_circumference(da.norm(), db.norm())
     }
 
     fn as_mesh(&self) -> Mesh {
@@ -245,9 +256,13 @@ impl PipeSection {
             ])
         }
 
+        let spacing = 0.05;
+        let radial_segments = self.ellipse_circumference() / spacing;
+        let radial_segments = ((radial_segments / 4.0).ceil() * 4.0) as usize;
+
         let half_height = 2.0;
-        let linear_segments = 50;
-        let radial_segments = 50;
+        let linear_segments = half_height * 2.0 / spacing;
+        let linear_segments = ((linear_segments / 2.0).ceil() * 2.0) as usize;
 
         // Vertex indices: i * radial_segments + j
         let mut vertices: Vec<Vector3<f64>> = vec![];
@@ -538,5 +553,12 @@ mod test {
         let evenly_spaced_points = evenly_spaced_ellipse_points(a, b, n);
         let naively_spaced_points = naively_spaced_ellipse_points(a, b, n);
         assert!(distance_range(&naively_spaced_points) > distance_range(&evenly_spaced_points));
+    }
+
+    #[test]
+    fn test_ellipse_circumference() {
+        let width = 2.0;
+        let height = 2.0;
+        assert_abs_diff_eq!(ellipse_circumference(width, height), f64::consts::TAU * width);
     }
 }
