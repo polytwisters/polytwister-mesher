@@ -7,50 +7,25 @@ use serde::Deserialize;
 extern crate nalgebra as na;
 use na::{Vector3, Matrix3, Rotation3};
 
-use ellip;
-
 fn squared(x: f64) -> f64 {
     x * x
 }
 
-/**
- * Compute the incomplete elliptic integral of the second kind E(phi, k):
- * 
- *     E(phi, k) = int_0^phi sqrt(1 - k^2 sin^2(t)) dt
- * 
- * This wraps ellip's functionality by using the "k" parameter instead of the "m" parameter,
- * defined as k^2 = m.
- */
-fn elliptic_e_incomplete(phi: f64, k: f64) -> f64 {
-    ellip::legendre::ellipeinc(phi, k * k).unwrap()
+fn k_to_blend(k: f64) -> f64 {
+    let m = k * k;
+    let exponent = 0.7224221;
+    let fade = 2.39077584;
+    (1.0 - (1.0 - m).powf(exponent)) * fade + m * (1.0 - fade)
 }
 
-/**
- * Approximate a solution to the equation E(phi, k) = e with k and e given and phi unknown. The
- * precision is not very high but it's good enough for this application.
- */
-fn elliptic_e_incomplete_inverse(e: f64, k: f64) -> f64 {
-    // E(phi, k) = phi is a very good approximation if k is low.
-    let mut phi = e;
-    for _ in 0..10 {
-        let error = elliptic_e_incomplete(phi, k) - e;
-        if error.abs() < 1e-5 {
-            return phi;
-        }
-        let derivative_error = (1.0 - squared(k * phi.sin())).sqrt();
-        phi -= error / derivative_error;
-    }
-    phi
+fn ellipse_unwarp_core(x: f64, k: f64) -> f64 {
+    let b = k_to_blend(k);
+    (1.0 - b) * x + b * (x * f64::consts::FRAC_PI_2).sin()
 }
 
-fn elliptic_e_complete(k: f64) -> f64 {
-    ellip::legendre::ellipe(k * k).unwrap()
-}
-
-fn ellipse_circumference(width: f64, height: f64) -> f64 {
-    let (a, b) = if width >= height { (width, height) } else { (height, width) };
-    let k = (1.0 - squared(b / a)).sqrt();
-    4.0 * a * elliptic_e_complete(k)
+fn ellipse_unwarp_core_derivative(x: f64, k: f64) -> f64 {
+    let b = k_to_blend(k);
+    (1.0 - b) + b * (x * f64::consts::FRAC_PI_2).cos() * f64::consts::FRAC_PI_2
 }
 
 /**
@@ -59,17 +34,32 @@ fn ellipse_circumference(width: f64, height: f64) -> f64 {
  * let theta = warp(i / (pi / 2)) * (pi / 2) with i ranging from 0 to 1. If i values are evenly
  * spaced, the points on the ellipse are evenly spaced.
  */
-fn elliptic_warp_core(q: f64, k: f64) -> f64 {
-    elliptic_e_incomplete_inverse(q * elliptic_e_complete(k), k)
-    / f64::consts::FRAC_PI_2
+fn ellipse_warp_core(y: f64, k: f64) -> f64 {
+    let mut x = y;
+    for _ in 0..4 {
+        let error = ellipse_unwarp_core(x, k) - y;
+        if error.abs() < 1e-5 {
+            return x;
+        }
+        let derivative_error = ellipse_unwarp_core_derivative(x, k);
+        x -= error / derivative_error;
+    }
+    x
 }
 
-fn elliptic_warp(q: f64, k: f64, flip: bool) -> f64 {
-    if flip {
-        1.0 - elliptic_warp_core(1.0 - q, k)
-    } else {
-        elliptic_warp_core(q, k)
-    }
+fn ellipse_warp_core_flip(q: f64, k: f64) -> f64 {
+    1.0 - ellipse_warp_core(1.0 - q, k)
+}
+
+// https://www.e-magnetica.pl/doku.php/approximation_of_complete_elliptic_integrals
+fn elliptic_e_complete(k: f64) -> f64 {
+    f64::consts::FRAC_PI_2 - 0.567 * k.powf(2.4 + (k + 0.1).powf(5.8))
+}
+
+fn ellipse_circumference(width: f64, height: f64) -> f64 {
+    let (a, b) = if width >= height { (width, height) } else { (height, width) };
+    let k = (1.0 - squared(b / a)).sqrt();
+    4.0 * a * elliptic_e_complete(k)
 }
 
 fn warp_elliptic_angle(phi: f64, a: f64, b: f64) -> f64 {
@@ -78,18 +68,18 @@ fn warp_elliptic_angle(phi: f64, a: f64, b: f64) -> f64 {
     let qw = if a >= b {
         let k = (1.0 - squared(b / a)).sqrt();
         match q as u8 {
-            0 => elliptic_warp(q, k, true),
-            1 => 1.0 + elliptic_warp(q - 1.0, k, false),
-            2 => 2.0 + elliptic_warp(q - 2.0, k, true),
-            _ => 3.0 + elliptic_warp(q - 3.0, k, false),
+            0 => ellipse_warp_core_flip(q, k),
+            1 => 1.0 + ellipse_warp_core(q - 1.0, k),
+            2 => 2.0 + ellipse_warp_core_flip(q - 2.0, k),
+            _ => 3.0 + ellipse_warp_core(q - 3.0, k),
         }
     } else {
         let k = (1.0 - squared(a / b)).sqrt();
         match q as u8 {
-            0 => elliptic_warp(q, k, false),
-            1 => 1.0 + elliptic_warp(q - 1.0, k, true),
-            2 => 2.0 + elliptic_warp(q - 2.0, k, false),
-            _ => 3.0 + elliptic_warp(q - 3.0, k, true),
+            0 => ellipse_warp_core(q, k),
+            1 => 1.0 + ellipse_warp_core_flip(q - 1.0, k),
+            2 => 2.0 + ellipse_warp_core(q - 2.0, k),
+            _ => 3.0 + ellipse_warp_core_flip(q - 3.0, k),
         }
     };
     qw * f64::consts::FRAC_PI_2
@@ -517,10 +507,10 @@ mod test {
     #[test]
     fn test_ellip_inverse() {
         let k = 0.95;
-        let phi = f64::consts::FRAC_PI_2 * 0.94;
-        let e = elliptic_e_incomplete(phi, k);
-        let phi_2 = elliptic_e_incomplete_inverse(e, k);
-        assert_abs_diff_eq!(phi, phi_2, epsilon = 1e-5);
+        let x = 0.45;
+        let e = ellipse_warp_core(x, k);
+        let x2 = ellipse_unwarp_core(e, k);
+        assert_abs_diff_eq!(x, x2, epsilon = 1e-5);
     }
 
     fn consecutive_distances(points: &Vec<(f64, f64)>) -> Vec<f64> {
