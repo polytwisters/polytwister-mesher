@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate approx;
 
+pub mod strip_curves;
+
 use core::{f32, f64};
 use std::{fs::File, io::{Read, Write}};
 use serde::Deserialize;
