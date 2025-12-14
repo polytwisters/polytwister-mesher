@@ -30,6 +30,7 @@ impl Line2D {
     }
 }
 
+#[cfg(test)]
 mod test {
     use crate::strip_curves::*;
     use na::{Vector2};
