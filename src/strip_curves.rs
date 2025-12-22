@@ -1,4 +1,6 @@
-use na::{Vector2};
+use crate::pipe_section::PipeSection;
+use na::{Point2, Point3, Vector2};
+use crate::utils::squared;
 
 /**
  * A 2D line given by {p + dt | t in R} where p and d are in R^2 and d is a unit vector.
@@ -35,6 +37,36 @@ impl Line2D {
     }
 }
 
+impl PipeSection {
+
+    /**
+     * Given a 2D point (x, y), intersect the pipe section with the line parallel to the z-axis
+     * and passing through (x, y). Return None if there are no solutions, otherwise return a tuple
+     * of two z values satisfying the equations.
+     */
+    fn intersect_z_line(&self, xy: &Point2<f64>) -> Option<(f64, f64)> {
+        let m = self.matrix();
+        let x = xy.x;
+        let y = xy.y;
+        let a1 = m[(0, 2)]; 
+        let b1 = m[(0, 0)] * x + m[(0, 1)] * y + m[(0, 3)]; 
+        let a2 = m[(1, 2)]; 
+        let b2 = m[(1, 0)] * x + m[(1, 1)] * y + m[(1, 3)]; 
+        let a = squared(a1) + squared(a2);
+        let b = 2.0 * (a1 * b1 + a2 * b2);
+        let c = squared(b1) + squared(b2) - 1.0;
+        let discriminant = squared(b) - 4.0 * a * c;
+        if discriminant < 0.0 {
+            None
+        } else {
+            let tmp = 1.0 / (2.0 * a);
+            let z1 = (-b - discriminant.sqrt()) * tmp;
+            let z2 = (-b + discriminant.sqrt()) * tmp;
+            Some((z1, z2))
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -64,4 +96,17 @@ mod test {
         assert!(matches!(line.intersect_unit_circle(), None));
     }
 
+    #[test]
+    fn test_intersect_z_line() {
+        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.1, w: 0.1 };
+        let x = 0.0;
+        let y = 0.0;
+        let xy = Point2::new(x, y);
+        if let Some((z1, z2)) = pipe.intersect_z_line(&xy) {
+            assert_abs_diff_eq!(pipe.scalar_field(&Point3::new(x, y, z1)), 0.0);
+            assert_abs_diff_eq!(pipe.scalar_field(&Point3::new(x, y, z2)), 0.0);
+        } else {
+            panic!("No intersection");
+        }
+    }
 }

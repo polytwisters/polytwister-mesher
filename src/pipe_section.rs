@@ -70,7 +70,7 @@ impl PipeSection {
      * 
      * which defines the pipe section as |M(x, y, z, w)|^2 = 1.
      */
-    fn matrix(&self) -> Matrix4<f64> {
+    pub fn matrix(&self) -> Matrix4<f64> {
         let (a, b, c, d, w) = self.abcdw();
         Matrix4::new(
             a, b, c, d * w,
