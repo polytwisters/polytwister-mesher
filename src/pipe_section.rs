@@ -1,5 +1,6 @@
 extern crate nalgebra as na;
-use na::{Vector3, Matrix3, Rotation3};
+use na::{Vector3, Matrix2, Matrix3, Matrix4, Rotation3};
+use na::geometry::Affine3;
 use crate::mesh::{Mesh, Face};
 use crate::utils::{squared};
 use crate::ellipse_spacing::{warp_elliptic_angle, ellipse_circumference};
@@ -57,41 +58,65 @@ impl PipeSection {
     }
 
     /**
-     * Return a 3x3 matrix that turns this pipe into the "base cylinder" x^2 + y^2 = 1, z in R.
-     * It is assumed that a = b = 0 does not hold. Translation due to w is ignored.
-     * 
-     * This is called the "basic" backward matrix because it comes directly from the implicit
-     * equations. Although it transforms the z-axis to the cylinder's axis of symmetry, it does not
-     * preserve distance along that line.
+     * Return a 4x4 matrix that, treated as an affine transformation in R^3, transforms this pipe
+     * section into the "base cylinder" x^2 + y^2 = 1, z in R. It is assumed that a = b = 0 does not
+     * hold.
      */
-    fn basic_backward_matrix(&self) -> Matrix3<f64> {
-        let (a, b, c, d, _) = self.abcdw();
-        if d != 0.0 {
-            panic!("PipeSection::basic_backward_matrix does not yet work with d != 0");
-        }
-        Matrix3::new(
-            a, b, c,
-            b, -a, 0.0,
-            0.0, 0.0, 1.0,
+    fn matrix(&self) -> Matrix4<f64> {
+        let (a, b, c, d, w) = self.abcdw();
+        Matrix4::new(
+            a, b, c, d * w,
+            b, -a, d, -c * w,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
         )
     }
 
     /**
-     * Return a 3x3 matrix that turns the "base cylinder" x^2 + y^2 = 1, z in R into this pipe.
-     * It is assumed that a = b = 0 does not hold. Translation due to w is ignored.
+     * Return a 4x4 matrix that, treated as an affine transformation in R^3, transforms the base
+     * cyliner x^2 + y^2 = 1, z in R to this cylinder. It is assumed that a = b = 0 does not
+     * hold.
      * 
-     * This is the inverse of the basic_backward_matrix.
+     * This is the inverse of PipeSection::matrix.
      */
+    pub fn inv_matrix(&self) -> Matrix4<f64> {
+        let m = self.matrix();
+        // Split M into [[A B] [0 I]] where 0 is a 2x2 zero matrix and I is a 2x2 identity matrix.
+        // Block matrix inversion gives M^-1 = [[A^-1 -A^-1 B] [0 I]].
+        // Thus only a 2x2 matrix inversion is needed, fortunately.
+        let block_a = Matrix2::new(
+            m[(0, 0)], m[(0, 1)],
+            m[(1, 0)], m[(1, 1)],
+        );
+        let block_b = Matrix2::new(
+            m[(0, 2)], m[(0, 3)],
+            m[(1, 2)], m[(1, 3)],
+        );
+        let tmp1 = block_a.try_inverse().unwrap();
+        let tmp2 = -tmp1 * block_b;
+        Matrix4::new(
+            tmp1.m11, tmp1.m12, tmp2.m11, tmp2.m12,
+            tmp1.m21, tmp1.m22, tmp2.m21, tmp1.m22,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        )
+    }
+
     pub fn basic_forward_matrix(&self) -> Matrix3<f64> {
-        let (a, b, c, d, _) = self.abcdw();
-        if d != 0.0 {
-            panic!("PipeSection::basic_forward_matrix does not yet work with d != 0");
-        }
-        let tmp = 1.0 / (squared(a) + squared(b));
+        let m = self.inv_matrix();
         Matrix3::new(
-            a * tmp, b * tmp, -a * c * tmp,
-            b * tmp, -a * tmp, -b * c * tmp,
-            0.0, 0.0, 1.0,
+            m[(0, 0)], m[(0, 1)], m[(0, 2)],
+            m[(1, 0)], m[(1, 1)], m[(1, 2)],
+            m[(2, 0)], m[(2, 1)], m[(2, 2)],
+        )
+    }
+
+    pub fn basic_backward_matrix(&self) -> Matrix3<f64> {
+        let m = self.matrix();
+        Matrix3::new(
+            m[(0, 0)], m[(0, 1)], m[(0, 2)],
+            m[(1, 0)], m[(1, 1)], m[(1, 2)],
+            m[(2, 0)], m[(2, 1)], m[(2, 2)],
         )
     }
 
