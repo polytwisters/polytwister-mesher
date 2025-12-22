@@ -45,7 +45,7 @@ impl PipeSection {
      * The parametrization is v(t) = v_0 + d * t and returned as (v_0, d) so that v_0 is the
      * starting point and d is the direction vector. d is always a unit vector.
      */
-    fn axis_line(&self) -> (Point3<f64>, Vector3<f64>) {
+    pub fn axis_line(&self) -> (Point3<f64>, Vector3<f64>) {
         // Solve M(x, y, z, 1) = 0 with z = 0 and z = 1 respectively. Ignore bottom two rows and
         // (x, y) = -inv_top_left (z, 1)
         let tmp = self.inv_top_left_matrix();
@@ -84,7 +84,7 @@ impl PipeSection {
      * The inverse of the top left 2x2 entries of M, defined in PipeSection::matrix(). Reused in
      * several places.
      */
-    fn inv_top_left_matrix(&self) -> Matrix2<f64> {
+    pub fn inv_top_left_matrix(&self) -> Matrix2<f64> {
         let m = self.matrix();
         Matrix2::new(
             m[(0, 0)], m[(0, 1)],

@@ -1,22 +1,95 @@
+use core::f64;
+
 use crate::pipe_section::PipeSection;
-use na::{Point2, Point3, Vector2};
+use na::{Point2, Point3, Vector2, Matrix2};
 use crate::utils::squared;
 
 /**
  * A 2D line given by {p + dt | t in R} where p and d are in R^2 and d is a unit vector.
  */
 pub struct Line2D {
-    pub p: Vector2<f64>,
+    pub p: Point2<f64>,
     pub d: Vector2<f64>,
+}
+
+/**
+ * A *closed* interval over angles from 0 to 2pi. We always have 0 <= x < start, but end may be
+ * 2pi or greater.
+ */
+#[derive(Debug)]
+pub struct CircularInterval {
+    pub start: f64,
+    pub end: f64
+}
+
+impl CircularInterval {
+    fn new(start: f64, end: f64) -> Self {
+        CircularInterval { start, end }
+    }
+
+    fn contains(&self, x: f64) -> bool {
+        if self.end >= f64::consts::TAU {
+            self.start <= x || x <= self.end - f64::consts::TAU
+        } else {
+            self.start <= x && x <= self.end
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum StripCurveSolutions {
+    Empty,
+    All,
+    OneInterval(CircularInterval),
+    TwoIntervals(CircularInterval, CircularInterval),
+}
+
+impl StripCurveSolutions {
+    pub fn contains(&self, theta: f64) -> bool {
+        match self {
+            StripCurveSolutions::Empty => false,
+            StripCurveSolutions::All => true,
+            StripCurveSolutions::OneInterval(interval) => interval.contains(theta),
+            StripCurveSolutions::TwoIntervals(interval1, interval2) => {
+                interval1.contains(theta) || interval2.contains(theta)
+            },
+        }
+    }
+
+    pub fn values(&self) -> Vec<f64> {
+        match self {
+            StripCurveSolutions::Empty => vec![],
+            StripCurveSolutions::All => vec![],
+            StripCurveSolutions::OneInterval(interval) => vec![interval.start, interval.end],
+            StripCurveSolutions::TwoIntervals(interval1, interval2) => vec![
+                interval1.start, interval1.end, interval2.start, interval2.end
+            ],
+        }
+    }
+}
+
+fn angle(point: &Point2<f64>) -> f64 {
+    f64::atan2(point.y, point.x).rem_euclid(f64::consts::TAU)
+}
+
+fn sort2(x: (f64, f64)) -> (f64, f64) {
+    let (x1, x2) = x;
+    if x1 < x2 { (x1, x2) } else { (x2, x1) }
+}
+
+fn sort4(x: (f64, f64, f64, f64)) -> (f64, f64, f64, f64) {
+    let mut tmp = [x.0, x.1, x.2, x.3];
+    tmp.sort_by(f64::total_cmp);
+    (tmp[0], tmp[1], tmp[2], tmp[3])
 }
 
 impl Line2D {
     /**
-     * Return the intersection of this line with the circle x^2 + y^2 = 0. Returns either a tuple of
-     * two intersection points (the same point twice if the line is tangent), or None if the line
-     * does not intersect the circle.
+     * Return the intersection of this line with the circle ccos(theta)^2 + sin(theta)^2 = 0.
+     * Returns either a tuple of two thetas (the same point twice if the line is tangent), or None
+     * if the line does not intersect the circle.
      */
-    pub fn intersect_unit_circle(&self) -> Option<(Vector2<f64>, Vector2<f64>)> {
+    pub fn intersect_unit_circle(&self) -> Option<(Point2<f64>, Point2<f64>)> {
         let px = self.p.x;
         let py = self.p.y;
         let dx = self.d.x;
@@ -30,10 +103,9 @@ impl Line2D {
         let tmp = discriminant.sqrt();
         let t1 = (-b + tmp) / 2.0;
         let t2 = (-b - tmp) / 2.0;
-        Some((
-            self.p + t1 * self.d,
-            self.p + t2 * self.d,
-        ))
+        let p1 = self.p + t1 * self.d;
+        let p2 = self.p + t2 * self.d;
+        Some((p1, p2))
     }
 }
 
@@ -41,10 +113,11 @@ impl PipeSection {
 
     /**
      * Given a 2D point (x, y), intersect the pipe section with the line parallel to the z-axis
-     * and passing through (x, y). Return None if there are no solutions, otherwise return a tuple
-     * of two z values satisfying the equations.
+     * and passing through (x, y). Return the discriminant and the solutions. The solutions are
+     * returned None if there are no solutions, otherwise return a tuple of two z values satisfying
+     * the equations.
      */
-    fn intersect_z_line(&self, xy: &Point2<f64>) -> Option<(f64, f64)> {
+    fn intersect_z_line(&self, xy: &Point2<f64>) -> (f64, Option<(f64, f64)>) {
         let m = self.matrix();
         let x = xy.x;
         let y = xy.y;
@@ -57,31 +130,109 @@ impl PipeSection {
         let c = squared(b1) + squared(b2) - 1.0;
         let discriminant = squared(b) - 4.0 * a * c;
         if discriminant < 0.0 {
-            None
+            (discriminant, None)
         } else {
             let tmp = 1.0 / (2.0 * a);
             let z1 = (-b - discriminant.sqrt()) * tmp;
             let z2 = (-b + discriminant.sqrt()) * tmp;
-            Some((z1, z2))
+            (discriminant, Some((z1, z2)))
+        }
+    }
+
+    fn intersects_z_line_theta(&self, theta: f64) -> bool {
+        self.intersect_z_line(&Point2::new(theta.cos(), theta.sin())).0 >= 0.0
+    }
+
+    /**
+     * Project the PipeSection onto the plane z = 0, producing a stripe whose boundary is two
+     * parallel lines. Return these lines.
+     */
+    fn z_plane_projection_boundary(&self) -> (Line2D, Line2D) {
+        let (p_3d, d_3d) = self.axis_line();
+        let p = Point2::new(p_3d.x, p_3d.y);
+        let d = Vector2::new(d_3d.x, d_3d.y).normalize();
+        // Unit vector orthogonal to d.
+        let d_ortho = Vector2::new(-d.y, d.x);
+        // 2x2 rotation matrix that orients the stripe so it is parallel to the x-axis.
+        let rotation = Matrix2::new(
+            d.x, d.y,
+            -d.y, d.x,
+        );
+        let corrected_ellipse_matrix = rotation * self.inv_top_left_matrix();
+        let half_stripe_width = f64::hypot(
+            corrected_ellipse_matrix[(1, 0)],
+            corrected_ellipse_matrix[(1, 1)]
+        );
+        (
+            Line2D { p: p - d_ortho * half_stripe_width, d },
+            Line2D { p: p + d_ortho * half_stripe_width, d }
+        )
+    }
+
+    fn get_critical_thetas(&self) -> StripCurveSolutions {
+        let (line1, line2) = self.z_plane_projection_boundary();
+        let mut solutions1 = line1.intersect_unit_circle();
+        let mut solutions2 = line2.intersect_unit_circle();
+
+        if let (Some((p1, p2)), Some((p3, p4))) = (solutions1, solutions2) {
+            let (t1, t2, t3, t4) = sort4((angle(&p1), angle(&p2), angle(&p3), angle(&p4)));
+            let tmp = (t1 + t2) / 2.0;
+            if self.intersects_z_line_theta(tmp) {
+                return StripCurveSolutions::TwoIntervals(
+                    CircularInterval::new(t1, t2),
+                    CircularInterval::new(t3, t4),
+                );
+            } else {
+                return StripCurveSolutions::TwoIntervals(
+                    CircularInterval::new(t2, t3),
+                    CircularInterval::new(t4, t1 + f64::consts::TAU),
+                );
+            }
+        }
+
+        if let (None, Some(_)) = (solutions1, solutions2) {
+            (solutions1, solutions2) = (solutions2, solutions1);
+        }
+
+        if let (Some((p1, p2)), None) = (solutions1, solutions2) {
+            let (t1, t2) = sort2((angle(&p1), angle(&p2)));
+            let mid_angle = (t1 + t2) / 2.0;
+            if self.intersects_z_line_theta(mid_angle) {
+                return StripCurveSolutions::OneInterval(
+                    CircularInterval::new(t1, t2)
+                );
+            } else {
+                return StripCurveSolutions::OneInterval(
+                    CircularInterval::new(t2, t1 + f64::consts::TAU)
+                );
+            }
+        }
+
+        if self.intersects_z_line_theta(0.0) {
+            StripCurveSolutions::All
+        } else {
+            StripCurveSolutions::Empty
         }
     }
 }
 
 #[cfg(test)]
 mod test {
+    use core::f64;
+
     use super::*;
     use na::{Vector2};
 
     #[test]    
     fn test_intersect_line_circle_1() {
         let line = Line2D {
-            p: Vector2::new(0.0, 0.0),
+            p: Point2::new(0.0, 0.0),
             d: Vector2::new(1.0, 1.0).normalize(),
         };
         if let Some(points) = line.intersect_unit_circle() {
             let tmp = 0.5f64.sqrt();
-            assert_abs_diff_eq!(points.0, Vector2::new(tmp, tmp));
-            assert_abs_diff_eq!(points.1, Vector2::new(-tmp, -tmp));
+            assert_abs_diff_eq!(points.0, Point2::new(tmp, tmp));
+            assert_abs_diff_eq!(points.1, Point2::new(-tmp, -tmp));
         } else {
             panic!("Line doesn't intersect circle");
         }
@@ -90,7 +241,7 @@ mod test {
     #[test]    
     fn test_intersect_line_circle_no_intersection() {
         let line = Line2D {
-            p: Vector2::new(2.0, 0.0),
+            p: Point2::new(2.0, 0.0),
             d: Vector2::new(1.0, 1.0).normalize(),
         };
         assert!(matches!(line.intersect_unit_circle(), None));
@@ -102,11 +253,60 @@ mod test {
         let x = 0.0;
         let y = 0.0;
         let xy = Point2::new(x, y);
-        if let Some((z1, z2)) = pipe.intersect_z_line(&xy) {
+        if let (d, Some((z1, z2))) = pipe.intersect_z_line(&xy) {
+            assert!(d > 0.0);
             assert_abs_diff_eq!(pipe.scalar_field(&Point3::new(x, y, z1)), 0.0);
             assert_abs_diff_eq!(pipe.scalar_field(&Point3::new(x, y, z2)), 0.0);
         } else {
             panic!("No intersection");
+        }
+    }
+
+    /**
+     * Lines erected from the z-plane projection boundary should have a discriminant of about 0.
+     */
+    #[test]
+    fn test_z_plane_projection_boundary() {
+        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.1, w: 0.1 };
+        let (line1, line2) = pipe.z_plane_projection_boundary();
+        for line in [line1, line2] {
+            for t in [0.0, 1.2, -3.0] {
+                let p = line.p + line.d * t;
+                assert_abs_diff_eq!(
+                    pipe.intersect_z_line(&p).0,
+                    0.0,
+                    epsilon = 1e-10
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_critical_thetas() {
+        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.1, w: 0.1 };
+        let thetas = pipe.get_critical_thetas().values();
+        for theta in thetas.iter() {
+            let p = Point2::new(theta.cos(), theta.sin());
+            let (discriminant, _) = pipe.intersect_z_line(&p);
+            assert_abs_diff_eq!(discriminant, 0.0, epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_strip_curve() {
+        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.1, w: 0.1 };
+        let solutions = pipe.get_critical_thetas();
+        let n = 30;
+        for i in 0..n {
+            let theta = (i as f64) * f64::consts::TAU / (n as f64);
+            let p = Point2::new(theta.cos(), theta.sin());
+            let (discriminant, _) = pipe.intersect_z_line(&p);
+            let contains = solutions.contains(theta);
+            if contains {
+                assert!(discriminant >= 0.0);
+            } else {
+                assert!(discriminant < 0.0);
+            }
         }
     }
 }
