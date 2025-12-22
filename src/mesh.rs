@@ -1,6 +1,6 @@
 use std::io::{Write};
 
-use na::{Vector3};
+use na::{Point3};
 use crate::pipe_section::{PipeSection};
 
 /**
@@ -14,7 +14,7 @@ pub struct Face {
 }
 
 pub struct Mesh {
-    pub vertices: Vec<Vector3<f64>>,
+    pub vertices: Vec<Point3<f64>>,
     pub faces: Vec<Face>,
 }
 
@@ -31,8 +31,8 @@ impl Mesh {
         let radius = 5.0;
         let segments = 30;
 
-        // Vector3<f64> indices: i * segments + j
-        let mut vertices: Vec<Vector3<f64>> = vec![];
+        // Point3<f64> indices: i * segments + j
+        let mut vertices: Vec<Point3<f64>> = vec![];
         for i in 0..=segments {
             let i_unipolar = (i as f64) / (segments as f64);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
@@ -41,7 +41,7 @@ impl Mesh {
                 let j_bipolar = j_unipolar * 2.0 - 1.0;
                 let x = i_bipolar * radius;
                 let y = j_bipolar * radius;
-                vertices.push(Vector3::new(x, y, z));
+                vertices.push(Point3::new(x, y, z));
             }
         }
 
@@ -73,7 +73,7 @@ impl Mesh {
 
     fn transform_pipe(self, pipe: &PipeSection) -> Self {
         let new_vertices = self.vertices.into_iter().map(|vertex| {
-            pipe.basic_forward_matrix() * vertex
+            pipe.transformation_from_base_cylinder().transform_point(&vertex)
         }).collect::<Vec<_>>();
         Mesh { vertices: new_vertices, faces: self.faces }
     }
@@ -116,7 +116,7 @@ impl Mesh {
      * Given a predicate on vertex locations, return a new Mesh that removes all vertices that do
      * not satisfy that predicate, and any faces that are connected to said vertices.
      */
-    pub fn filter_vertices<F: Fn(&Vector3<f64>) -> bool>(&self, predicate: F) -> Self {
+    pub fn filter_vertices<F: Fn(&Point3<f64>) -> bool>(&self, predicate: F) -> Self {
         let mut vertices = vec![];
         let mut new_index = 0usize;
         // Vector of vertex indices whose length is equal to self.vertices.len() such that

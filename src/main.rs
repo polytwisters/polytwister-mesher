@@ -5,7 +5,7 @@ use core::f64;
 use std::{fs::File, io::Read};
 use serde::Deserialize;
 extern crate nalgebra as na;
-use na::{Vector3};
+use na::{Point3};
 
 mod strip_curves;
 mod pipe_section;
@@ -35,7 +35,7 @@ fn main() -> std::io::Result<()> {
     }).collect::<Vec<_>>();
 
     let meshes = pipes.iter().enumerate().map(|(i, pipe)| {
-        pipe.as_mesh().filter_vertices(|vertex: &Vector3<f64>| -> bool {
+        pipe.as_mesh().filter_vertices(|vertex: &Point3<f64>| -> bool {
             for (j, pipe2) in pipes.iter().enumerate() {
                 if i != j && (pipe2.scalar_field(vertex) >= 0.0) {
                     return false;

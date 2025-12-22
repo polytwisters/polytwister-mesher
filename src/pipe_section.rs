@@ -1,5 +1,5 @@
 extern crate nalgebra as na;
-use na::{Affine3, Matrix2, Matrix3, Matrix4, Rotation3, Vector2, Vector3};
+use na::{Affine3, Matrix2, Matrix3, Matrix4, Rotation3, Vector2, Vector3, Point3};
 use crate::mesh::{Mesh, Face};
 use crate::utils::{squared};
 use crate::ellipse_spacing::{warp_elliptic_angle, ellipse_circumference};
@@ -27,7 +27,7 @@ impl PipeSection {
      * F(x, y, z) < 0 then the point is inside the pipe, F(x, y, z) > 0 is outside the pipe, and
      * F(x, y, z) = -1 is on the pipe's symmetry axis (plane of symmetry if a = b = 0).
      */
-    pub fn scalar_field(&self, point: &Vector3<f64>) -> f64 {
+    pub fn scalar_field(&self, point: &Point3<f64>) -> f64 {
         squared(self.a * point.x + self.b * point.y + self.c * point.z + self.d * self.w)
         + squared(self.b * point.x - self.a * point.y + self.d * point.z - self.c * self.w)
         - 1.0
@@ -45,15 +45,15 @@ impl PipeSection {
      * The parametrization is v(t) = v_0 + d * t and returned as (v_0, d) so that v_0 is the
      * starting point and d is the direction vector. d is always a unit vector.
      */
-    fn axis_line(&self) -> (Vector3<f64>, Vector3<f64>) {
+    fn axis_line(&self) -> (Point3<f64>, Vector3<f64>) {
         // Solve M(x, y, z, 1) = 0 with z = 0 and z = 1 respectively. Ignore bottom two rows and
         // (x, y) = -inv_top_left (z, 1)
         let tmp = self.inv_top_left_matrix();
         let tmp2 = self.top_right_matrix();
         let point1_2d = -tmp * (tmp2 * Vector2::new(0.0, 1.0));
         let point2_2d = -tmp * (tmp2 * Vector2::new(1.0, 1.0));
-        let point1 = Vector3::new(point1_2d.x, point1_2d.y, 0.0);
-        let point2 = Vector3::new(point2_2d.x, point2_2d.y, 1.0);
+        let point1 = Point3::new(point1_2d.x, point1_2d.y, 0.0);
+        let point2 = Point3::new(point2_2d.x, point2_2d.y, 1.0);
         let d = (point2 - point1).normalize();
         (point1, d)
     }
@@ -136,24 +136,6 @@ impl PipeSection {
         Affine3::from_matrix_unchecked(self.matrix())
     }
 
-    pub fn basic_forward_matrix(&self) -> Matrix3<f64> {
-        let m = self.inv_matrix();
-        Matrix3::new(
-            m[(0, 0)], m[(0, 1)], m[(0, 2)],
-            m[(1, 0)], m[(1, 1)], m[(1, 2)],
-            m[(2, 0)], m[(2, 1)], m[(2, 2)],
-        )
-    }
-
-    pub fn basic_backward_matrix(&self) -> Matrix3<f64> {
-        let m = self.matrix();
-        Matrix3::new(
-            m[(0, 0)], m[(0, 1)], m[(0, 2)],
-            m[(1, 0)], m[(1, 1)], m[(1, 2)],
-            m[(2, 0)], m[(2, 1)], m[(2, 2)],
-        )
-    }
-
     /**
      * Compute the two displacement vectors that form the elliptic cross-section of the pipe.
      */
@@ -166,6 +148,8 @@ impl PipeSection {
         let project_xy: Matrix3<f64> = Matrix3::from_diagonal(&Vector3::new(1.0, 1.0, 0.0));
         let x = Vector3::x();
         let y = Vector3::y();
+        // We specifically use "transform_vector" and not "transform_point" and are deliberately
+        // ignoring the translation part of the affine transformation.
         let da = r_inv * project_xy * r * self.transformation_from_base_cylinder().transform_vector(&x);
         let db = r_inv * project_xy * r * self.transformation_from_base_cylinder().transform_vector(&y);
         if db.norm_squared() > da.norm_squared() {
@@ -175,13 +159,13 @@ impl PipeSection {
         }
     }
 
-    fn ellipse_vertices(&self) -> (Vector3<f64>, Vector3<f64>) {
+    fn ellipse_vertices(&self) -> (Point3<f64>, Point3<f64>) {
         let (start, _) = self.axis_line();
         let (da, db) = self.ellipse_vertex_displacements();
         (start + da, start + db)
     }
 
-    fn surface_coords_to_cartesian(&self, u: f64, theta: f64) -> Vector3<f64> {
+    fn surface_coords_to_cartesian(&self, u: f64, theta: f64) -> Point3<f64> {
         let (start, direction) = self.axis_line();
         let (da, db) = self.ellipse_vertex_displacements();
         let a = da.norm();
@@ -223,7 +207,7 @@ impl PipeSection {
         let linear_segments = ((linear_segments / 2.0).ceil() * 2.0) as usize;
 
         // Vertex indices: i * radial_segments + j
-        let mut vertices: Vec<Vector3<f64>> = vec![];
+        let mut vertices: Vec<Point3<f64>> = vec![];
         for i in 0..=linear_segments {
             let i_unipolar = (i as f64) / (linear_segments as f64);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
