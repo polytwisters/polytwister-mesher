@@ -1,7 +1,8 @@
 use core::f64;
+use std::iter;
 
-use crate::pipe_section::PipeSection;
-use na::{Point2, Vector2, Matrix2};
+use crate::{pipe_section::PipeSection, utils::linspace};
+use na::{Point2, Point3, Vector2, Matrix2};
 use crate::utils::{squared, sort2, sort4, angle};
 
 /**
@@ -98,11 +99,15 @@ impl PipeSection {
 
     /**
      * Given a 2D point (x, y), intersect the pipe section with the line parallel to the z-axis
-     * and passing through (x, y). Return the discriminant and the solutions. The solutions are
-     * returned None if there are no solutions, otherwise return a tuple of two z values satisfying
-     * the equations.
+     * and passing through (x, y). Return the discriminant and the solutions (z1, z2).
+     * 
+     * If there are no solutions, the solutions (z1, z2) are still computed as if the discriminant
+     * was zero. In general you should ignore these values if the discriminant is negative. However,
+     * if you know that the discriminant is ideally nonnegative but floating-point imprecision may
+     * produce a negative discriminant, these values are needed. I found that this produces simpler
+     * code than using an Option for when there are no solutions.
      */
-    fn intersect_z_line(&self, xy: &Point2<f64>) -> (f64, Option<(f64, f64)>) {
+    fn intersect_z_line_core(&self, xy: &Point2<f64>) -> (f64, f64, f64) {
         let m = self.matrix();
         let x = xy.x;
         let y = xy.y;
@@ -114,18 +119,31 @@ impl PipeSection {
         let b = 2.0 * (a1 * b1 + a2 * b2);
         let c = squared(b1) + squared(b2) - 1.0;
         let discriminant = squared(b) - 4.0 * a * c;
-        if discriminant < 0.0 {
-            (discriminant, None)
-        } else {
-            let tmp = 1.0 / (2.0 * a);
-            let z1 = (-b - discriminant.sqrt()) * tmp;
-            let z2 = (-b + discriminant.sqrt()) * tmp;
-            (discriminant, Some((z1, z2)))
-        }
+        let discriminant_clipped = discriminant.max(0.0);
+        let tmp = 1.0 / (2.0 * a);
+        let z1 = (-b - discriminant_clipped.sqrt()) * tmp;
+        let z2 = (-b + discriminant_clipped.sqrt()) * tmp;
+        (discriminant, z1, z2)
     }
 
+    /**
+     * Return true if the line (cos(theta), sin(theta), z) intersects the pipe section.
+     */
     fn intersects_z_line_theta(&self, theta: f64) -> bool {
-        self.intersect_z_line(&Point2::new(theta.cos(), theta.sin())).0 >= 0.0
+        let p = Point2::new(theta.cos(), theta.sin());
+        self.intersect_z_line_core(&p).0 >= 0.0
+    }
+
+    /**
+     * Intersect the line (cos(theta), sin(theta), z). It is assumed that there is an intersection.
+     */
+    fn intersect_z_line_theta(&self, theta: f64) -> (Point3<f64>, Point3<f64>) {
+        let p = Point2::new(theta.cos(), theta.sin());
+        let (_, z1, z2) = self.intersect_z_line_core(&p);
+        (
+            Point3::new(p.x, p.y, z1),
+            Point3::new(p.x, p.y, z2),
+        )
     }
 
     /**
@@ -218,6 +236,33 @@ impl PipeSection {
             StripCurveSolutions::Empty
         }
     }
+
+    /**
+     * Given two PipeSections, discretize the space curve or curves intersection and return a set of
+     * points that sample the curves.
+     */
+    pub fn discretize_intersection(&self, other: &PipeSection) -> Vec<(Point3<f64>, Point3<f64>)> {
+        let solutions = self.get_critical_thetas();
+        let n = 32;
+        match solutions {
+            StripCurveSolutions::All => (0..n).map(|i| {
+                let theta = i as f64 / n as f64 * f64::consts::TAU;
+                self.intersect_z_line_theta(theta)
+            }).collect::<_>(),
+            StripCurveSolutions::Empty => vec![],
+            StripCurveSolutions::OneInterval(interval) =>
+                linspace(interval.start, interval.end, n).into_iter().map(|theta| {
+                    self.intersect_z_line_theta(theta)
+                }).collect::<_>(),
+            StripCurveSolutions::TwoIntervals(interval1, interval2) =>
+                iter::chain(
+                    linspace(interval1.start, interval1.end, n),
+                    linspace(interval2.start, interval2.end, n)
+                ).into_iter().map(|theta| {
+                    self.intersect_z_line_theta(theta)
+                }).collect::<_>(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -257,13 +302,10 @@ mod test {
         let x = 0.0;
         let y = 0.0;
         let xy = Point2::new(x, y);
-        if let (d, Some((z1, z2))) = pipe.intersect_z_line(&xy) {
-            assert!(d > 0.0);
-            assert_abs_diff_eq!(pipe.scalar_field(&Point3::new(x, y, z1)), 0.0);
-            assert_abs_diff_eq!(pipe.scalar_field(&Point3::new(x, y, z2)), 0.0);
-        } else {
-            panic!("No intersection");
-        }
+        let (d, z1, z2) = pipe.intersect_z_line_core(&xy);
+        assert!(d > 0.0);
+        assert_abs_diff_eq!(pipe.scalar_field(&Point3::new(x, y, z1)), 0.0);
+        assert_abs_diff_eq!(pipe.scalar_field(&Point3::new(x, y, z2)), 0.0);
     }
 
     /**
@@ -277,7 +319,7 @@ mod test {
             for t in [0.0, 1.2, -3.0] {
                 let p = line.p + line.d * t;
                 assert_abs_diff_eq!(
-                    pipe.intersect_z_line(&p).0,
+                    pipe.intersect_z_line_core(&p).0,
                     0.0,
                     epsilon = 1e-10
                 );
@@ -291,7 +333,7 @@ mod test {
         let thetas = pipe.get_critical_thetas().values();
         for theta in thetas.iter() {
             let p = Point2::new(theta.cos(), theta.sin());
-            let (discriminant, _) = pipe.intersect_z_line(&p);
+            let (discriminant, _, _) = pipe.intersect_z_line_core(&p);
             assert_abs_diff_eq!(discriminant, 0.0, epsilon = 1e-10);
         }
     }
@@ -304,7 +346,7 @@ mod test {
         for i in 0..n {
             let theta = (i as f64) * f64::consts::TAU / (n as f64);
             let p = Point2::new(theta.cos(), theta.sin());
-            let (discriminant, _) = pipe.intersect_z_line(&p);
+            let (discriminant, _, _) = pipe.intersect_z_line_core(&p);
             let contains = solutions.contains(theta);
             if contains {
                 assert!(discriminant >= 0.0);
@@ -312,5 +354,12 @@ mod test {
                 assert!(discriminant < 0.0);
             }
         }
+    }
+
+    #[test]
+    fn test_discretize_intersection() {
+        let pipe1 = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.1, w: 0.1 };
+        let pipe2 = PipeSection { a: 1.0, b: 0.0, c: 0.0, d: 0.0, w: 0.0 };
+        pipe1.discretize_intersection(&pipe2);
     }
 }

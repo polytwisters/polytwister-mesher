@@ -19,3 +19,11 @@ pub fn sort4(x: (f64, f64, f64, f64)) -> (f64, f64, f64, f64) {
     tmp.sort_by(f64::total_cmp);
     (tmp[0], tmp[1], tmp[2], tmp[3])
 }
+
+/**
+ * Return a linearly spaced series of n values in the closed interval [start, end]. Both endpoints
+ * are inclusive.
+ */
+pub fn linspace(start: f64, end: f64, n: usize) -> Vec<f64> {
+    (0..n).map(|i| start + (i as f64) / ((n - 1) as f64) * (end - start)).collect::<_>()
+}
