@@ -1,5 +1,5 @@
 extern crate nalgebra as na;
-use na::{Vector2, Matrix2, Vector3, Matrix3, Matrix4, Rotation3};
+use na::{Affine3, Matrix2, Matrix3, Matrix4, Rotation3, Vector2, Vector3};
 use crate::mesh::{Mesh, Face};
 use crate::utils::{squared};
 use crate::ellipse_spacing::{warp_elliptic_angle, ellipse_circumference};
@@ -46,8 +46,8 @@ impl PipeSection {
      * starting point and d is the direction vector. d is always a unit vector.
      */
     fn axis_line(&self) -> (Vector3<f64>, Vector3<f64>) {
-        // Solve M(x, y, z, w) = 0 with z = 0 and z = 1 respectively. Ignore bottom two rows and
-        // (x, y) = -inv_top_left (z, w)
+        // Solve M(x, y, z, 1) = 0 with z = 0 and z = 1 respectively. Ignore bottom two rows and
+        // (x, y) = -inv_top_left (z, 1)
         let tmp = self.inv_top_left_matrix();
         let tmp2 = self.top_right_matrix();
         let point1_2d = -tmp * (tmp2 * Vector2::new(0.0, 1.0));
@@ -59,9 +59,16 @@ impl PipeSection {
     }
 
     /**
-     * Return a 4x4 matrix M that, treated as an affine transformation in R^3, transforms this pipe
-     * section into the "base cylinder" x^2 + y^2 = 1, z in R. It is assumed that a = b = 0 does not
-     * hold.
+     * The 4x4 matrix M:
+     * 
+     * M = [
+     *     [m_11 m_12 m_13 m_14]
+     *     [m_21 m_22 m_23 m_24]
+     *     [0    0    1    0   ]
+     *     [0    0    0    1   ]
+     * ]
+     * 
+     * which defines the pipe section as |M(x, y, z, w)|^2 = 1.
      */
     fn matrix(&self) -> Matrix4<f64> {
         let (a, b, c, d, w) = self.abcdw();
@@ -97,14 +104,9 @@ impl PipeSection {
     }
 
     /**
-     * Return a 4x4 matrix that, treated as an affine transformation in R^3, transforms the base
-     * cyliner x^2 + y^2 = 1, z in R to this cylinder. It is assumed that a = b = 0 does not
-     * hold.
-     * 
-     * This is the inverse of PipeSection::matrix.
+     * Inverse of PipeSection::matrix.
      */
     pub fn inv_matrix(&self) -> Matrix4<f64> {
-        let m = self.matrix();
         // Split M into [[A B] [0 I]] where 0 is a 2x2 zero matrix and I is a 2x2 identity matrix.
         // Block matrix inversion gives M^-1 = [[A^-1 -A^-1 B] [0 I]].
         // Thus only a 2x2 matrix inversion is needed, fortunately.
@@ -116,6 +118,22 @@ impl PipeSection {
             0.0, 0.0, 1.0, 0.0,
             0.0, 0.0, 0.0, 1.0,
         )
+    }
+    
+    /**
+     * Define the base cylinder C = {(x, y, z): x^2 + y^2 = 1, z in R}. Return the affine
+     * transformation T such that T(C) is this pipe section.
+     */
+    pub fn transformation_from_base_cylinder(&self) -> Affine3<f64> {
+        Affine3::from_matrix_unchecked(self.inv_matrix())
+    }
+
+    /**
+     * Define the base cylinder C = {(x, y, z): x^2 + y^2 = 1, z in R}. Return the affine
+     * transformation T such that applying T to this pipe section produces C.
+     */
+    pub fn transformation_to_base_cylinder(&self) -> Affine3<f64> {
+        Affine3::from_matrix_unchecked(self.matrix())
     }
 
     pub fn basic_forward_matrix(&self) -> Matrix3<f64> {
@@ -146,8 +164,10 @@ impl PipeSection {
         let r = Rotation3::rotation_between(&direction, &z).unwrap_or(Rotation3::identity());
         let r_inv = Rotation3::rotation_between(&z, &direction).unwrap_or(Rotation3::identity());
         let project_xy: Matrix3<f64> = Matrix3::from_diagonal(&Vector3::new(1.0, 1.0, 0.0));
-        let da = r_inv * project_xy * r * self.basic_forward_matrix() * Vector3::x();
-        let db = r_inv * project_xy * r * self.basic_forward_matrix() * Vector3::y();
+        let x = Vector3::x();
+        let y = Vector3::y();
+        let da = r_inv * project_xy * r * self.transformation_from_base_cylinder().transform_vector(&x);
+        let db = r_inv * project_xy * r * self.transformation_from_base_cylinder().transform_vector(&y);
         if db.norm_squared() > da.norm_squared() {
             (db, da)
         } else {
@@ -260,11 +280,11 @@ mod test {
     }
 
     #[test]
-    fn test_forward_inverse_matrices() {
+    fn test_inv_matrix() {
         let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.1, w: 0.1 };
         assert_abs_diff_eq!(
-            pipe.basic_forward_matrix() * pipe.basic_backward_matrix(),
-            Matrix3::identity()
+            pipe.matrix() * pipe.inv_matrix(),
+            Matrix4::identity()
         )
     }
 
