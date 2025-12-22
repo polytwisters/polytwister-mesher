@@ -3,7 +3,7 @@ use std::iter;
 
 use crate::{pipe_section::PipeSection, utils::linspace};
 use na::{Point2, Point3, Vector2, Matrix2};
-use crate::utils::{squared, sort2, sort4, angle};
+use crate::utils::{squared, sort2, sort4, angle, unzip_circle};
 
 /**
  * A 2D line given by {p + dt | t in R} where p and d are in R^2 and d is a unit vector.
@@ -241,26 +241,39 @@ impl PipeSection {
      * Given two PipeSections, discretize the space curve or curves intersection and return a set of
      * points that sample the curves.
      */
-    pub fn discretize_intersection(&self, other: &PipeSection) -> Vec<(Point3<f64>, Point3<f64>)> {
+    pub fn discretize_intersection(&self, other: &PipeSection) -> Vec<Vec<Point3<f64>>> {
         let solutions = self.get_critical_thetas();
         let n = 32;
         match solutions {
-            StripCurveSolutions::All => (0..n).map(|i| {
-                let theta = i as f64 / n as f64 * f64::consts::TAU;
-                self.intersect_z_line_theta(theta)
-            }).collect::<_>(),
+            StripCurveSolutions::All => {
+                let (loop1, loop2) = (0..n).map(|i| {
+                    let theta = i as f64 / n as f64 * f64::consts::TAU;
+                    self.intersect_z_line_theta(theta)
+                }).unzip();
+                vec![loop1, loop2]
+            },
             StripCurveSolutions::Empty => vec![],
             StripCurveSolutions::OneInterval(interval) =>
-                linspace(interval.start, interval.end, n).into_iter().map(|theta| {
-                    self.intersect_z_line_theta(theta)
-                }).collect::<_>(),
+                vec![
+                    unzip_circle(
+                        linspace(interval.start, interval.end, n).into_iter().map(|theta| {
+                            self.intersect_z_line_theta(theta)
+                        }).collect::<Vec<_>>()
+                    )
+                ],
             StripCurveSolutions::TwoIntervals(interval1, interval2) =>
-                iter::chain(
-                    linspace(interval1.start, interval1.end, n),
-                    linspace(interval2.start, interval2.end, n)
-                ).into_iter().map(|theta| {
-                    self.intersect_z_line_theta(theta)
-                }).collect::<_>(),
+                vec![
+                    unzip_circle(
+                        linspace(interval1.start, interval1.end, n).into_iter().map(|theta| {
+                            self.intersect_z_line_theta(theta)
+                        }).collect::<Vec<_>>()
+                    ),
+                    unzip_circle(
+                        linspace(interval2.start, interval2.end, n).into_iter().map(|theta| {
+                            self.intersect_z_line_theta(theta)
+                        }).collect::<Vec<_>>()
+                    )
+                ],
         }
     }
 }
@@ -360,6 +373,12 @@ mod test {
     fn test_discretize_intersection() {
         let pipe1 = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.1, w: 0.1 };
         let pipe2 = PipeSection { a: 1.0, b: 0.0, c: 0.0, d: 0.0, w: 0.0 };
-        pipe1.discretize_intersection(&pipe2);
+        let loops = pipe1.discretize_intersection(&pipe2);
+        for loop_ in loops {
+            for point in loop_ {
+                assert_abs_diff_eq!(pipe1.scalar_field(&point), 0.0, epsilon = 1e-10);
+                assert_abs_diff_eq!(pipe2.scalar_field(&point), 0.0, epsilon = 1e-10);
+            }
+        }
     }
 }

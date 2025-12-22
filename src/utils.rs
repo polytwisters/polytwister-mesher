@@ -27,3 +27,13 @@ pub fn sort4(x: (f64, f64, f64, f64)) -> (f64, f64, f64, f64) {
 pub fn linspace(start: f64, end: f64, n: usize) -> Vec<f64> {
     (0..n).map(|i| start + (i as f64) / ((n - 1) as f64) * (end - start)).collect::<_>()
 }
+
+/**
+ * Convert the vector of pairs [(1, 10), (2, 9), ..., (5, 6)] to (1, 2, 3, ..., 8, 9, 10).
+ */
+pub fn unzip_circle<T>(pairs: Vec<(T, T)>) -> Vec<T> {
+    let (mut tmp1, mut tmp2): (Vec<T>, Vec<T>) = pairs.into_iter().unzip();
+    tmp2.reverse();
+    tmp1.append(&mut tmp2);
+    tmp1
+}
