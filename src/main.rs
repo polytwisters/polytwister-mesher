@@ -31,7 +31,7 @@ fn main() -> std::io::Result<()> {
 
     let w = 0.0;
     let pipes: Vec<PipeSection> = result.logs.iter().map(|log: &Vec<f64>| {
-        PipeSection { a: log[0], b: log[1], c: log[2], w }
+        PipeSection { a: log[0], b: log[1], c: log[2], d: 0.0, w }
     }).collect::<Vec<_>>();
 
     let meshes = pipes.iter().enumerate().map(|(i, pipe)| {

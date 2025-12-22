@@ -12,6 +12,7 @@ pub struct PipeSection {
     pub a: f64,
     pub b: f64,
     pub c: f64,
+    pub d: f64,
     pub w: f64,
 }
 
@@ -20,20 +21,23 @@ impl PipeSection {
     /**
      * Evaluate the scalar field associated with this pipe cross section:
      * 
-     *     F(x, y, z) = (ax + by + cz)^2 + (bx - ay - cw)^2 - 1
+     *     F(x, y, z) = (ax + by + cz + dw)^2 + (bx - ay + dz - cw)^2 - 1
      * 
      * The pipe cross section is given by the isosurface F(x, y, z) = 0. For other points, if
      * F(x, y, z) < 0 then the point is inside the pipe, F(x, y, z) > 0 is outside the pipe, and
      * F(x, y, z) = -1 is on the pipe's symmetry axis (plane of symmetry if a = b = 0).
      */
     pub fn scalar_field(&self, point: &Vector3<f64>) -> f64 {
-        squared(self.a * point.x + self.b * point.y + self.c * point.z)
-        + squared(self.b * point.x - self.a * point.y - self.c * self.w)
+        squared(self.a * point.x + self.b * point.y + self.c * point.z + self.d * self.w)
+        + squared(self.b * point.x - self.a * point.y + self.d * point.z - self.c * self.w)
         - 1.0
     }
 
-    fn abcw(&self) -> (f64, f64, f64, f64) {
-        (self.a, self.b, self.c, self.w)
+    /**
+     * Return the pipe as a tuple (a, b, c, d, w).
+     */
+    fn abcdw(&self) -> (f64, f64, f64, f64, f64) {
+        (self.a, self.b, self.c, self.d, self.w)
     }
 
     /**
@@ -42,7 +46,10 @@ impl PipeSection {
      * starting point and d is the direction vector. d is always a unit vector.
      */
     fn axis_line(&self) -> (Vector3<f64>, Vector3<f64>) {
-        let (a, b, c, w) = self.abcw();
+        let (a, b, c, d, w) = self.abcdw();
+        if d != 0.0 {
+            panic!("PipeSection::axis_line does not yet work with d != 0");
+        }
         let tmp = 1.0 / (squared(a) + squared(b));
         let direction_vector = Vector3::new( -a * c * tmp, -b * c * tmp, 1.0).normalize();
         let start = Vector3::new(b * c * w * tmp, -a * c * w * tmp, 0.0);
@@ -58,7 +65,10 @@ impl PipeSection {
      * preserve distance along that line.
      */
     fn basic_backward_matrix(&self) -> Matrix3<f64> {
-        let (a, b, c, _) = self.abcw();
+        let (a, b, c, d, _) = self.abcdw();
+        if d != 0.0 {
+            panic!("PipeSection::basic_backward_matrix does not yet work with d != 0");
+        }
         Matrix3::new(
             a, b, c,
             b, -a, 0.0,
@@ -73,7 +83,10 @@ impl PipeSection {
      * This is the inverse of the basic_backward_matrix.
      */
     pub fn basic_forward_matrix(&self) -> Matrix3<f64> {
-        let (a, b, c, _) = self.abcw();
+        let (a, b, c, d, _) = self.abcdw();
+        if d != 0.0 {
+            panic!("PipeSection::basic_forward_matrix does not yet work with d != 0");
+        }
         let tmp = 1.0 / (squared(a) + squared(b));
         Matrix3::new(
             a * tmp, b * tmp, -a * c * tmp,
@@ -124,6 +137,10 @@ impl PipeSection {
     }
 
     pub fn as_mesh(&self) -> Mesh {
+        if self.d != 0.0 {
+            panic!("PipeSection::as_mesh does not yet work with d != 0");
+        }
+
         if self.a == 0.0 && self.b == 0.0 {
             let tmp = 1.0 / squared(self.c) - squared(self.w);
             if tmp <= 0.0 {
@@ -192,7 +209,7 @@ mod test {
 
     #[test]
     fn test_pipe_axis() {
-        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, w: 0.1 };
+        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.0, w: 0.1 };
         let (start, direction) = pipe.axis_line();
         assert_abs_diff_eq!(pipe.scalar_field(&start), -1.0);
         let point_2 = start + direction;
@@ -203,7 +220,7 @@ mod test {
 
     #[test]
     fn test_forward_inverse_matrices() {
-        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, w: 0.1 };
+        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.0, w: 0.1 };
         assert_abs_diff_eq!(
             pipe.basic_forward_matrix() * pipe.basic_backward_matrix(),
             Matrix3::identity()
@@ -212,7 +229,7 @@ mod test {
 
     #[test]
     fn test_ellipse_vertices() {
-        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, w: 0.1 };
+        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.0, w: 0.1 };
         let (start, direction) = pipe.axis_line();
         let (da, db) = pipe.ellipse_vertex_displacements();
         let (pa, pb) = pipe.ellipse_vertices();
@@ -224,7 +241,7 @@ mod test {
 
     #[test]
     fn test_surface_to_cartesian() {
-        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, w: 0.1 };
+        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.0, w: 0.1 };
         let point = pipe.surface_coords_to_cartesian(-1.34, 0.3);
         assert_abs_diff_eq!(pipe.scalar_field(&point), 0.0, epsilon = 1e-5);
     }
