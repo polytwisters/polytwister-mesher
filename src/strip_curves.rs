@@ -1,8 +1,8 @@
 use core::f64;
 
 use crate::pipe_section::PipeSection;
-use na::{Point2, Point3, Vector2, Matrix2};
-use crate::utils::squared;
+use na::{Point2, Vector2, Matrix2};
+use crate::utils::{squared, sort2, sort4, angle};
 
 /**
  * A 2D line given by {p + dt | t in R} where p and d are in R^2 and d is a unit vector.
@@ -66,21 +66,6 @@ impl StripCurveSolutions {
             ],
         }
     }
-}
-
-fn angle(point: &Point2<f64>) -> f64 {
-    f64::atan2(point.y, point.x).rem_euclid(f64::consts::TAU)
-}
-
-fn sort2(x: (f64, f64)) -> (f64, f64) {
-    let (x1, x2) = x;
-    if x1 < x2 { (x1, x2) } else { (x2, x1) }
-}
-
-fn sort4(x: (f64, f64, f64, f64)) -> (f64, f64, f64, f64) {
-    let mut tmp = [x.0, x.1, x.2, x.3];
-    tmp.sort_by(f64::total_cmp);
-    (tmp[0], tmp[1], tmp[2], tmp[3])
 }
 
 impl Line2D {
@@ -149,11 +134,14 @@ impl PipeSection {
      */
     fn z_plane_projection_boundary(&self) -> (Line2D, Line2D) {
         let (p_3d, d_3d) = self.axis_line();
+        // Intersection of axial line with the z = 0 plane.
         let p = Point2::new(p_3d.x, p_3d.y);
+        // Projection of the direction of the axial line onto the z = 0 plane.
         let d = Vector2::new(d_3d.x, d_3d.y).normalize();
         // Unit vector orthogonal to d.
         let d_ortho = Vector2::new(-d.y, d.x);
         // 2x2 rotation matrix that orients the stripe so it is parallel to the x-axis.
+        // If this matrix is R, Rd = [1, 0].
         let rotation = Matrix2::new(
             d.x, d.y,
             -d.y, d.x,
@@ -169,7 +157,23 @@ impl PipeSection {
         )
     }
 
-    fn get_critical_thetas(&self) -> StripCurveSolutions {
+    /**
+     * Let K be the intersection of this PipeSection with the "base cylinder" x^2 + y^2 = 1. The
+     * projection of K into the plane z = 0 is a subset of the circle (x, y, 0) with x^2 + y^2 = 1.
+     * There are four possibilities with this projection:
+     * 
+     * 1. It is empty.
+     * 2. It is the entire circle.
+     * 3. It is a single closed arc in the circle.
+     * 4. It is two non-overlapping closed arcs in the circle.
+     * 
+     * The 2 or 4 bounding values of the closed arc or arcs are called the "critical thetas," hence
+     * the name of this method.
+     * 
+     * The four possible cases are described by the StripCurveSolutions enum returned by this
+     * method.
+     */
+    pub fn get_critical_thetas(&self) -> StripCurveSolutions {
         let (line1, line2) = self.z_plane_projection_boundary();
         let mut solutions1 = line1.intersect_unit_circle();
         let mut solutions2 = line2.intersect_unit_circle();
@@ -221,7 +225,7 @@ mod test {
     use core::f64;
 
     use super::*;
-    use na::{Vector2};
+    use na::{Vector2, Point3};
 
     #[test]    
     fn test_intersect_line_circle_1() {
