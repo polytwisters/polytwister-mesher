@@ -1,7 +1,7 @@
 use na::{Vector2};
 
 /**
- * A 2D line given by {p + dt | t in R} where p and d are in R^2.
+ * A 2D line given by {p + dt | t in R} where p and d are in R^2 and d is a unit vector.
  */
 pub struct Line2D {
     pub p: Vector2<f64>,
@@ -9,6 +9,11 @@ pub struct Line2D {
 }
 
 impl Line2D {
+    /**
+     * Return the intersection of this line with the circle x^2 + y^2 = 0. Returns either a tuple of
+     * two intersection points (the same point twice if the line is tangent), or None if the line
+     * does not intersect the circle.
+     */
     pub fn intersect_unit_circle(&self) -> Option<(Vector2<f64>, Vector2<f64>)> {
         let px = self.p.x;
         let py = self.p.y;
@@ -32,7 +37,7 @@ impl Line2D {
 
 #[cfg(test)]
 mod test {
-    use crate::strip_curves::*;
+    use super::*;
     use na::{Vector2};
 
     #[test]    
