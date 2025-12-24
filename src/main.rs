@@ -9,6 +9,7 @@ use na::{Point3};
 
 mod strip_curves;
 mod pipe_section;
+mod cylinder;
 mod mesh;
 mod utils;
 mod ellipse_spacing;

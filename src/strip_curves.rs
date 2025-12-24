@@ -1,7 +1,7 @@
 use core::f64;
 use std::iter;
 
-use crate::{pipe_section::PipeSection, utils::linspace};
+use crate::{cylinder::Cylinder, utils::linspace};
 use na::{Point2, Point3, Vector2, Matrix2};
 use crate::utils::{squared, sort2, sort4, angle, unzip_circle};
 
@@ -95,7 +95,7 @@ impl Line2D {
     }
 }
 
-impl PipeSection {
+impl Cylinder {
 
     /**
      * Given a 2D point (x, y), intersect the pipe section with the line parallel to the z-axis
@@ -147,7 +147,7 @@ impl PipeSection {
     }
 
     /**
-     * Project the PipeSection onto the plane z = 0, producing a stripe whose boundary is two
+     * Project the cylinder onto the plane z = 0, producing a stripe whose boundary is two
      * parallel lines. Return these lines.
      */
     fn z_plane_projection_boundary(&self) -> (Line2D, Line2D) {
@@ -176,7 +176,7 @@ impl PipeSection {
     }
 
     /**
-     * Let K be the intersection of this PipeSection with the "base cylinder" x^2 + y^2 = 1. The
+     * Let K be the intersection of this Cylinder with the "base cylinder" x^2 + y^2 = 1. The
      * projection of K into the plane z = 0 is a subset of the circle (x, y, 0) with x^2 + y^2 = 1.
      * There are four possibilities with this projection:
      * 
@@ -238,10 +238,10 @@ impl PipeSection {
     }
 
     /**
-     * Given two PipeSections, discretize the space curve or curves intersection and return a set of
+     * Given two Cylinders, discretize the space curve or curves intersection and return a set of
      * points that sample the curves.
      */
-    pub fn discretize_intersection(&self, other: &PipeSection) -> Vec<Vec<Point3<f64>>> {
+    pub fn discretize_intersection(&self, other: &Cylinder) -> Vec<Vec<Point3<f64>>> {
         let solutions = self.get_critical_thetas();
         let n = 32;
         match solutions {
@@ -282,8 +282,23 @@ impl PipeSection {
 mod test {
     use core::f64;
 
+    use crate::cylinder;
+
     use super::*;
     use na::{Vector2, Point3};
+
+    fn example_cylinder() -> Cylinder {
+        Cylinder {
+            m11: 1.2,
+            m12: -0.5,
+            m13: 0.4,
+            m14: -0.1,
+            m21: 0.5,
+            m22: -1.2,
+            m23: 0.2,
+            m24: 0.05,
+        }
+    }
 
     #[test]    
     fn test_intersect_line_circle_1() {
@@ -311,14 +326,14 @@ mod test {
 
     #[test]
     fn test_intersect_z_line() {
-        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.1, w: 0.1 };
+        let cylinder = example_cylinder();
         let x = 0.0;
         let y = 0.0;
         let xy = Point2::new(x, y);
-        let (d, z1, z2) = pipe.intersect_z_line_core(&xy);
+        let (d, z1, z2) = cylinder.intersect_z_line_core(&xy);
         assert!(d > 0.0);
-        assert_abs_diff_eq!(pipe.scalar_field(&Point3::new(x, y, z1)), 0.0);
-        assert_abs_diff_eq!(pipe.scalar_field(&Point3::new(x, y, z2)), 0.0);
+        assert_abs_diff_eq!(cylinder.scalar_field(&Point3::new(x, y, z1)), 0.0);
+        assert_abs_diff_eq!(cylinder.scalar_field(&Point3::new(x, y, z2)), 0.0);
     }
 
     /**
@@ -326,13 +341,13 @@ mod test {
      */
     #[test]
     fn test_z_plane_projection_boundary() {
-        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.1, w: 0.1 };
-        let (line1, line2) = pipe.z_plane_projection_boundary();
+        let cylinder = example_cylinder();
+        let (line1, line2) = cylinder.z_plane_projection_boundary();
         for line in [line1, line2] {
             for t in [0.0, 1.2, -3.0] {
                 let p = line.p + line.d * t;
                 assert_abs_diff_eq!(
-                    pipe.intersect_z_line_core(&p).0,
+                    cylinder.intersect_z_line_core(&p).0,
                     0.0,
                     epsilon = 1e-10
                 );
@@ -342,24 +357,24 @@ mod test {
 
     #[test]
     fn test_critical_thetas() {
-        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.1, w: 0.1 };
-        let thetas = pipe.get_critical_thetas().values();
+        let cylinder = example_cylinder();
+        let thetas = cylinder.get_critical_thetas().values();
         for theta in thetas.iter() {
             let p = Point2::new(theta.cos(), theta.sin());
-            let (discriminant, _, _) = pipe.intersect_z_line_core(&p);
+            let (discriminant, _, _) = cylinder.intersect_z_line_core(&p);
             assert_abs_diff_eq!(discriminant, 0.0, epsilon = 1e-10);
         }
     }
 
     #[test]
     fn test_strip_curve() {
-        let pipe = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.1, w: 0.1 };
-        let solutions = pipe.get_critical_thetas();
+        let cylinder = example_cylinder();
+        let solutions = cylinder.get_critical_thetas();
         let n = 30;
         for i in 0..n {
             let theta = (i as f64) * f64::consts::TAU / (n as f64);
             let p = Point2::new(theta.cos(), theta.sin());
-            let (discriminant, _, _) = pipe.intersect_z_line_core(&p);
+            let (discriminant, _, _) = cylinder.intersect_z_line_core(&p);
             let contains = solutions.contains(theta);
             if contains {
                 assert!(discriminant >= 0.0);
@@ -371,13 +386,13 @@ mod test {
 
     #[test]
     fn test_discretize_intersection() {
-        let pipe1 = PipeSection { a: 1.2, b: -0.5, c: 0.4, d: 0.1, w: 0.1 };
-        let pipe2 = PipeSection { a: 1.0, b: 0.0, c: 0.0, d: 0.0, w: 0.0 };
-        let loops = pipe1.discretize_intersection(&pipe2);
+        let cylinder = example_cylinder();
+        let cylinder2 = Cylinder::base();
+        let loops = cylinder.discretize_intersection(&cylinder2);
         for loop_ in loops {
             for point in loop_ {
-                assert_abs_diff_eq!(pipe1.scalar_field(&point), 0.0, epsilon = 1e-10);
-                assert_abs_diff_eq!(pipe2.scalar_field(&point), 0.0, epsilon = 1e-10);
+                assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
+                assert_abs_diff_eq!(cylinder2.scalar_field(&point), 0.0, epsilon = 1e-10);
             }
         }
     }
