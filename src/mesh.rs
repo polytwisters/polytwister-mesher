@@ -1,6 +1,9 @@
+#[macro_use]
+use nalgebra as na;
+
 use std::io::{Write};
 
-use na::{Point3};
+use na::{Point3, point};
 use crate::pipe_section::{PipeSection};
 
 /**
@@ -22,6 +25,22 @@ pub struct Mesh {
 impl Mesh {
     pub fn empty() -> Self {
         Mesh { vertices: vec![], faces: vec![] }
+    }
+
+    pub fn octahedron() -> Self {
+        Mesh {
+            vertices: vec![
+                point![1.0, 0.0, 0.0],
+                point![0.0, 1.0, 0.0],
+                point![0.0, 0.0, 1.0],
+                point![-1.0, 0.0, 0.0],
+                point![0.0, -1.0, 0.0],
+                point![0.0, 0.0, -1.0],
+            ],
+            faces: vec![
+                Face { v1: 0, v2: 1, v3: 2 },
+            ]
+        }
     }
 
     /**

@@ -249,7 +249,7 @@ impl PipeSection {
 
 #[cfg(test)]
 mod test {
-    use na::Matrix3;
+    use approx::*;
     use super::*;
 
     #[test]

@@ -196,8 +196,8 @@ impl Cylinder {
 
 #[cfg(test)]
 mod test {
-    use na::Matrix3;
     use super::*;
+    use approx::*;
 
     fn example_cylinder() -> Cylinder {
         Cylinder {

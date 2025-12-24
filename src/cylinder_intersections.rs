@@ -290,7 +290,7 @@ impl Cylinder {
             self.matrix() * other.inv_matrix()
         );
         let untransformed_points = transformed_cylinder.intersect_base_cylinder();
-        untransformed_points.into_iter().map(|x| 
+        untransformed_points.into_iter().map(|x|
             x.into_iter().map(|p| transform.transform_point(&p)).collect::<_>()
         ).collect::<_>()
     }
@@ -300,8 +300,7 @@ impl Cylinder {
 mod test {
     use core::f64;
 
-    use crate::cylinder;
-
+    use approx::*;
     use super::*;
     use na::{Vector2, Point3};
 

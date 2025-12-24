@@ -94,6 +94,7 @@ fn naively_spaced_ellipse_points(a: f64, b: f64, n: usize) -> Vec<(f64, f64)> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use approx::*;
     use std::iter::zip;
 
     #[test]

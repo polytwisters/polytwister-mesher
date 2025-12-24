@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate approx;
 
 use core::f64;
@@ -13,6 +12,7 @@ mod cylinder;
 mod mesh;
 mod utils;
 mod ellipse_spacing;
+mod curve;
 use crate::pipe_section::{PipeSection};
 use crate::mesh::{Mesh};
 
@@ -23,7 +23,7 @@ struct Polytwister {
     logs: Vec<Vec<f64>>,
 }
 
-fn main() -> std::io::Result<()> {
+fn main_old() -> std::io::Result<()> {
     let mut string = String::new();
     let mut file = File::open("quasitetratwister.json")?;
     file.read_to_string(&mut string)?;
@@ -47,6 +47,13 @@ fn main() -> std::io::Result<()> {
     }).collect::<Vec<_>>();
 
     let mesh = Mesh::merge(meshes);
+    let mut buffer = File::create("out.obj")?;
+    mesh.write_obj(&mut buffer)?;
+    Ok(())
+}
+
+fn main() -> std::io::Result<()> {
+    let mesh = Mesh::empty();
     let mut buffer = File::create("out.obj")?;
     mesh.write_obj(&mut buffer)?;
     Ok(())
