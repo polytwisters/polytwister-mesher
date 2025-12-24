@@ -16,14 +16,14 @@ impl Curve {
         let num_points = self.points.len();
         let mut vertices = vec![];
         let radial_segments = 4;
-        let thickness = 0.2;
+        let thickness = 0.05;
         for (point_index, point) in self.points.iter().enumerate() {
             let prev = self.point(point_index - 1);
             let next = self.point(point_index + 1);
             let v_next = (next - point).normalize();
             let v_prev = (point - prev).normalize();
-            let x = v_next.cross(&v_prev);
-            let y = x.cross(&v_next);
+            let x = v_next.cross(&v_prev).normalize();
+            let y = x.cross(&v_next).normalize();
             for radial_index in 0..radial_segments {
                 let angle = radial_index as f64 / radial_segments as f64 * f64::consts::TAU;
                 let cos = angle.cos();
