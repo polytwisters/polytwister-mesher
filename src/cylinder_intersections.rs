@@ -1,7 +1,7 @@
 use core::f64;
 use std::iter;
 
-use crate::{curve::Curve, cylinder::Cylinder, utils::linspace};
+use crate::{polyline::Polyline, cylinder::Cylinder, utils::linspace};
 use na::{Point2, Point3, Vector2, Matrix2};
 use crate::utils::{squared, sort2, sort4, angle, unzip_circle};
 
@@ -241,7 +241,7 @@ impl Cylinder {
      * Intersect this Cylinder with the base Cylinder and discretize the resulting curve into
      * sequences of points.
      */
-    pub fn intersect_base_cylinder(&self, resolution: usize) -> Vec<Curve> {
+    pub fn intersect_base_cylinder(&self, resolution: usize) -> Vec<Polyline> {
         let solutions = self.get_critical_thetas();
         match solutions {
             CylinderIntersectionSolutions::All => {
@@ -250,14 +250,14 @@ impl Cylinder {
                     self.intersect_z_line_theta(theta)
                 }).unzip();
                 vec![
-                    Curve { points: loop1 },
-                    Curve { points: loop2 },
+                    Polyline { points: loop1 },
+                    Polyline { points: loop2 },
                 ]
             },
             CylinderIntersectionSolutions::Empty => vec![],
             CylinderIntersectionSolutions::OneInterval(interval) =>
                 vec![
-                    Curve {
+                    Polyline {
                         points: unzip_circle(
                             linspace(interval.start, interval.end, resolution).into_iter().map(|theta| {
                                 self.intersect_z_line_theta(theta)
@@ -267,14 +267,14 @@ impl Cylinder {
                 ],
             CylinderIntersectionSolutions::TwoIntervals(interval1, interval2) =>
                 vec![
-                    Curve {
+                    Polyline {
                         points: unzip_circle(
                             linspace(interval1.start, interval1.end, resolution).into_iter().map(|theta| {
                                 self.intersect_z_line_theta(theta)
                             }).collect::<Vec<_>>()
                         )
                     },
-                    Curve {
+                    Polyline {
                         points: unzip_circle(
                             linspace(interval2.start, interval2.end, resolution).into_iter().map(|theta| {
                                 self.intersect_z_line_theta(theta)
@@ -285,7 +285,7 @@ impl Cylinder {
         }
     }
 
-    pub fn intersect(&self, other: &Cylinder, resolution: usize) -> Vec<Curve> {
+    pub fn intersect(&self, other: &Cylinder, resolution: usize) -> Vec<Polyline> {
         // Let D(M_1) be self and let D(M_2) be other.
         // Note that D(M) = M^-1 D(I), so:
         //

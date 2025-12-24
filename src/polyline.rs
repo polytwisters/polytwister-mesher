@@ -3,20 +3,24 @@ use na::{Affine3, Point3};
 use crate::mesh::{Mesh, Face};
 use std::f64;
 
-pub struct Curve {
+/**
+ * A closed polyline in 3D space.
+ */
+pub struct Polyline {
     pub points: Vec<Point3<f64>>
 }
 
-impl Curve {
+impl Polyline {
     fn point(&self, index: isize) -> Point3<f64> {
         self.points[index.rem_euclid(self.points.len() as isize) as usize]
     }
 
-    pub fn as_mesh(&self) -> Mesh {
+    /**
+     * Produce a mesh visualizing this polyline as a thick tube.
+     */
+    pub fn as_mesh(&self, thickness: f64, radial_segments: usize) -> Mesh {
         let num_points = self.points.len();
         let mut vertices = vec![];
-        let radial_segments = 16;
-        let thickness = 0.05;
         for (point_index, point) in self.points.iter().enumerate() {
             let prev = self.point(point_index as isize - 1);
             let next = self.point(point_index as isize + 1);
@@ -61,10 +65,10 @@ impl Curve {
         Mesh { vertices, faces }
     }
 
-    pub fn transform(self, transform: &Affine3<f64>) -> Curve {
+    pub fn transform(self, transform: &Affine3<f64>) -> Polyline {
         let points = self.points.into_iter().map(|vertex|
             transform.transform_point(&vertex)
         ).collect::<Vec<_>>();
-        Curve { points }
+        Polyline { points }
     }
 }

@@ -12,11 +12,11 @@ mod cylinder;
 mod mesh;
 mod utils;
 mod ellipse_spacing;
-mod curve;
+mod polyline;
 use crate::cylinder::Cylinder;
 use crate::pipe_section::{PipeSection};
 use crate::mesh::{Mesh};
-use crate::curve::Curve;
+use crate::polyline::Polyline;
 
 
 #[derive(Deserialize)]
@@ -57,8 +57,14 @@ fn main_old() -> std::io::Result<()> {
 fn main() -> std::io::Result<()> {
     let cylinder = Cylinder::base();
     let cylinder_2 = Cylinder::example();
-    let curves = cylinder.intersect(&cylinder_2, 64);
-    let meshes = curves.iter().map(|curve| curve.as_mesh()).collect::<_>();
+
+    let strip_thickness = 0.05;
+    let strip_radial_resolution = 16;
+
+    let polylines = cylinder.intersect(&cylinder_2, 64);
+    let meshes = polylines.iter().map(|polyline|
+        polyline.as_mesh(strip_thickness, strip_radial_resolution)
+    ).collect::<_>();
     let mesh = Mesh::merge(meshes);
     let mut buffer = File::create("out.obj")?;
     mesh.write_obj(&mut buffer)?;
