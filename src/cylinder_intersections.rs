@@ -238,10 +238,10 @@ impl Cylinder {
     }
 
     /**
-     * Given two Cylinders, discretize the space curve or curves intersection and return a set of
-     * points that sample the curves.
+     * Intersect this Cylinder with the base Cylinder and discretize the resulting curve into
+     * sequences of points.
      */
-    pub fn discretize_intersection(&self, other: &Cylinder) -> Vec<Vec<Point3<f64>>> {
+    pub fn intersect_base_cylinder(&self) -> Vec<Vec<Point3<f64>>> {
         let solutions = self.get_critical_thetas();
         let n = 32;
         match solutions {
@@ -275,6 +275,10 @@ impl Cylinder {
                     )
                 ],
         }
+    }
+
+    pub fn intersect(&self, other: &Cylinder) -> Vec<Vec<Point3<f64>>> {
+        self.intersect_base_cylinder()
     }
 }
 
@@ -388,7 +392,7 @@ mod test {
     fn test_discretize_intersection() {
         let cylinder = example_cylinder();
         let cylinder2 = Cylinder::base();
-        let loops = cylinder.discretize_intersection(&cylinder2);
+        let loops = cylinder.intersect(&cylinder2);
         for loop_ in loops {
             for point in loop_ {
                 assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);

@@ -25,6 +25,19 @@ impl Cylinder {
         Cylinder { m11: 1.0, m12: 0.0, m13: 0.0, m14: 0.0, m21: 0.0, m22: 1.0, m23: 0.0, m24: 0.0 }
     }
 
+    pub fn from_matrix_unchecked(matrix: Matrix4<f64>) -> Self {
+        Cylinder {
+            m11: matrix.m11,
+            m12: matrix.m12,
+            m13: matrix.m13,
+            m14: matrix.m14,
+            m21: matrix.m21,
+            m22: matrix.m22,
+            m23: matrix.m23,
+            m24: matrix.m24 
+        }
+    }
+
     /**
      * Evaluate the scalar field:
      * 
@@ -39,6 +52,16 @@ impl Cylinder {
         squared(self.m11 * point.x + self.m12 * point.y + self.m13 * point.z + self.m14)
         + squared(self.m21 * point.x + self.m22 * point.y + self.m23 * point.z + self.m24)
         - 1.0
+    }
+
+    /**
+     * Given this cylinder with 4x4 matrix M_1, and a second cylinder with 4x4 matrix M_2, produce
+     * a new cylinder with 4x4 matrix M_1 M_2.
+     */
+    pub fn multiply(&self, other: &Cylinder) -> Cylinder {
+        Cylinder::from_matrix_unchecked(
+            self.matrix() * other.matrix()
+        )
     }
 
     /**
@@ -195,6 +218,19 @@ mod test {
         }
     }
 
+    fn example_cylinder_2() -> Cylinder {
+        Cylinder {
+            m11: 1.3,
+            m12: -0.4,
+            m13: 0.1,
+            m14: -0.5,
+            m21: 0.2,
+            m22: -1.5,
+            m23: 0.1,
+            m24: -0.3,
+        }
+    }
+
     #[test]
     fn test_cylinder_axis() {
         let cylinder = example_cylinder();
@@ -212,6 +248,17 @@ mod test {
         assert_abs_diff_eq!(
             cylinder.matrix() * cylinder.inv_matrix(),
             Matrix4::identity()
+        )
+    }
+
+    #[test]
+    fn test_multiply() {
+        let cylinder = example_cylinder();
+        let cylinder2 = example_cylinder_2();
+        let product = cylinder.multiply(&cylinder2);
+        assert_abs_diff_eq!(
+            cylinder.matrix() * cylinder2.matrix(),
+            product.matrix()
         )
     }
 }
