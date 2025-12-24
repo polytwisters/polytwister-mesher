@@ -57,7 +57,7 @@ fn main_old() -> std::io::Result<()> {
 fn main() -> std::io::Result<()> {
     let cylinder = Cylinder::base();
     let cylinder_2 = Cylinder::example();
-    let curves = cylinder.intersect(&cylinder_2);
+    let curves = cylinder.intersect(&cylinder_2, 64);
     let meshes = curves.iter().map(|curve| curve.as_mesh()).collect::<_>();
     let mesh = Mesh::merge(meshes);
     let mut buffer = File::create("out.obj")?;

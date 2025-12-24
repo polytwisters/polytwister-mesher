@@ -241,13 +241,12 @@ impl Cylinder {
      * Intersect this Cylinder with the base Cylinder and discretize the resulting curve into
      * sequences of points.
      */
-    pub fn intersect_base_cylinder(&self) -> Vec<Curve> {
+    pub fn intersect_base_cylinder(&self, resolution: usize) -> Vec<Curve> {
         let solutions = self.get_critical_thetas();
-        let n = 32;
         match solutions {
             CylinderIntersectionSolutions::All => {
-                let (loop1, loop2) = (0..n).map(|i| {
-                    let theta = i as f64 / n as f64 * f64::consts::TAU;
+                let (loop1, loop2) = (0..resolution).map(|i| {
+                    let theta = i as f64 / resolution as f64 * f64::consts::TAU;
                     self.intersect_z_line_theta(theta)
                 }).unzip();
                 vec![
@@ -260,7 +259,7 @@ impl Cylinder {
                 vec![
                     Curve {
                         points: unzip_circle(
-                            linspace(interval.start, interval.end, n).into_iter().map(|theta| {
+                            linspace(interval.start, interval.end, resolution).into_iter().map(|theta| {
                                 self.intersect_z_line_theta(theta)
                             }).collect::<Vec<_>>()
                         )
@@ -270,14 +269,14 @@ impl Cylinder {
                 vec![
                     Curve {
                         points: unzip_circle(
-                            linspace(interval1.start, interval1.end, n).into_iter().map(|theta| {
+                            linspace(interval1.start, interval1.end, resolution).into_iter().map(|theta| {
                                 self.intersect_z_line_theta(theta)
                             }).collect::<Vec<_>>()
                         )
                     },
                     Curve {
                         points: unzip_circle(
-                            linspace(interval2.start, interval2.end, n).into_iter().map(|theta| {
+                            linspace(interval2.start, interval2.end, resolution).into_iter().map(|theta| {
                                 self.intersect_z_line_theta(theta)
                             }).collect::<Vec<_>>()
                         )
@@ -286,7 +285,7 @@ impl Cylinder {
         }
     }
 
-    pub fn intersect(&self, other: &Cylinder) -> Vec<Curve> {
+    pub fn intersect(&self, other: &Cylinder, resolution: usize) -> Vec<Curve> {
         // Let D(M_1) be self and let D(M_2) be other.
         // Note that D(M) = M^-1 D(I), so:
         //
@@ -298,7 +297,7 @@ impl Cylinder {
         let transformed_cylinder = Cylinder::from_matrix_unchecked(
             self.matrix() * other.inv_matrix()
         );
-        let untransformed_points = transformed_cylinder.intersect_base_cylinder();
+        let untransformed_points = transformed_cylinder.intersect_base_cylinder(resolution);
         untransformed_points.into_iter().map(|x|
             x.transform(&transform)
         ).collect::<_>()
@@ -427,7 +426,7 @@ mod test {
     fn test_intersect() {
         let cylinder = example_cylinder();
         let cylinder2 = example_cylinder_2();
-        let curves = cylinder.intersect(&cylinder2);
+        let curves = cylinder.intersect(&cylinder2, 32);
         for curve in curves {
             for point in curve.points {
                 assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);

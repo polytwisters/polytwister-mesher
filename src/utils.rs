@@ -29,11 +29,13 @@ pub fn linspace(start: f64, end: f64, n: usize) -> Vec<f64> {
 }
 
 /**
- * Convert the vector of pairs [(1, 10), (2, 9), ..., (5, 6)] to (1, 2, 3, ..., 8, 9, 10).
+ * Convert the vector of pairs: [(1, X), (2, 10), ..., (4, 6), (X, 5)] to the vector [1, 2, 3, ...].
  */
 pub fn unzip_circle<T>(pairs: Vec<(T, T)>) -> Vec<T> {
     let (mut tmp1, mut tmp2): (Vec<T>, Vec<T>) = pairs.into_iter().unzip();
+    tmp1.pop();
     tmp2.reverse();
+    tmp2.pop();
     tmp1.append(&mut tmp2);
     tmp1
 }

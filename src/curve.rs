@@ -8,18 +8,18 @@ pub struct Curve {
 }
 
 impl Curve {
-    fn point(&self, index: usize) -> Point3<f64> {
-        self.points[index.rem_euclid(self.points.len())]
+    fn point(&self, index: isize) -> Point3<f64> {
+        self.points[index.rem_euclid(self.points.len() as isize) as usize]
     }
 
     pub fn as_mesh(&self) -> Mesh {
         let num_points = self.points.len();
         let mut vertices = vec![];
-        let radial_segments = 4;
+        let radial_segments = 16;
         let thickness = 0.05;
         for (point_index, point) in self.points.iter().enumerate() {
-            let prev = self.point(point_index - 1);
-            let next = self.point(point_index + 1);
+            let prev = self.point(point_index as isize - 1);
+            let next = self.point(point_index as isize + 1);
             let v_next = (next - point).normalize();
             let v_prev = (point - prev).normalize();
             let x = v_next.cross(&v_prev).normalize();
