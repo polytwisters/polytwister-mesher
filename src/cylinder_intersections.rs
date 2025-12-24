@@ -13,6 +13,32 @@ pub struct Line2D {
     pub d: Vector2<f64>,
 }
 
+impl Line2D {
+    /**
+     * Return the intersection of this line with the circle ccos(theta)^2 + sin(theta)^2 = 0.
+     * Returns either a tuple of two thetas (the same point twice if the line is tangent), or None
+     * if the line does not intersect the circle.
+     */
+    pub fn intersect_unit_circle(&self) -> Option<(Point2<f64>, Point2<f64>)> {
+        let px = self.p.x;
+        let py = self.p.y;
+        let dx = self.d.x;
+        let dy = self.d.y;
+        let b = 2.0 * (px * dx + py * dy);
+        let c = px * px + py * py - 1.0;
+        let discriminant = b * b - 4.0 * c;
+        if discriminant < 0.0 {
+            return None;
+        };
+        let tmp = discriminant.sqrt();
+        let t1 = (-b + tmp) / 2.0;
+        let t2 = (-b - tmp) / 2.0;
+        let p1 = self.p + t1 * self.d;
+        let p2 = self.p + t2 * self.d;
+        Some((p1, p2))
+    }
+}
+
 /**
  * A *closed* interval over angles from 0 to 2pi. We always have 0 <= x < start, but end may be
  * 2pi or greater.
@@ -38,20 +64,20 @@ impl CircularInterval {
 }
 
 #[derive(Debug)]
-pub enum StripCurveSolutions {
+pub enum CylinderIntersectionSolutions {
     Empty,
     All,
     OneInterval(CircularInterval),
     TwoIntervals(CircularInterval, CircularInterval),
 }
 
-impl StripCurveSolutions {
+impl CylinderIntersectionSolutions {
     pub fn contains(&self, theta: f64) -> bool {
         match self {
-            StripCurveSolutions::Empty => false,
-            StripCurveSolutions::All => true,
-            StripCurveSolutions::OneInterval(interval) => interval.contains(theta),
-            StripCurveSolutions::TwoIntervals(interval1, interval2) => {
+            CylinderIntersectionSolutions::Empty => false,
+            CylinderIntersectionSolutions::All => true,
+            CylinderIntersectionSolutions::OneInterval(interval) => interval.contains(theta),
+            CylinderIntersectionSolutions::TwoIntervals(interval1, interval2) => {
                 interval1.contains(theta) || interval2.contains(theta)
             },
         }
@@ -59,39 +85,13 @@ impl StripCurveSolutions {
 
     pub fn values(&self) -> Vec<f64> {
         match self {
-            StripCurveSolutions::Empty => vec![],
-            StripCurveSolutions::All => vec![],
-            StripCurveSolutions::OneInterval(interval) => vec![interval.start, interval.end],
-            StripCurveSolutions::TwoIntervals(interval1, interval2) => vec![
+            CylinderIntersectionSolutions::Empty => vec![],
+            CylinderIntersectionSolutions::All => vec![],
+            CylinderIntersectionSolutions::OneInterval(interval) => vec![interval.start, interval.end],
+            CylinderIntersectionSolutions::TwoIntervals(interval1, interval2) => vec![
                 interval1.start, interval1.end, interval2.start, interval2.end
             ],
         }
-    }
-}
-
-impl Line2D {
-    /**
-     * Return the intersection of this line with the circle ccos(theta)^2 + sin(theta)^2 = 0.
-     * Returns either a tuple of two thetas (the same point twice if the line is tangent), or None
-     * if the line does not intersect the circle.
-     */
-    pub fn intersect_unit_circle(&self) -> Option<(Point2<f64>, Point2<f64>)> {
-        let px = self.p.x;
-        let py = self.p.y;
-        let dx = self.d.x;
-        let dy = self.d.y;
-        let b = 2.0 * (px * dx + py * dy);
-        let c = px * px + py * py - 1.0;
-        let discriminant = b * b - 4.0 * c;
-        if discriminant < 0.0 {
-            return None;
-        };
-        let tmp = discriminant.sqrt();
-        let t1 = (-b + tmp) / 2.0;
-        let t2 = (-b - tmp) / 2.0;
-        let p1 = self.p + t1 * self.d;
-        let p2 = self.p + t2 * self.d;
-        Some((p1, p2))
     }
 }
 
@@ -188,10 +188,10 @@ impl Cylinder {
      * The 2 or 4 bounding values of the closed arc or arcs are called the "critical thetas," hence
      * the name of this method.
      * 
-     * The four possible cases are described by the StripCurveSolutions enum returned by this
+     * The four possible cases are described by the CylinderIntersectionSolutions enum returned by this
      * method.
      */
-    pub fn get_critical_thetas(&self) -> StripCurveSolutions {
+    pub fn get_critical_thetas(&self) -> CylinderIntersectionSolutions {
         let (line1, line2) = self.z_plane_projection_boundary();
         let mut solutions1 = line1.intersect_unit_circle();
         let mut solutions2 = line2.intersect_unit_circle();
@@ -200,12 +200,12 @@ impl Cylinder {
             let (t1, t2, t3, t4) = sort4((angle(&p1), angle(&p2), angle(&p3), angle(&p4)));
             let tmp = (t1 + t2) / 2.0;
             if self.intersects_z_line_theta(tmp) {
-                return StripCurveSolutions::TwoIntervals(
+                return CylinderIntersectionSolutions::TwoIntervals(
                     CircularInterval::new(t1, t2),
                     CircularInterval::new(t3, t4),
                 );
             } else {
-                return StripCurveSolutions::TwoIntervals(
+                return CylinderIntersectionSolutions::TwoIntervals(
                     CircularInterval::new(t2, t3),
                     CircularInterval::new(t4, t1 + f64::consts::TAU),
                 );
@@ -220,20 +220,20 @@ impl Cylinder {
             let (t1, t2) = sort2((angle(&p1), angle(&p2)));
             let mid_angle = (t1 + t2) / 2.0;
             if self.intersects_z_line_theta(mid_angle) {
-                return StripCurveSolutions::OneInterval(
+                return CylinderIntersectionSolutions::OneInterval(
                     CircularInterval::new(t1, t2)
                 );
             } else {
-                return StripCurveSolutions::OneInterval(
+                return CylinderIntersectionSolutions::OneInterval(
                     CircularInterval::new(t2, t1 + f64::consts::TAU)
                 );
             }
         }
 
         if self.intersects_z_line_theta(0.0) {
-            StripCurveSolutions::All
+            CylinderIntersectionSolutions::All
         } else {
-            StripCurveSolutions::Empty
+            CylinderIntersectionSolutions::Empty
         }
     }
 
@@ -245,15 +245,15 @@ impl Cylinder {
         let solutions = self.get_critical_thetas();
         let n = 32;
         match solutions {
-            StripCurveSolutions::All => {
+            CylinderIntersectionSolutions::All => {
                 let (loop1, loop2) = (0..n).map(|i| {
                     let theta = i as f64 / n as f64 * f64::consts::TAU;
                     self.intersect_z_line_theta(theta)
                 }).unzip();
                 vec![loop1, loop2]
             },
-            StripCurveSolutions::Empty => vec![],
-            StripCurveSolutions::OneInterval(interval) =>
+            CylinderIntersectionSolutions::Empty => vec![],
+            CylinderIntersectionSolutions::OneInterval(interval) =>
                 vec![
                     unzip_circle(
                         linspace(interval.start, interval.end, n).into_iter().map(|theta| {
@@ -261,7 +261,7 @@ impl Cylinder {
                         }).collect::<Vec<_>>()
                     )
                 ],
-            StripCurveSolutions::TwoIntervals(interval1, interval2) =>
+            CylinderIntersectionSolutions::TwoIntervals(interval1, interval2) =>
                 vec![
                     unzip_circle(
                         linspace(interval1.start, interval1.end, n).into_iter().map(|theta| {

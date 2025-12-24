@@ -4,7 +4,8 @@ use crate::utils::{squared};
 use crate::ellipse_spacing::{warp_elliptic_angle, ellipse_circumference};
 
 /**
- * An invertible affine transformation of a cylinder.
+ * An infinite hollow cylinder in R^3 created as the invertible affine
+ * transformation of the "base cylinder" { (x, y, z): x^2 + y^2 = 1 }.
  */
 #[derive(Clone, Copy, Debug)]
 pub struct Cylinder {

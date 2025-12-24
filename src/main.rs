@@ -7,7 +7,7 @@ use serde::Deserialize;
 extern crate nalgebra as na;
 use na::{Point3};
 
-mod strip_curves;
+mod cylinder_intersections;
 mod pipe_section;
 mod cylinder;
 mod mesh;
