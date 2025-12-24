@@ -25,6 +25,19 @@ impl Cylinder {
         Cylinder { m11: 1.0, m12: 0.0, m13: 0.0, m14: 0.0, m21: 0.0, m22: 1.0, m23: 0.0, m24: 0.0 }
     }
 
+    pub fn example() -> Cylinder {
+        Cylinder {
+            m11: 0.1,
+            m12: -0.5,
+            m13: 0.4,
+            m14: -0.1,
+            m21: 0.5,
+            m22: -1.2,
+            m23: 0.2,
+            m24: 0.05,
+        }
+    }
+
     /**
      * Given a 4x4 matrix, use its top two rows as the cylinder's matrix. It is not checked that the
      * bottom half is the same as the bottom half of an identity matrix.

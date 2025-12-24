@@ -1,5 +1,5 @@
 use nalgebra as na;
-use na::Point3;
+use na::{Affine3, Point3, Transform3};
 use crate::mesh::Mesh;
 
 pub struct Curve {
@@ -7,9 +7,17 @@ pub struct Curve {
 }
 
 impl Curve {
-
-    fn as_mesh(&self) -> Mesh {
-        Mesh::empty()
+    pub fn as_mesh(&self) -> Mesh {
+        let meshes = self.points.iter().map(|point|
+            Mesh::marker(&point)
+        ).collect::<_>();
+        Mesh::merge(meshes)
     }
 
+    pub fn transform(self, transform: &Affine3<f64>) -> Curve {
+        let points = self.points.into_iter().map(|vertex|
+            transform.transform_point(&vertex)
+        ).collect::<Vec<_>>();
+        Curve { points }
+    }
 }

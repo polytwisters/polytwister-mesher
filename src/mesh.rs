@@ -3,7 +3,7 @@ use nalgebra as na;
 
 use std::io::{Write};
 
-use na::{Point3, point};
+use na::{Point3, Transform3, Vector3};
 use crate::pipe_section::{PipeSection};
 
 /**
@@ -27,20 +27,28 @@ impl Mesh {
         Mesh { vertices: vec![], faces: vec![] }
     }
 
-    pub fn octahedron() -> Self {
+    pub fn marker(location: &Point3<f64>) -> Self {
+        let size = 0.1;
         Mesh {
             vertices: vec![
-                point![1.0, 0.0, 0.0],
-                point![0.0, 1.0, 0.0],
-                point![0.0, 0.0, 1.0],
-                point![-1.0, 0.0, 0.0],
-                point![0.0, -1.0, 0.0],
-                point![0.0, 0.0, -1.0],
+                location + Vector3::x() * size,
+                location + Vector3::y() * size,
+                location + Vector3::z() * size,
             ],
             faces: vec![
                 Face { v1: 0, v2: 1, v3: 2 },
             ]
         }
+    }
+
+    /**
+     * Consume this mesh and transform it into a new one using the given 3D transform.
+     */
+    fn transform(self, transform: &Transform3<f64>) -> Mesh {
+        let new_vertices = self.vertices.into_iter().map(|vertex|
+            transform.transform_point(&vertex)
+        ).collect::<Vec<_>>();
+        Mesh { vertices: new_vertices, faces: self.faces }
     }
 
     /**

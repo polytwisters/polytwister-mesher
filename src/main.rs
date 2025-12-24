@@ -4,7 +4,7 @@ use core::f64;
 use std::{fs::File, io::Read};
 use serde::Deserialize;
 extern crate nalgebra as na;
-use na::{Point3};
+use na::{Point3, point};
 
 mod cylinder_intersections;
 mod pipe_section;
@@ -13,8 +13,10 @@ mod mesh;
 mod utils;
 mod ellipse_spacing;
 mod curve;
+use crate::cylinder::Cylinder;
 use crate::pipe_section::{PipeSection};
 use crate::mesh::{Mesh};
+use crate::curve::Curve;
 
 
 #[derive(Deserialize)]
@@ -53,7 +55,11 @@ fn main_old() -> std::io::Result<()> {
 }
 
 fn main() -> std::io::Result<()> {
-    let mesh = Mesh::empty();
+    let cylinder = Cylinder::base();
+    let cylinder_2 = Cylinder::example();
+    let curves = cylinder.intersect(&cylinder_2);
+    let meshes = curves.iter().map(|curve| curve.as_mesh()).collect::<_>();
+    let mesh = Mesh::merge(meshes);
     let mut buffer = File::create("out.obj")?;
     mesh.write_obj(&mut buffer)?;
     Ok(())
