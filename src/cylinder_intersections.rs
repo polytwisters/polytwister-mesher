@@ -278,7 +278,21 @@ impl Cylinder {
     }
 
     pub fn intersect(&self, other: &Cylinder) -> Vec<Vec<Point3<f64>>> {
-        self.intersect_base_cylinder()
+        // Let D(M_1) be self and let D(M_2) be other.
+        // Note that D(M) = M^-1 D(I), so:
+        //
+        // intersect(D(M_1), D(M_2)) = M_2^-1 intersect(D(M_1 M_2^-1), D(I))
+        //
+        // Below, transformed_cylinder is D(M_1 M_2^-1) which we intersect with
+        // the base cylinder, and M_2^-1 is applied to the result.
+        let transform = other.transformation_from_base_cylinder();
+        let transformed_cylinder = Cylinder::from_matrix_unchecked(
+            self.matrix() * other.inv_matrix()
+        );
+        let untransformed_points = transformed_cylinder.intersect_base_cylinder();
+        untransformed_points.into_iter().map(|x| 
+            x.into_iter().map(|p| transform.transform_point(&p)).collect::<_>()
+        ).collect::<_>()
     }
 }
 
@@ -301,6 +315,19 @@ mod test {
             m22: -1.2,
             m23: 0.2,
             m24: 0.05,
+        }
+    }
+
+    fn example_cylinder_2() -> Cylinder {
+        Cylinder {
+            m11: -1.3,
+            m12: -0.1,
+            m13: 0.3,
+            m14: -0.6,
+            m21: 0.3,
+            m22: -1.4,
+            m23: 0.6,
+            m24: -0.1,
         }
     }
 
@@ -389,9 +416,9 @@ mod test {
     }
 
     #[test]
-    fn test_discretize_intersection() {
+    fn test_intersect() {
         let cylinder = example_cylinder();
-        let cylinder2 = Cylinder::base();
+        let cylinder2 = example_cylinder_2();
         let loops = cylinder.intersect(&cylinder2);
         for loop_ in loops {
             for point in loop_ {

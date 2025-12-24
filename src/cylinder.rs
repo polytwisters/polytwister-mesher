@@ -25,6 +25,10 @@ impl Cylinder {
         Cylinder { m11: 1.0, m12: 0.0, m13: 0.0, m14: 0.0, m21: 0.0, m22: 1.0, m23: 0.0, m24: 0.0 }
     }
 
+    /**
+     * Given a 4x4 matrix, use its top two rows as the cylinder's matrix. It is not checked that the
+     * bottom half is the same as the bottom half of an identity matrix.
+     */
     pub fn from_matrix_unchecked(matrix: Matrix4<f64>) -> Self {
         Cylinder {
             m11: matrix.m11,
@@ -52,16 +56,6 @@ impl Cylinder {
         squared(self.m11 * point.x + self.m12 * point.y + self.m13 * point.z + self.m14)
         + squared(self.m21 * point.x + self.m22 * point.y + self.m23 * point.z + self.m24)
         - 1.0
-    }
-
-    /**
-     * Given this cylinder with 4x4 matrix M_1, and a second cylinder with 4x4 matrix M_2, produce
-     * a new cylinder with 4x4 matrix M_1 M_2.
-     */
-    pub fn multiply(&self, other: &Cylinder) -> Cylinder {
-        Cylinder::from_matrix_unchecked(
-            self.matrix() * other.matrix()
-        )
     }
 
     /**
@@ -248,17 +242,6 @@ mod test {
         assert_abs_diff_eq!(
             cylinder.matrix() * cylinder.inv_matrix(),
             Matrix4::identity()
-        )
-    }
-
-    #[test]
-    fn test_multiply() {
-        let cylinder = example_cylinder();
-        let cylinder2 = example_cylinder_2();
-        let product = cylinder.multiply(&cylinder2);
-        assert_abs_diff_eq!(
-            cylinder.matrix() * cylinder2.matrix(),
-            product.matrix()
         )
     }
 }
