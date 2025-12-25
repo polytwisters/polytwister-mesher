@@ -285,7 +285,7 @@ impl Cylinder {
         }
     }
 
-    pub fn intersect(&self, other: &Cylinder, resolution: usize) -> Vec<Polyline> {
+    pub fn intersect_cylinder(&self, other: &Cylinder, resolution: usize) -> Vec<Polyline> {
         // Let D(M_1) be self and let D(M_2) be other.
         // Note that D(M) = M^-1 D(I), so:
         //
@@ -426,7 +426,7 @@ mod test {
     fn test_intersect() {
         let cylinder = example_cylinder();
         let cylinder2 = example_cylinder_2();
-        let curves = cylinder.intersect(&cylinder2, 32);
+        let curves = cylinder.intersect_cylinder(&cylinder2, 32);
         for curve in curves {
             for point in curve.points {
                 assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
