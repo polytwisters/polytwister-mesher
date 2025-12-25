@@ -1,5 +1,5 @@
 extern crate nalgebra as na;
-use na::{Point3};
+use na::{Point3, Vector3};
 use crate::cylinder::{Cylinder, CylinderMeshOptions};
 use crate::mesh::{Mesh};
 use crate::utils::{squared};

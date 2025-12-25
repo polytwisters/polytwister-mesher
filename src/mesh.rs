@@ -7,6 +7,18 @@ use std::io::{Write};
 use na::{Point, Point3, Transform3, Vector3};
 use crate::pipe_section::{PipeSection};
 
+#[derive(Clone, Copy, Debug)]
+pub struct Vertex {
+    pub p: Point3<f64>,
+    pub n: Vector3<f64>,
+}
+
+impl Vertex {
+    pub fn new(p: Point3<f64>, n: Vector3<f64>) -> Self {
+        Vertex { p, n }
+    }
+}
+
 /// Triangular face with three vertex indices. Vector3<f64> indices start with 0.
 #[derive(Clone, Copy, Debug)]
 pub struct Face {
@@ -17,7 +29,7 @@ pub struct Face {
 
 /// A triangular mesh in 3D space.
 pub struct Mesh {
-    pub vertices: Vec<Point3<f64>>,
+    pub vertices: Vec<Vertex>,
     pub faces: Vec<Face>,
 }
 
@@ -25,7 +37,7 @@ pub struct Mesh {
 impl Mesh {
     /// A "partial mesh" is one where some vertices may be None. Converting a partial mesh to a mesh
     /// removes the "None" vertices and any faces they are connected to.
-    pub fn from_partial(vertices: &Vec<Option<Point3<f64>>>, faces: &Vec<Face>) -> Self {
+    pub fn from_partial(vertices: &Vec<Option<Vertex>>, faces: &Vec<Face>) -> Self {
         let mut new_vertices = vec![];
         let mut new_index = 0usize;
         // Vector of vertex indices whose length is equal to self.vertices.len() such that
@@ -61,26 +73,35 @@ impl Mesh {
     pub fn uv_sphere(center: &Point3<f64>, radius: f64, segments: usize, rings: usize) -> Self {
         // Point3<f64> indices: i * segments + j
         // i is the segment index, j is in the ring index.
-        let mut vertices: Vec<Point3<f64>> = vec![];
+        let mut vertices: Vec<Vertex> = vec![];
         for i in 0..rings {
             let i_unipolar = (i as f64 + 1.0) / (rings as f64 + 1.0);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
             let elevation = i_bipolar * f64::consts::FRAC_PI_2;
             for j in 0..segments {
                 let azimuth = j as f64 / segments as f64 * f64::consts::TAU;
-                vertices.push(center + Vector3::new(
+                let normal = Vector3::new(
                     azimuth.cos() * elevation.cos(),
                     azimuth.sin() * elevation.cos(),
                     elevation.sin()
-                ) * radius);
+                );
+                let point = center + normal * radius;
+                let vertex = Vertex::new(point, normal);
+                vertices.push(vertex);
             }
         }
 
         let south_pole_index = vertices.len();
-        vertices.push(center + Vector3::new(0.0, 0.0, -radius));
+        vertices.push(Vertex::new(
+            center + Vector3::new(0.0, 0.0, -radius),
+            Vector3::new(0.0, 0.0, -1.0)
+        ));
     
         let north_pole_index = vertices.len();
-        vertices.push(center + Vector3::new(0.0, 0.0, radius));
+        vertices.push(Vertex::new(
+            center + Vector3::new(0.0, 0.0, radius),
+            Vector3::new(0.0, 0.0, 1.0)
+        ));
 
         // Connect everything except poles with cylinder topology.
         let mut faces: Vec<Face> = vec![];
@@ -140,16 +161,6 @@ impl Mesh {
         Mesh { vertices, faces }
     }
 
-    /**
-     * Consume this mesh and transform it into a new one using the given 3D transform.
-     */
-    fn transform(self, transform: &Transform3<f64>) -> Mesh {
-        let new_vertices = self.vertices.into_iter().map(|vertex|
-            transform.transform_point(&vertex)
-        ).collect::<Vec<_>>();
-        Mesh { vertices: new_vertices, faces: self.faces }
-    }
-
     /// Make a plane parallel to the xy-plane at coordinate z.
     pub fn plane(z: f64, half_length: f64, segments: usize) -> Self {
         Self::partial_plane(|_| true, z, half_length, segments)
@@ -159,7 +170,7 @@ impl Mesh {
     /// predicate.
     pub fn partial_plane<F: Fn(&Point3<f64>) -> bool>(predicate: F, z: f64, half_length: f64, segments: usize) -> Self {
         // Point3<f64> indices: i * (segments + 1) + j
-        let mut vertices: Vec<Option<Point3<f64>>> = vec![];
+        let mut vertices: Vec<Option<Vertex>> = vec![];
         for i in 0..=segments {
             let i_unipolar = (i as f64) / (segments as f64);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
@@ -169,7 +180,9 @@ impl Mesh {
                 let x = i_bipolar * half_length;
                 let y = j_bipolar * half_length;
                 let point = Point3::new(x, y, z);
-                vertices.push(if predicate(&point) { Some(point) } else { None });
+                let normal = Vector3::new(0.0, 0.0, z.signum());
+                let vertex = Vertex::new(point, normal);
+                vertices.push(if predicate(&point) { Some(vertex) } else { None });
             }
         }
 
@@ -258,8 +271,8 @@ impl Mesh {
      * not satisfy that predicate, and any faces that are connected to said vertices.
      */
     pub fn filter_vertices<F: Fn(&Point3<f64>) -> bool>(&self, predicate: F) -> Self {
-        let new_vertices = self.vertices.iter().map(|p|
-            if (predicate(&p)) { Some(p.clone()) } else { None }
+        let new_vertices = self.vertices.iter().map(|v|
+            if (predicate(&v.p)) { Some(v.clone()) } else { None }
         ).collect::<Vec<_>>();
         Mesh::from_partial(&new_vertices, &self.faces)
     }
@@ -267,7 +280,11 @@ impl Mesh {
     pub fn write_obj<W: Write>(&self, buffer: &mut W) -> std::io::Result<()> {
         for vertex in &self.vertices {
             // Blender seems to swap Z and Y for OBJ, so we re-swap them here.
-            write!(buffer, "v {} {} {}\n", vertex.x, vertex.z, vertex.y)?;
+            write!(buffer, "v {} {} {}\n", vertex.p.x, vertex.p.z, vertex.p.y)?;
+        }
+        for vertex in &self.vertices {
+            // Z and Y swapped again here.
+            write!(buffer, "vn {} {} {}\n", vertex.n.x, vertex.n.z, vertex.n.y)?;
         }
         for face in &self.faces {
             // OBJ vertex indices start from 1.
@@ -283,13 +300,19 @@ impl Mesh {
         write!(buffer, "property float x\n")?;
         write!(buffer, "property float y\n")?;
         write!(buffer, "property float z\n")?;
+        write!(buffer, "property float nx\n")?;
+        write!(buffer, "property float ny\n")?;
+        write!(buffer, "property float nz\n")?;
         write!(buffer, "element face {}\n", self.faces.len())?;
         write!(buffer, "property list uchar int vertex_index\n")?;
         write!(buffer, "end_header\n")?;
         for vertex in &self.vertices {
-            buffer.write(&(vertex.x as f32).to_le_bytes());
-            buffer.write(&(vertex.y as f32).to_le_bytes());
-            buffer.write(&(vertex.z as f32).to_le_bytes());
+            buffer.write(&(vertex.p.x as f32).to_le_bytes());
+            buffer.write(&(vertex.p.y as f32).to_le_bytes());
+            buffer.write(&(vertex.p.z as f32).to_le_bytes());
+            buffer.write(&(vertex.n.x as f32).to_le_bytes());
+            buffer.write(&(vertex.n.y as f32).to_le_bytes());
+            buffer.write(&(vertex.n.z as f32).to_le_bytes());
         }
         for face in &self.faces {
             buffer.write(&[3u8]);

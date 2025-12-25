@@ -3,7 +3,7 @@ use na::{Affine3, Matrix2, Matrix3, Matrix4, Rotation3, Vector2, Vector3, Point3
 use crate::pipe_section::PipeSection;
 use crate::utils::{squared};
 use crate::ellipse_spacing::{warp_elliptic_angle, ellipse_circumference};
-use crate::mesh::{Face, Mesh};
+use crate::mesh::{Face, Mesh, Vertex};
 
 /**
  * An infinite hollow cylinder in R^3 created as the invertible affine
@@ -78,6 +78,19 @@ impl Cylinder {
         squared(self.m11 * point.x + self.m12 * point.y + self.m13 * point.z + self.m14)
         + squared(self.m21 * point.x + self.m22 * point.y + self.m23 * point.z + self.m24)
         - 1.0
+    }
+
+    /**
+     * Gradient of the scalar field.
+     */
+    pub fn scalar_field_gradient(&self, point: &Point3<f64>) -> Vector3<f64> {
+        let tmp1 = self.m11 * point.x + self.m12 * point.y + self.m13 * point.z + self.m14;
+        let tmp2 = self.m21 * point.x + self.m22 * point.y + self.m23 * point.z - self.m24;
+        Vector3::new(
+            2.0 * tmp1 * self.m11 + 2.0 * tmp2 * self.m21,
+            2.0 * tmp1 * self.m12 + 2.0 * tmp2 * self.m22,
+            2.0 * tmp1 * self.m13 + 2.0 * tmp2 * self.m23,
+        )
     }
 
     pub fn contains(&self, point: &Point3<f64>) -> bool {
@@ -257,7 +270,7 @@ impl Cylinder {
         let radial_segments = options.radial_segments;
 
         // Vertex indices: i * radial_segments + j
-        let mut vertices: Vec<Option<Point3<f64>>> = vec![];
+        let mut vertices: Vec<Option<Vertex>> = vec![];
         for i in 0..=linear_segments {
             let i_unipolar = (i as f64) / (linear_segments as f64);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
@@ -265,7 +278,10 @@ impl Cylinder {
                 let theta = (j as f64) * std::f64::consts::TAU / (radial_segments as f64);
                 let u = i_bipolar * half_height; 
                 let point = self.surface_coords_to_cartesian(u, theta);
-                vertices.push(if predicate(&point) { Some(point) } else { None });
+                vertices.push(if predicate(&point) {
+                    let normal = self.scalar_field_gradient(&point).normalize();
+                    Some(Vertex::new(point, normal))
+                } else { None });
             }
         }
 

@@ -1,6 +1,6 @@
 use nalgebra as na;
 use na::{Affine3, Point3};
-use crate::mesh::{Mesh, Face};
+use crate::mesh::{self, Face, Mesh, Vertex};
 use std::f64;
 
 /**
@@ -32,8 +32,10 @@ impl Polyline {
                 let angle = radial_index as f64 / radial_segments as f64 * f64::consts::TAU;
                 let cos = angle.cos();
                 let sin = angle.sin();
-                let mesh_point = point + (x * cos + y * sin) * thickness;
-                vertices.push(mesh_point);
+                let normal = x * cos + y * sin;
+                let mesh_point = point + normal * thickness;
+                let vertex = Vertex::new(mesh_point, normal);
+                vertices.push(vertex);
             }
         }
 
