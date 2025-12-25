@@ -144,16 +144,16 @@ impl Mesh {
             let v1 = j;
             let v2 = (j + 1) % segments;
             faces.push(Face {
-                v1: v1,
-                v2: v2,
+                v1: v2,
+                v2: v1,
                 v3: south_pole_index,
             });
 
             let v3 = (rings - 1) * segments + j;
             let v4 = (rings - 1) * segments + (j + 1) % segments;
             faces.push(Face {
-                v1: v4,
-                v2: v3,
+                v1: v3,
+                v2: v4,
                 v3: north_pole_index,
             });
         }
@@ -169,6 +169,8 @@ impl Mesh {
     /// Make a plane parallel to the xy-plane at coordinate z, but filter the vertices using a
     /// predicate.
     pub fn partial_plane<F: Fn(&Point3<f64>) -> bool>(predicate: F, z: f64, half_length: f64, segments: usize) -> Self {
+        let sign = z.signum();
+
         // Point3<f64> indices: i * (segments + 1) + j
         let mut vertices: Vec<Option<Vertex>> = vec![];
         for i in 0..=segments {
@@ -177,10 +179,12 @@ impl Mesh {
             for j in 0..=segments {
                 let j_unipolar = (j as f64) / (segments as f64);
                 let j_bipolar = j_unipolar * 2.0 - 1.0;
-                let x = i_bipolar * half_length;
+                // Sign flip for negative z to fix handedness of triangles. (It's easier to flip it
+                // here than when building the triangles.)
+                let x = i_bipolar * half_length * sign;
                 let y = j_bipolar * half_length;
                 let point = Point3::new(x, y, z);
-                let normal = Vector3::new(0.0, 0.0, z.signum());
+                let normal = Vector3::new(0.0, 0.0, sign);
                 let vertex = Vertex::new(point, normal);
                 vertices.push(if predicate(&point) { Some(vertex) } else { None });
             }
@@ -199,7 +203,7 @@ impl Mesh {
                 let v3_exists = matches!(vertices[v3], Some(_));
 
                 // If all 4 vertices are present, then we triangulate the square
-                // with 2 triangles, each clockwise in this diagram:
+                // with 2 triangles:
                 //
                 // v1 -- v2
                 // | ,--' |
@@ -214,28 +218,31 @@ impl Mesh {
                 //
                 // Mesh::from_partial will delete all triangles with missing
                 // vertices.
+                //
+                // In the above diagrams, the normals face the viewer and the triangles are read off
+                // counterclockwise.
 
                 if v2_exists && v3_exists {
                     faces.push(Face {
                         v1: v1,
-                        v2: v2,
-                        v3: v3,
+                        v2: v3,
+                        v3: v2,
                     });
                     faces.push(Face {
                         v1: v2,
-                        v2: v4,
-                        v3: v3,
+                        v2: v3,
+                        v3: v4,
                     });
                 } else {
                     faces.push(Face {
                         v1: v1,
-                        v2: v2,
-                        v3: v4,
+                        v2: v4,
+                        v3: v2,
                     });
                     faces.push(Face {
-                        v1: v1,
+                        v1: v3,
                         v2: v4,
-                        v3: v3,
+                        v3: v1,
                     });
                 }
             }

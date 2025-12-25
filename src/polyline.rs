@@ -53,13 +53,13 @@ impl Polyline {
                 // v3 -- v4
                 faces.push(Face {
                     v1: v1,
-                    v2: v2,
-                    v3: v3,
+                    v2: v3,
+                    v3: v2,
                 });
                 faces.push(Face {
                     v1: v2,
-                    v2: v4,
-                    v3: v3,
+                    v2: v3,
+                    v3: v4,
                 });
             }
         }
