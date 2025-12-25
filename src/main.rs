@@ -32,8 +32,8 @@ struct PolytwisterJSON {
 fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>, ring_sections: &Vec<RingSection>) -> MeshCollection {
     let cylinder_options = CylinderMeshOptions {
         half_length: 5.0,
-        linear_segments: 128,
-        radial_segments: 128,
+        linear_segments: 128 * 2,
+        radial_segments: 128 * 2,
     };
     let torus_options = TorusMeshOptions {
         thickness: 0.05,
@@ -47,7 +47,7 @@ fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>, ring_sections: &Vec<R
     };
     let twister_color = Color { red: 255, green: 0, blue: 0 };
     let strip_color = Color { red: 255, green: 255, blue: 255 };
-    let ring_color = Color { red: 240, green: 240, blue: 240 };
+    let ring_color = Color { red: 150, green: 150, blue: 150 };
 
     let mut twister_sections = vec![];
     for (i, pipe_section) in pipe_sections.iter().enumerate() {
