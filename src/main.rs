@@ -16,7 +16,7 @@ mod ellipse_spacing;
 mod polyline;
 mod ring;
 use crate::cylinder::{Cylinder, CylinderMeshOptions};
-use crate::pipe_section::{PipeSection, TorusSection, TorusMeshOptions};
+use crate::pipe_section::{PipeSection, TorusMeshOptions, TorusSection, TwisterSection};
 use crate::mesh::{Mesh};
 use crate::polyline::Polyline;
 use crate::ring::{RingSection, RingMeshOptions};
@@ -46,16 +46,24 @@ fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>, ring_sections: &Vec<R
         rings: 32, 
     };
 
-    let mut meshes = vec![];
-
-    // Produce twister sections.
+    let mut twister_sections = vec![];
     for (i, pipe_section) in pipe_sections.iter().enumerate() {
-        let mut mesh = pipe_section.as_mesh(&cylinder_options);
+        let mut neighboring_pipe_sections = vec![];
         for (j, pipe_section_2) in pipe_sections.iter().enumerate() {
             if i != j {
-                mesh = mesh.filter_vertices(|p| pipe_section_2.contains(p));
+                neighboring_pipe_sections.push(pipe_section_2.clone());
             }
         }
+        twister_sections.push(TwisterSection {
+            pipe_section: pipe_section.clone(),
+            neighboring_pipe_sections
+        });
+    }
+
+    let mut meshes = vec![];
+
+    for twister_section in twister_sections {
+        let mesh = twister_section.as_mesh(&cylinder_options);
         meshes.push(mesh);
     }
 

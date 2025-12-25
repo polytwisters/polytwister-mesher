@@ -87,6 +87,24 @@ impl PipeSection {
     }
 }
 
+
+/// Cross section of a twister. Currently only for convex twisters.
+pub struct TwisterSection {
+    pub pipe_section: PipeSection,
+    pub neighboring_pipe_sections: Vec<PipeSection>,
+}
+
+impl TwisterSection {
+    pub fn as_mesh(&self, options: &CylinderMeshOptions) -> Mesh {
+        let mut mesh = self.pipe_section.as_mesh(&options);
+        for (j, pipe_section_2) in self.neighboring_pipe_sections.iter().enumerate() {
+            mesh = mesh.filter_vertices(|p| pipe_section_2.contains(p));
+        }
+        mesh
+    }
+}
+
+
 #[derive(Clone, Copy, Debug)]
 pub struct TorusSection {
     pub pipe_section_1: PipeSection,
