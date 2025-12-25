@@ -124,7 +124,7 @@ impl Mesh {
      * Make a plane parallel to the xy-plane at coordinate z.
      */
     pub fn plane(z: f64, half_length: f64, segments: usize) -> Self {
-        // Point3<f64> indices: i * segments + j
+        // Point3<f64> indices: i * (segments + 1) + j
         let mut vertices: Vec<Point3<f64>> = vec![];
         for i in 0..=segments {
             let i_unipolar = (i as f64) / (segments as f64);
@@ -138,13 +138,14 @@ impl Mesh {
             }
         }
 
+        let hop = segments + 1;
         let mut faces: Vec<Face> = vec![];
         for i in 0..segments {
             for j in 0..segments {
-                let v1 = i * segments + j;
-                let v2 = i * segments + (j + 1);
-                let v3 = (i + 1) * segments + j;
-                let v4 = (i + 1) * segments + (j + 1);
+                let v1 = i * hop + j;
+                let v2 = i * hop + (j + 1) % hop;
+                let v3 = (i + 1) * hop + j;
+                let v4 = (i + 1) * hop + (j + 1) % hop;
 
                 // v1 -- v2
                 // | ,--' |
