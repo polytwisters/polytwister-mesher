@@ -26,11 +26,11 @@ struct Polytwister {
 }
 
 fn main() -> std::io::Result<()> {
-    let w = 0.1;
+    let w = 0.3;
     let pipe_sections = vec![
         PipeSection::new(1.0, 0.0, 0.0, 0.0, w),
-        PipeSection::new(0.0, 0.5, 0.5, 0.0, w),
-        PipeSection::new(0.0, 0.0, 1.0, 0.0, w),
+        PipeSection::new(-0.5, 0.0, -(1.0f64 / 3.0).sqrt(), 0.0, w),
+        PipeSection::new(-0.5, 0.0, (1.0f64 / 3.0).sqrt(), 0.0, w),
     ];
 
     let cylinder_options = CylinderMeshOptions {
@@ -59,7 +59,6 @@ fn main() -> std::io::Result<()> {
             if i == j {
                 continue;
             }
-
             let strip: Vec<Polyline> = pipe_section_1.as_cylinder().intersect_cylinder(&pipe_section_2.as_cylinder(), strip_linear_resolution);
             let strip_meshes = strip.iter().map(|polyline|
                 polyline.as_mesh(strip_thickness, strip_radial_resolution)

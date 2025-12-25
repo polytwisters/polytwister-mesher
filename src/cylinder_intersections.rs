@@ -313,7 +313,9 @@ impl Cylinder {
         let ellipse_center = self.intersect_axis_line_z_plane(z);
         let points = (0..resolution).map(|i| {
             let theta = i as f64 / resolution as f64 * f64::consts::TAU;
-            ellipse_center + Vector3::x() * theta.cos() + Vector3::x() * theta.sin()
+            let xy = Vector2::new(theta.cos(), theta.sin());
+            let displacement_2d = self.inv_top_left_matrix() * xy;
+            ellipse_center + Vector3::new(displacement_2d.x, displacement_2d.y, 0.0)
         }).collect::<_>();
         Polyline { points }
     }
@@ -438,7 +440,7 @@ mod test {
     }
 
     #[test]
-    fn test_intersect() {
+    fn test_intersect_cylinder() {
         let cylinder = example_cylinder();
         let cylinder2 = example_cylinder_2();
         let curves = cylinder.intersect_cylinder(&cylinder2, 32);
@@ -447,6 +449,17 @@ mod test {
                 assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
                 assert_abs_diff_eq!(cylinder2.scalar_field(&point), 0.0, epsilon = 1e-10);
             }
+        }
+    }
+
+    #[test]
+    fn test_intersect_z_plane() {
+        let cylinder = example_cylinder();
+        let z = 0.3;
+        let curve = cylinder.intersect_z_plane(0.3, 32);
+        for point in curve.points {
+            assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
+            assert_abs_diff_eq!(point.z, z, epsilon = 1e-10);
         }
     }
 }
