@@ -62,7 +62,9 @@ fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>, ring_sections: &Vec<R
     // Produce strip sections.
     for (i, pipe_section_1) in pipe_sections.iter().enumerate() {
         for (j, pipe_section_2) in pipe_sections.iter().enumerate() {
-            if i == j {
+            // i == j is intersecting a pipe section with itself.
+            // Ignoring i < j prevents doubling up strips since intersection is commutative.
+            if i <= j {
                 continue;
             }
             let torus_section = TorusSection::new(pipe_section_1, pipe_section_2);
