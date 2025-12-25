@@ -31,8 +31,8 @@ fn main() -> std::io::Result<()> {
 
     let cylinder_options = CylinderMeshOptions {
         half_length: 5.0,
-        linear_segments: 64,
-        radial_segments: 64,
+        linear_segments: 128,
+        radial_segments: 128,
     };
 
     let cylinder_mesh = cylinder.as_mesh(&cylinder_options);
@@ -45,9 +45,10 @@ fn main() -> std::io::Result<()> {
         cylinder.contains(point)
     );
 
-    let strip_thickness = 0.05;
+    let strip_thickness = 0.1;
     let strip_radial_resolution = 16;
-    let strips: Vec<Polyline> = cylinder.intersect(&cylinder_2, 64);
+    let strip_linear_resolution = 128;
+    let strips: Vec<Polyline> = cylinder.intersect(&cylinder_2, strip_linear_resolution);
     let strip_meshes = strips.iter().map(|polyline|
         polyline.as_mesh(strip_thickness, strip_radial_resolution)
     ).collect::<_>();
