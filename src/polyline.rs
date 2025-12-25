@@ -1,10 +1,11 @@
 use nalgebra as na;
 use na::{Affine3, Point3};
 use crate::mesh::{self, Face, Mesh, Vertex};
+use core::num;
 use std::f64;
 
 /**
- * A closed polyline in 3D space.
+ * A polyline forming a closed loop in 3D space.
  */
 pub struct Polyline {
     pub points: Vec<Point3<f64>>
@@ -20,6 +21,12 @@ impl Polyline {
      */
     pub fn as_mesh(&self, thickness: f64, radial_segments: usize) -> Mesh {
         let num_points = self.points.len();
+
+        // Doesn't make sense to do less than 3 points.
+        if num_points < 3 {
+            return Mesh::empty();
+        }
+
         let mut vertices = vec![];
         for (point_index, point) in self.points.iter().enumerate() {
             let prev = self.point(point_index as isize - 1);
