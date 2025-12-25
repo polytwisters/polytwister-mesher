@@ -2,6 +2,7 @@ extern crate nalgebra as na;
 use na::{Affine3, Matrix2, Matrix3, Matrix4, Rotation3, Vector2, Vector3, Point3};
 use crate::utils::{squared};
 use crate::ellipse_spacing::{warp_elliptic_angle, ellipse_circumference};
+use crate::mesh::{Face, Mesh};
 
 /**
  * An infinite hollow cylinder in R^3 created as the invertible affine
@@ -17,6 +18,13 @@ pub struct Cylinder {
     pub m22: f64,
     pub m23: f64,
     pub m24: f64,
+}
+
+
+pub struct CylinderMeshOptions {
+    pub half_length: f64,
+    pub linear_segments: usize,
+    pub radial_segments: usize,
 }
 
 
@@ -75,6 +83,9 @@ impl Cylinder {
      * Return an explicit parametrization of the line which is this cylinder section's symmetry axis.
      * The parametrization is v(t) = v_0 + d * t and returned as (v_0, d) so that v_0 is the
      * starting point and d is the direction vector. d is always a unit vector.
+     * 
+     * This method assumes that the cylinder intersects the plane z = 0. This holds for all pipe
+     * cross sections but not necessarily all affine transformations.
      */
     pub fn axis_line(&self) -> (Point3<f64>, Vector3<f64>) {
         // Solve M(x, y, z, 1) = 0 with z = 0 and z = 1 respectively. Ignore bottom two rows and
@@ -167,7 +178,16 @@ impl Cylinder {
     }
 
     /**
-     * Compute the two displacement vectors that form the elliptic cross-section of the cylinder.
+     * The intersection of the cylinder with a plane orthogonal to the cylinder's axis of symmetry
+     * is an ellipse. The vertices of an ellipse are the points furthest and closest to its center,
+     * if they exist. Return the displacement vectors, in the 3D world coordinate space, from the
+     * ellipse's center to its vertices. They are returned in the order
+     * (major vertex displacement, minor vertex displacement). These two vectors are guaranteed
+     * orthogonal to each other and to the axis of symmetry.
+     * 
+     * If the ellipse is a circle, there are no defined vertices, so this method returns any two
+     * vectors whose lengths are equal to the radius of the circle, and which are orthogonal to each
+     * other and to the axis.
      */
     fn ellipse_vertex_displacements(&self) -> (Vector3<f64>, Vector3<f64>) {
         let (_, direction) = self.axis_line();
@@ -189,21 +209,78 @@ impl Cylinder {
         }
     }
 
+    /**
+     * Find the vertices of a cross-sectional ellipse.
+     */
     fn ellipse_vertices(&self) -> (Point3<f64>, Point3<f64>) {
         let (start, _) = self.axis_line();
         let (da, db) = self.ellipse_vertex_displacements();
         (start + da, start + db)
     }
 
+    /**
+     * Convert 2D surface coordinates (u, theta) on the cylinder to points in 3D space. Changing u
+     * by a factor of du moves the point parallel to the cylinder's axis by a distance of du, and
+     * the range of u is the entire real line. Changing theta moves the point in an elliptical loop
+     * orthogonal to the cylinder's axis, ranging from 0 to 2pi.
+     */
     fn surface_coords_to_cartesian(&self, u: f64, theta: f64) -> Point3<f64> {
         let (start, direction) = self.axis_line();
         let (da, db) = self.ellipse_vertex_displacements();
-        let a = da.norm();
-        let b = db.norm();
-        let theta_warped = warp_elliptic_angle(theta, a, b);
-        let cx = theta_warped.cos();
-        let cy = theta_warped.sin();
+        let cx = theta.cos();
+        let cy = theta.sin();
         start + u * direction + cx * da + cy * db
+    }
+
+    /**
+     * Discretize this cylinder as a mesh.
+     */
+    pub fn as_mesh(
+        &self,
+        options: &CylinderMeshOptions
+    ) -> Mesh {
+        let half_height = options.half_length;
+        let linear_segments = options.linear_segments;
+        let radial_segments = options.radial_segments;
+
+        // Vertex indices: i * radial_segments + j
+        let mut vertices: Vec<Point3<f64>> = vec![];
+        for i in 0..=linear_segments {
+            let i_unipolar = (i as f64) / (linear_segments as f64);
+            let i_bipolar = i_unipolar * 2.0 - 1.0;
+            for j in 0..radial_segments {
+                let theta = (j as f64) * std::f64::consts::TAU / (radial_segments as f64);
+                let u = i_bipolar * half_height; 
+                vertices.push(
+                    self.surface_coords_to_cartesian(u, theta)
+                );
+            }
+        }
+
+        let mut faces: Vec<Face> = vec![];
+        for i in 0..linear_segments {
+            for j in 0..radial_segments {
+                let v1 = i * radial_segments + j;
+                let v2 = i * radial_segments + (j + 1) % radial_segments;
+                let v3 = (i + 1) * radial_segments + j;
+                let v4 = (i + 1) * radial_segments + (j + 1) % radial_segments;
+
+                // v1 -- v2
+                // | ,--' |
+                // v3 -- v4
+                faces.push(Face {
+                    v1: v1,
+                    v2: v2,
+                    v3: v3,
+                });
+                faces.push(Face {
+                    v1: v2,
+                    v2: v4,
+                    v3: v3,
+                });
+            }
+        }
+        Mesh { vertices, faces }
     }
 }
 

@@ -4,7 +4,7 @@ use core::f64;
 use std::{fs::File, io::Read};
 use serde::Deserialize;
 extern crate nalgebra as na;
-use na::{Point3, point};
+use na::Point3;
 
 mod cylinder_intersections;
 mod pipe_section;
@@ -13,7 +13,7 @@ mod mesh;
 mod utils;
 mod ellipse_spacing;
 mod polyline;
-use crate::cylinder::Cylinder;
+use crate::cylinder::{Cylinder, CylinderMeshOptions};
 use crate::pipe_section::{PipeSection};
 use crate::mesh::{Mesh};
 use crate::polyline::Polyline;
@@ -25,47 +25,28 @@ struct Polytwister {
     logs: Vec<Vec<f64>>,
 }
 
-fn main_old() -> std::io::Result<()> {
-    let mut string = String::new();
-    let mut file = File::open("quasitetratwister.json")?;
-    file.read_to_string(&mut string)?;
-
-    let result: Polytwister = serde_json::from_str(&string)?;
-
-    let w = 0.0;
-    let pipes: Vec<PipeSection> = result.logs.iter().map(|log: &Vec<f64>| {
-        PipeSection { a: log[0], b: log[1], c: log[2], d: 0.0, w }
-    }).collect::<Vec<_>>();
-
-    let meshes = pipes.iter().enumerate().map(|(i, pipe)| {
-        pipe.as_mesh().filter_vertices(|vertex: &Point3<f64>| -> bool {
-            for (j, pipe2) in pipes.iter().enumerate() {
-                if i != j && (pipe2.scalar_field(vertex) >= 0.0) {
-                    return false;
-                }
-            }
-            true
-        })
-    }).collect::<Vec<_>>();
-
-    let mesh = Mesh::merge(meshes);
-    let mut buffer = File::create("out.obj")?;
-    mesh.write_obj(&mut buffer)?;
-    Ok(())
-}
-
 fn main() -> std::io::Result<()> {
     let cylinder = Cylinder::base();
     let cylinder_2 = Cylinder::example();
 
+    let cylinder_options = CylinderMeshOptions {
+        half_length: 5.0,
+        linear_segments: 32,
+        radial_segments: 32,
+    };
+
+    let cylinder_mesh = cylinder.as_mesh(&cylinder_options);
+    let cylinder_mesh_2 = cylinder_2.as_mesh(&cylinder_options);
+
     let strip_thickness = 0.05;
     let strip_radial_resolution = 16;
-
-    let polylines = cylinder.intersect(&cylinder_2, 64);
-    let meshes = polylines.iter().map(|polyline|
+    let strips: Vec<Polyline> = cylinder.intersect(&cylinder_2, 64);
+    let strip_meshes = strips.iter().map(|polyline|
         polyline.as_mesh(strip_thickness, strip_radial_resolution)
     ).collect::<_>();
-    let mesh = Mesh::merge(meshes);
+    let mesh = Mesh::merge(strip_meshes);
+    let mesh = Mesh::merge(vec![cylinder_mesh, cylinder_mesh_2, mesh]);
+
     let mut buffer = File::create("out.obj")?;
     mesh.write_obj(&mut buffer)?;
     Ok(())
