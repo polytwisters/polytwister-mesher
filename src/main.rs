@@ -22,7 +22,7 @@ use crate::polyline::Polyline;
 
 #[derive(Deserialize)]
 #[serde(rename_all="camelCase")]
-struct Polytwister {
+struct PolytwisterJSON {
     logs: Vec<Vec<f64>>,
 }
 
@@ -73,12 +73,17 @@ fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>) -> Mesh {
 }
 
 fn main() -> std::io::Result<()> {
-    let w = 0.3;
-    let pipe_sections = vec![
-        PipeSection::new(0.0, 0.0, 1.0, 0.0, w),
-        PipeSection::new(-0.5, 0.0, -(1.0f64 / 3.0).sqrt(), 0.0, w),
-        PipeSection::new(-0.5, 0.0, (1.0f64 / 3.0).sqrt(), 0.0, w),
-    ];
+    let mut string = String::new();
+    let mut file = File::open("tetratwister.json")?;
+    file.read_to_string(&mut string)?;
+
+    let result: PolytwisterJSON = serde_json::from_str(&string)?;
+    let w = 0.1;
+
+    let pipe_sections: Vec<PipeSection> = result.logs.iter().map(|log: &Vec<f64>| {
+        PipeSection { a: log[0], b: log[1], c: log[2], d: 0.0, w }
+    }).collect::<Vec<_>>();
+
     let mesh = make_polytwister_mesh(&pipe_sections);
 
     let mut buffer = File::create("out.obj")?;
