@@ -22,7 +22,7 @@ impl Polyline {
     pub fn as_mesh(&self, thickness: f64, radial_segments: usize) -> Mesh {
         let num_points = self.points.len();
 
-        // Doesn't make sense to do less than 3 points.
+        // Doesn't make sense to do less than 3 points as cross products will be undefined.
         if num_points < 3 {
             return Mesh::empty();
         }
