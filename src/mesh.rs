@@ -1,9 +1,10 @@
 #[macro_use]
 use nalgebra as na;
 
+use core::f64;
 use std::io::{Write};
 
-use na::{Point3, Transform3, Vector3};
+use na::{Point, Point3, Transform3, Vector3};
 use crate::pipe_section::{PipeSection};
 
 /**
@@ -27,18 +28,86 @@ impl Mesh {
         Mesh { vertices: vec![], faces: vec![] }
     }
 
-    pub fn marker(location: &Point3<f64>) -> Self {
-        let size = 0.1;
-        Mesh {
-            vertices: vec![
-                location + Vector3::x() * size,
-                location + Vector3::y() * size,
-                location + Vector3::z() * size,
-            ],
-            faces: vec![
-                Face { v1: 0, v2: 1, v3: 2 },
-            ]
+    pub fn uv_sphere(center: &Point3<f64>, radius: f64, segments: usize, rings: usize) -> Self {
+        // Point3<f64> indices: i * segments + j
+        // i is the segment index, j is in the ring index.
+        let mut vertices: Vec<Point3<f64>> = vec![];
+        for i in 0..rings {
+            let i_unipolar = (i as f64 + 1.0) / (rings as f64 + 1.0);
+            let i_bipolar = i_unipolar * 2.0 - 1.0;
+            let elevation = i_bipolar * f64::consts::FRAC_PI_2;
+            for j in 0..segments {
+                let azimuth = j as f64 / segments as f64 * f64::consts::TAU;
+                vertices.push(center + Vector3::new(
+                    azimuth.cos() * elevation.cos(),
+                    azimuth.sin() * elevation.cos(),
+                    elevation.sin()
+                ) * radius);
+            }
         }
+
+        let south_pole_index = vertices.len();
+        vertices.push(center + Vector3::new(0.0, 0.0, -1.0));
+    
+        let north_pole_index = vertices.len();
+        vertices.push(center + Vector3::new(0.0, 0.0, 1.0));
+
+        // Connect everything except poles with cylinder topology.
+        let mut faces: Vec<Face> = vec![];
+        for i in 0..rings - 1 {
+            for j in 0..segments {
+                let v1 = i * segments + j;
+                let v2 = i * segments + (j + 1) % segments;
+                let v3 = (i + 1) * segments + j;
+                let v4 = (i + 1) * segments + (j + 1) % segments;
+
+                // ^ north pole
+                //
+                // v3 -- v4
+                // | '--. |
+                // v1 -- v2
+                //
+                // v south pole
+                faces.push(Face {
+                    v1: v1,
+                    v2: v2,
+                    v3: v3,
+                });
+                faces.push(Face {
+                    v1: v2,
+                    v2: v4,
+                    v3: v3,
+                });
+            }
+        }
+
+        for j in 0..segments {
+            // north pole
+            //  /    \
+            // v3 -- v4
+            //
+            // v1 -- v2
+            //  \    /
+            // south pole
+
+            let v1 = j;
+            let v2 = (j + 1) % segments;
+            faces.push(Face {
+                v1: v1,
+                v2: v2,
+                v3: south_pole_index,
+            });
+
+            let v3 = (rings - 1) * segments + j;
+            let v4 = (rings - 1) * segments + (j + 1) % segments;
+            faces.push(Face {
+                v1: v4,
+                v2: v3,
+                v3: north_pole_index,
+            });
+        }
+
+        Mesh { vertices, faces }
     }
 
     /**
