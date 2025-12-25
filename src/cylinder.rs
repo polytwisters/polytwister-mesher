@@ -239,11 +239,17 @@ impl Cylinder {
         start + u * direction + cx * da + cy * db
     }
 
-    /**
-     * Discretize this cylinder as a mesh.
-     */
-    pub fn as_mesh(
+
+    /// Discretize this cylinder as a mesh.
+    pub fn as_mesh(&self, options: &CylinderMeshOptions) -> Mesh {
+        self.as_mesh_partial(|_| true, &options)
+    }
+
+    /// Discretize this cylinder as a mesh, but only include the points for
+    /// which the predicate returns true.
+    pub fn as_mesh_partial<F: Fn(&Point3<f64>) -> bool>(
         &self,
+        predicate: F,
         options: &CylinderMeshOptions
     ) -> Mesh {
         let half_height = options.half_length;
@@ -251,16 +257,15 @@ impl Cylinder {
         let radial_segments = options.radial_segments;
 
         // Vertex indices: i * radial_segments + j
-        let mut vertices: Vec<Point3<f64>> = vec![];
+        let mut vertices: Vec<Option<Point3<f64>>> = vec![];
         for i in 0..=linear_segments {
             let i_unipolar = (i as f64) / (linear_segments as f64);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
             for j in 0..radial_segments {
                 let theta = (j as f64) * std::f64::consts::TAU / (radial_segments as f64);
                 let u = i_bipolar * half_height; 
-                vertices.push(
-                    self.surface_coords_to_cartesian(u, theta)
-                );
+                let point = self.surface_coords_to_cartesian(u, theta);
+                vertices.push(if predicate(&point) { Some(point) } else { None });
             }
         }
 
@@ -272,22 +277,52 @@ impl Cylinder {
                 let v3 = (i + 1) * radial_segments + j;
                 let v4 = (i + 1) * radial_segments + (j + 1) % radial_segments;
 
+                let v2_exists = matches!(vertices[v2], Some(_));
+                let v3_exists = matches!(vertices[v3], Some(_));
+
+                // If all 4 vertices are present, then we triangulate the square
+                // with 2 triangles, each clockwise in this diagram:
+                //
                 // v1 -- v2
                 // | ,--' |
                 // v3 -- v4
-                faces.push(Face {
-                    v1: v1,
-                    v2: v2,
-                    v3: v3,
-                });
-                faces.push(Face {
-                    v1: v2,
-                    v2: v4,
-                    v3: v3,
-                });
+                //
+                // If v2 or v3 are not present, we use the alternate
+                // triangulation:
+                //
+                // v1----v2
+                // | `--. |
+                // v3 -- v4
+                //
+                // Mesh::from_partial will delete all triangles with missing
+                // vertices.
+
+                if v2_exists && v3_exists {
+                    faces.push(Face {
+                        v1: v1,
+                        v2: v2,
+                        v3: v3,
+                    });
+                    faces.push(Face {
+                        v1: v2,
+                        v2: v4,
+                        v3: v3,
+                    });
+                } else {
+                    faces.push(Face {
+                        v1: v1,
+                        v2: v2,
+                        v3: v4,
+                    });
+                    faces.push(Face {
+                        v1: v1,
+                        v2: v4,
+                        v3: v3,
+                    });
+                }
             }
         }
-        Mesh { vertices, faces }
+        Mesh::from_partial(&vertices, &faces)
     }
 }
 

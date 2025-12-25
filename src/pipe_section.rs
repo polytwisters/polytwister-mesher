@@ -85,6 +85,29 @@ impl PipeSection {
             self.as_cylinder().as_mesh(options)
         }
     }
+
+    pub fn as_mesh_partial<F: Fn(&Point3<f64>) -> bool>(
+        &self,
+        predicate: F,
+        options: &CylinderMeshOptions
+    ) -> Mesh {
+        if self.d != 0.0 {
+            panic!("PipeSection::as_mesh does not yet work with d != 0");
+        }
+
+        if self.is_plane() {
+            if let Some(z) = self.plane_z() {
+                Mesh::merge(vec![
+                    Mesh::partial_plane(&predicate, z, options.half_length, options.linear_segments),
+                    Mesh::partial_plane(&predicate, -z, options.half_length, options.linear_segments),
+                ])
+            } else {
+                Mesh::empty()
+            }
+        } else {
+            self.as_cylinder().as_mesh_partial(&predicate, options)
+        }
+    }
 }
 
 
@@ -96,10 +119,17 @@ pub struct TwisterSection {
 
 impl TwisterSection {
     pub fn as_mesh(&self, options: &CylinderMeshOptions) -> Mesh {
-        let mut mesh = self.pipe_section.as_mesh(&options);
-        for (j, pipe_section_2) in self.neighboring_pipe_sections.iter().enumerate() {
-            mesh = mesh.filter_vertices(|p| pipe_section_2.contains(p));
-        }
+        let mut mesh = self.pipe_section.as_mesh_partial(
+            |p| {
+                for pipe_section_2 in self.neighboring_pipe_sections.iter() {
+                    if !pipe_section_2.contains(p) {
+                        return false;
+                    }
+                }
+                true
+            },
+            &options
+        );
         mesh
     }
 }

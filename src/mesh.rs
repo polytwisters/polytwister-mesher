@@ -152,12 +152,12 @@ impl Mesh {
 
     /// Make a plane parallel to the xy-plane at coordinate z.
     pub fn plane(z: f64, half_length: f64, segments: usize) -> Self {
-        Self::partial_plane(z, half_length, segments, |_| true)
+        Self::partial_plane(|_| true, z, half_length, segments)
     }
 
     /// Make a plane parallel to the xy-plane at coordinate z, but filter the vertices using a
     /// predicate.
-    pub fn partial_plane<F: Fn(&Point3<f64>) -> bool>(z: f64, half_length: f64, segments: usize, predicate: F) -> Self {
+    pub fn partial_plane<F: Fn(&Point3<f64>) -> bool>(predicate: F, z: f64, half_length: f64, segments: usize) -> Self {
         // Point3<f64> indices: i * (segments + 1) + j
         let mut vertices: Vec<Option<Point3<f64>>> = vec![];
         for i in 0..=segments {
@@ -185,12 +185,24 @@ impl Mesh {
                 let v2_exists = matches!(vertices[v2], Some(_));
                 let v3_exists = matches!(vertices[v3], Some(_));
 
+                // If all 4 vertices are present, then we triangulate the square
+                // with 2 triangles, each clockwise in this diagram:
+                //
+                // v1 -- v2
+                // | ,--' |
+                // v3 -- v4
+                //
+                // If v2 or v3 are not present, we use the alternate
+                // triangulation:
+                //
+                // v1----v2
+                // | `--. |
+                // v3 -- v4
+                //
+                // Mesh::from_partial will delete all triangles with missing
+                // vertices.
+
                 if v2_exists && v3_exists {
-                    // Clockwise
-                    //
-                    // v1 -- v2
-                    // | ,--' |
-                    // v3 -- v4
                     faces.push(Face {
                         v1: v1,
                         v2: v2,
@@ -202,11 +214,6 @@ impl Mesh {
                         v3: v3,
                     });
                 } else {
-                    // Clockwise
-                    //
-                    // v1----v2
-                    // | `--. |
-                    // v3 -- v4
                     faces.push(Face {
                         v1: v1,
                         v2: v2,
