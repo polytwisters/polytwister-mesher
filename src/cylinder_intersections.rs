@@ -2,7 +2,7 @@ use core::f64;
 use std::iter;
 
 use crate::{polyline::Polyline, cylinder::Cylinder, utils::linspace};
-use na::{Point2, Point3, Vector2, Matrix2};
+use na::{Matrix2, Point2, Point3, Vector2, Vector3};
 use crate::utils::{squared, sort2, sort4, angle, unzip_circle};
 
 /**
@@ -239,7 +239,7 @@ impl Cylinder {
 
     /**
      * Intersect this Cylinder with the base Cylinder and discretize the resulting curve into
-     * sequences of points.
+     * a set of Polylines.
      */
     pub fn intersect_base_cylinder(&self, resolution: usize) -> Vec<Polyline> {
         let solutions = self.get_critical_thetas();
@@ -285,6 +285,10 @@ impl Cylinder {
         }
     }
 
+    /**
+     * Intersect this Cylinder with another Cylinder and discretize the resulting curve into
+     * a set of Polylines. 
+     */
     pub fn intersect_cylinder(&self, other: &Cylinder, resolution: usize) -> Vec<Polyline> {
         // Let D(M_1) be self and let D(M_2) be other.
         // Note that D(M) = M^-1 D(I), so:
@@ -301,6 +305,17 @@ impl Cylinder {
         untransformed_points.into_iter().map(|x|
             x.transform(&transform)
         ).collect::<_>()
+    }
+
+    /// Intersect this cylinder with a plane at +z and -z, parallel to the xy-plane. Discretize
+    /// the result as a Polyline.
+    pub fn intersect_z_plane(&self, z: f64, resolution: usize) -> Polyline {
+        let ellipse_center = self.intersect_axis_line_z_plane(z);
+        let points = (0..resolution).map(|i| {
+            let theta = i as f64 / resolution as f64 * f64::consts::TAU;
+            ellipse_center + Vector3::x() * theta.cos() + Vector3::x() * theta.sin()
+        }).collect::<_>();
+        Polyline { points }
     }
 }
 

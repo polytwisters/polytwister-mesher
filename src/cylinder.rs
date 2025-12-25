@@ -84,6 +84,14 @@ impl Cylinder {
         self.scalar_field(point) <= 0.0
     }
 
+    pub fn intersect_axis_line_z_plane(&self, z: f64) -> Point3<f64> {
+        // Solve M(x, y, z, 1) = 0 with z fixed. Ignore bottom two rows and use block matrix
+        // inversion:
+        //     (x, y) = -inv_top_left * top_right (z, 1)
+        let point_2d = -self.inv_top_left_matrix() * (self.top_right_matrix() * Vector2::new(z, 1.0));
+        Point3::new(point_2d.x, point_2d.y, z)
+    }
+
     /**
      * Return an explicit parametrization of the line which is this cylinder section's symmetry axis.
      * The parametrization is v(t) = v_0 + d * t and returned as (v_0, d) so that v_0 is the
@@ -93,14 +101,8 @@ impl Cylinder {
      * cross sections but not necessarily all affine transformations.
      */
     pub fn axis_line(&self) -> (Point3<f64>, Vector3<f64>) {
-        // Solve M(x, y, z, 1) = 0 with z = 0 and z = 1 respectively. Ignore bottom two rows and
-        // (x, y) = -inv_top_left (z, 1)
-        let tmp = self.inv_top_left_matrix();
-        let tmp2 = self.top_right_matrix();
-        let point1_2d = -tmp * (tmp2 * Vector2::new(0.0, 1.0));
-        let point2_2d = -tmp * (tmp2 * Vector2::new(1.0, 1.0));
-        let point1 = Point3::new(point1_2d.x, point1_2d.y, 0.0);
-        let point2 = Point3::new(point2_2d.x, point2_2d.y, 1.0);
+        let point1 = self.intersect_axis_line_z_plane(0.0);
+        let point2 = self.intersect_axis_line_z_plane(1.0);
         let d = (point2 - point1).normalize();
         (point1, d)
     }
