@@ -14,7 +14,7 @@ mod utils;
 mod ellipse_spacing;
 mod polyline;
 use crate::cylinder::{Cylinder, CylinderMeshOptions};
-use crate::pipe_section::{PipeSection};
+use crate::pipe_section::{PipeSection, TorusSection, TorusMeshOptions};
 use crate::mesh::{Mesh};
 use crate::polyline::Polyline;
 
@@ -38,6 +38,11 @@ fn main() -> std::io::Result<()> {
         linear_segments: 128,
         radial_segments: 128,
     };
+    let torus_options = TorusMeshOptions {
+        thickness: 0.05,
+        radial_segments: 16,
+        linear_segments: 128,
+    };
 
     let mut meshes = vec![];
 
@@ -51,19 +56,13 @@ fn main() -> std::io::Result<()> {
         meshes.push(mesh);
     }
 
-    let strip_thickness = 0.05;
-    let strip_radial_resolution = 16;
-    let strip_linear_resolution = 128;
     for (i, pipe_section_1) in pipe_sections.iter().enumerate() {
         for (j, pipe_section_2) in pipe_sections.iter().enumerate() {
             if i == j {
                 continue;
             }
-            let strip: Vec<Polyline> = pipe_section_1.as_cylinder().intersect_cylinder(&pipe_section_2.as_cylinder(), strip_linear_resolution);
-            let strip_meshes = strip.iter().map(|polyline|
-                polyline.as_mesh(strip_thickness, strip_radial_resolution)
-            ).collect::<_>();
-            let mut mesh = Mesh::merge(strip_meshes);
+            let torus_section = TorusSection::new(pipe_section_1, pipe_section_2);
+            let mut mesh = torus_section.as_mesh(&torus_options);
             for (k, pipe_section_3) in pipe_sections.iter().enumerate() {
                 if k == i || k == j {
                     continue;

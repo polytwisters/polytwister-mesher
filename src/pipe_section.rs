@@ -2,6 +2,7 @@ extern crate nalgebra as na;
 use na::{Affine3, Matrix2, Matrix3, Matrix4, Rotation3, Vector2, Vector3, Point3};
 use crate::cylinder::{Cylinder, CylinderMeshOptions};
 use crate::mesh::{Mesh, Face};
+use crate::pipe_section;
 use crate::utils::{squared};
 use crate::ellipse_spacing::{warp_elliptic_angle, ellipse_circumference};
 
@@ -73,5 +74,37 @@ impl PipeSection {
         }
 
         self.as_cylinder().as_mesh(options)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct TorusSection {
+    pub pipe_section_1: PipeSection,
+    pub pipe_section_2: PipeSection,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct TorusMeshOptions {
+    pub thickness: f64,
+    pub linear_segments: usize,
+    pub radial_segments: usize,
+}
+
+impl TorusSection {
+    pub fn new(pipe_section_1: &PipeSection, pipe_section_2: &PipeSection) -> Self {
+        Self {
+            pipe_section_1: pipe_section_1.clone(),
+            pipe_section_2: pipe_section_2.clone()
+        }
+    }
+
+    pub fn as_mesh(&self, options: &TorusMeshOptions) -> Mesh {
+        let polylines = self.pipe_section_1.as_cylinder().intersect_cylinder(
+            &self.pipe_section_2.as_cylinder(), options.linear_segments
+        );
+        let meshes = polylines.iter().map(|polyline|
+            polyline.as_mesh(options.thickness, options.radial_segments)
+        ).collect::<_>();
+        Mesh::merge(meshes)
     }
 }
