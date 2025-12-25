@@ -31,7 +31,7 @@ struct PolyhedronFace {
 }
 
 impl PolyhedronFace {
-    fn adjacent_to(&self, other: &PolyhedronFace) -> bool {
+    fn adjacent_to_face(&self, other: &PolyhedronFace) -> bool {
         self.edges.iter().any(|e| other.edges.contains(e))
     }
 }
@@ -53,7 +53,17 @@ struct Polyhedron {
 impl Polyhedron {
     fn adjacent_face_indices(&self, face_index: usize) -> Vec<usize> {
         self.faces.iter().enumerate().filter_map(|(i, face)| {
-            if i != face_index && face.adjacent_to(&self.faces[face_index]) {
+            if i != face_index && face.adjacent_to_face(&self.faces[face_index]) {
+                Some(i)
+            } else {
+                None
+            }
+        }).collect::<_>()
+    }
+
+    fn edge_adjacent_face_indices(&self, edge_index: usize) -> Vec<usize> {
+        self.faces.iter().enumerate().filter_map(|(i, face)| {
+            if face.edges.contains(&edge_index) {
                 Some(i)
             } else {
                 None
@@ -79,6 +89,12 @@ impl Polytwister {
         }).collect::<Vec<_>>()
     }
 
+    fn orthogonal_pipe_cross_sections(&self, w: f64) -> Vec<PipeSection> {
+        self.orthogonal_pipes.iter().map(|pipe: &Vector4<f64>| {
+            PipeSection::from_vector4(&pipe, w)
+        }).collect::<Vec<_>>()
+    }
+
     fn ring_cross_sections(&self, w: f64) -> Vec<RingSection> {
         self.rings.iter().map(|ring: &Vector4<f64>| {
             RingSection::from_vector4(&ring, w)
@@ -88,6 +104,7 @@ impl Polytwister {
     fn as_mesh(&self, w: f64) -> MeshCollection {
         let pipe_sections = self.pipe_cross_sections(w);
         let ring_sections = self.ring_cross_sections(w);
+        let orthogonal_pipe_sections = self.orthogonal_pipe_cross_sections(w);
 
         let cylinder_options = CylinderMeshOptions {
             half_length: 5.0,
@@ -127,24 +144,20 @@ impl Polytwister {
             meshes.push((mesh, twister_color));
         }
 
-        // Produce strip sections.
-        for (i, pipe_section_1) in pipe_sections.iter().enumerate() {
-            for (j, pipe_section_2) in pipe_sections.iter().enumerate() {
-                // i == j is intersecting a pipe section with itself.
-                // Ignoring i < j prevents doubling up strips since intersection is commutative.
-                if i <= j {
-                    continue;
-                }
-                let torus_section = TorusSection::new(pipe_section_1, pipe_section_2);
-                let mut mesh = torus_section.as_mesh(&torus_options);
-                for (k, pipe_section_3) in pipe_sections.iter().enumerate() {
-                    if k == i || k == j {
-                        continue;
-                    }
-                    mesh = mesh.filter_vertices(|p| pipe_section_3.contains(p));
-                }
-                meshes.push((mesh, strip_color));
+        for (edge_index, edge) in self.polyhedron.edges.iter().enumerate() {
+            let adjacent_face_indices = self.polyhedron.edge_adjacent_face_indices(edge_index);
+            if adjacent_face_indices.len() != 2 {
+                panic!("Edge not adjacent to two faces");
             }
+            let pipe_section_1 = pipe_sections[adjacent_face_indices[0]];
+            let pipe_section_2 = pipe_sections[adjacent_face_indices[1]];
+            let orthogonal_pipe_section = orthogonal_pipe_sections[adjacent_face_indices[0]];
+            let torus_section = TorusSection::new(
+                &pipe_section_1, &pipe_section_2, &orthogonal_pipe_section, false
+            );
+            let mut mesh = torus_section.as_mesh(&torus_options);
+            mesh = mesh.filter_vertices(|p| orthogonal_pipe_section.contains(p));
+            meshes.push((mesh, strip_color));
         }
 
         for ring_section in ring_sections {

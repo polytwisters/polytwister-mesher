@@ -150,6 +150,8 @@ impl TwisterSection {
 pub struct TorusSection {
     pub pipe_section_1: PipeSection,
     pub pipe_section_2: PipeSection,
+    pub cutting_pipe_section: PipeSection,
+    pub bloated: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -160,10 +162,17 @@ pub struct TorusMeshOptions {
 }
 
 impl TorusSection {
-    pub fn new(pipe_section_1: &PipeSection, pipe_section_2: &PipeSection) -> Self {
+    pub fn new(
+        pipe_section_1: &PipeSection,
+        pipe_section_2: &PipeSection,
+        cutting_pipe_section: &PipeSection,
+        bloated: bool,
+    ) -> Self {
         Self {
             pipe_section_1: pipe_section_1.clone(),
-            pipe_section_2: pipe_section_2.clone()
+            pipe_section_2: pipe_section_2.clone(),
+            cutting_pipe_section: cutting_pipe_section.clone(),
+            bloated,
         }
     }
 
