@@ -14,19 +14,22 @@ mod mesh;
 mod utils;
 mod ellipse_spacing;
 mod polyline;
+mod ring;
 use crate::cylinder::{Cylinder, CylinderMeshOptions};
 use crate::pipe_section::{PipeSection, TorusSection, TorusMeshOptions};
 use crate::mesh::{Mesh};
 use crate::polyline::Polyline;
+use crate::ring::{RingSection, RingMeshOptions};
 
 
 #[derive(Deserialize)]
 #[serde(rename_all="camelCase")]
 struct PolytwisterJSON {
     logs: Vec<Vec<f64>>,
+    rings: Vec<Vec<f64>>,
 }
 
-fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>) -> Mesh {
+fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>, ring_sections: &Vec<RingSection>) -> Mesh {
     let cylinder_options = CylinderMeshOptions {
         half_length: 5.0,
         linear_segments: 128,
@@ -36,6 +39,11 @@ fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>) -> Mesh {
         thickness: 0.05,
         radial_segments: 16,
         linear_segments: 128,
+    };
+    let ring_options = RingMeshOptions {
+        radius: 0.08,
+        segments: 16,
+        rings: 32, 
     };
 
     let mut meshes = vec![];
@@ -69,6 +77,11 @@ fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>) -> Mesh {
         }
     }
 
+    for ring_section in ring_sections {
+        let mesh = ring_section.as_mesh(&ring_options);
+        meshes.push(mesh);
+    }
+
     Mesh::merge(meshes)
 }
 
@@ -84,7 +97,11 @@ fn main() -> std::io::Result<()> {
         PipeSection { a: log[0], b: log[1], c: log[2], d: 0.0, w }
     }).collect::<Vec<_>>();
 
-    let mesh = make_polytwister_mesh(&pipe_sections);
+    let ring_sections: Vec<RingSection> = result.rings.iter().map(|ring: &Vec<f64>| {
+        RingSection { a: ring[0], b: ring[1], c: ring[2], d: 0.0, w }
+    }).collect::<Vec<_>>();
+
+    let mesh = make_polytwister_mesh(&pipe_sections, &ring_sections);
 
     let mut buffer = File::create("out.obj")?;
     mesh.write_obj(&mut buffer)?;

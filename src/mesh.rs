@@ -47,10 +47,10 @@ impl Mesh {
         }
 
         let south_pole_index = vertices.len();
-        vertices.push(center + Vector3::new(0.0, 0.0, -1.0));
+        vertices.push(center + Vector3::new(0.0, 0.0, -radius));
     
         let north_pole_index = vertices.len();
-        vertices.push(center + Vector3::new(0.0, 0.0, 1.0));
+        vertices.push(center + Vector3::new(0.0, 0.0, radius));
 
         // Connect everything except poles with cylinder topology.
         let mut faces: Vec<Face> = vec![];
@@ -189,7 +189,8 @@ impl Mesh {
 
     pub fn write_obj<W: Write>(&self, buffer: &mut W) -> std::io::Result<()> {
         for vertex in &self.vertices {
-            write!(buffer, "v {} {} {}\n", vertex.x, vertex.y, vertex.z)?;
+            // Z and Y are swapped here so the polytwister is upright.
+            write!(buffer, "v {} {} {}\n", vertex.x, vertex.z, vertex.y)?;
         }
         for face in &self.faces {
             // OBJ vertex indices start from 1.
