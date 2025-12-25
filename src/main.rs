@@ -38,8 +38,16 @@ impl PolyhedronFace {
 
 #[derive(Deserialize)]
 #[serde(rename_all="camelCase")]
+struct PolyhedronEdge {
+    vertex1: usize,
+    vertex2: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
 struct Polyhedron {
     faces: Vec<PolyhedronFace>,
+    edges: Vec<PolyhedronEdge>,
 }
 
 impl Polyhedron {
