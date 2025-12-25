@@ -32,8 +32,8 @@ struct PolytwisterJSON {
 fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>, ring_sections: &Vec<RingSection>) -> Mesh {
     let cylinder_options = CylinderMeshOptions {
         half_length: 5.0,
-        linear_segments: 128,
-        radial_segments: 128,
+        linear_segments: 128 * 2,
+        radial_segments: 128 * 2,
     };
     let torus_options = TorusMeshOptions {
         thickness: 0.05,
