@@ -56,24 +56,36 @@ impl PipeSection {
         }
     }
 
+    pub fn is_plane(&self) -> bool {
+        self.a == 0.0 && self.b == 0.0
+    }
+
+    pub fn plane_z(&self) -> Option<f64> {
+        let tmp = 1.0 / squared(self.c) - squared(self.w);
+        if tmp <= 0.0 {
+            None
+        } else {
+            Some(tmp.sqrt())
+        }
+    }
+
     pub fn as_mesh(&self, options: &CylinderMeshOptions) -> Mesh {
         if self.d != 0.0 {
             panic!("PipeSection::as_mesh does not yet work with d != 0");
         }
 
-        if self.a == 0.0 && self.b == 0.0 {
-            let tmp = 1.0 / squared(self.c) - squared(self.w);
-            if tmp <= 0.0 {
-                return Mesh::empty();
+        if self.is_plane() {
+            if let Some(z) = self.plane_z() {
+                Mesh::merge(vec![
+                    Mesh::plane(z, options.half_length, options.linear_segments),
+                    Mesh::plane(-z, options.half_length, options.linear_segments),
+                ])
+            } else {
+                Mesh::empty()
             }
-            let z = tmp.sqrt();
-            return Mesh::merge(vec![
-                Mesh::plane(z, options.half_length, options.linear_segments),
-                Mesh::plane(-z, options.half_length, options.linear_segments),
-            ])
+        } else {
+            self.as_cylinder().as_mesh(options)
         }
-
-        self.as_cylinder().as_mesh(options)
     }
 }
 
@@ -99,9 +111,34 @@ impl TorusSection {
     }
 
     pub fn as_mesh(&self, options: &TorusMeshOptions) -> Mesh {
-        let polylines = self.pipe_section_1.as_cylinder().intersect_cylinder(
-            &self.pipe_section_2.as_cylinder(), options.linear_segments
-        );
+        let polylines = if self.pipe_section_1.is_plane() {
+            if self.pipe_section_2.is_plane() {
+                // Both are planes. Intersection is empty.
+                vec![]
+            } else {
+                // Pipe section 1 is plane but pipe section 2 is not.
+                if let Some(z) = self.pipe_section_1.plane_z() {
+                    self.pipe_section_2.as_cylinder().intersect_z_planes(z, options.linear_segments)
+                } else {
+                    vec![]
+                }
+            }
+        } else {
+            if self.pipe_section_2.is_plane() {
+                // Pipe section 2 is plane but pipe section 1 is not.
+                if let Some(z) = self.pipe_section_2.plane_z() {
+                    self.pipe_section_1.as_cylinder().intersect_z_planes(z, options.linear_segments)
+                } else {
+                    vec![]
+                }
+            } else {
+                // Neither are planes.
+                self.pipe_section_1.as_cylinder().intersect_cylinder(
+                    &self.pipe_section_2.as_cylinder(), options.linear_segments
+                )
+            }
+        };
+        
         let meshes = polylines.iter().map(|polyline|
             polyline.as_mesh(options.thickness, options.radial_segments)
         ).collect::<_>();

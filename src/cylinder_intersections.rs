@@ -307,7 +307,7 @@ impl Cylinder {
         ).collect::<_>()
     }
 
-    /// Intersect this cylinder with a plane at +z and -z, parallel to the xy-plane. Discretize
+    /// Intersect this cylinder with a plane at z, parallel to the xy-plane. Discretize
     /// the result as a Polyline.
     pub fn intersect_z_plane(&self, z: f64, resolution: usize) -> Polyline {
         let ellipse_center = self.intersect_axis_line_z_plane(z);
@@ -318,6 +318,15 @@ impl Cylinder {
             ellipse_center + Vector3::new(displacement_2d.x, displacement_2d.y, 0.0)
         }).collect::<_>();
         Polyline { points }
+    }
+
+    /// Intersect this cylinder with a planes at +z and -z, parallel to the xy-plane. Discretize
+    /// the result into two Polylines.
+    pub fn intersect_z_planes(&self, z: f64, resolution: usize) -> Vec<Polyline> {
+        vec![
+            self.intersect_z_plane(z, resolution),
+            self.intersect_z_plane(-z, resolution),
+        ]
     }
 }
 

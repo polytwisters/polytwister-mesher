@@ -28,7 +28,7 @@ struct Polytwister {
 fn main() -> std::io::Result<()> {
     let w = 0.3;
     let pipe_sections = vec![
-        PipeSection::new(1.0, 0.0, 0.0, 0.0, w),
+        PipeSection::new(0.0, 0.0, 1.0, 0.0, w),
         PipeSection::new(-0.5, 0.0, -(1.0f64 / 3.0).sqrt(), 0.0, w),
         PipeSection::new(-0.5, 0.0, (1.0f64 / 3.0).sqrt(), 0.0, w),
     ];
