@@ -47,7 +47,7 @@ fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>, ring_sections: &Vec<R
     };
     let twister_color = Color { red: 255, green: 0, blue: 0 };
     let strip_color = Color { red: 255, green: 255, blue: 255 };
-    let ring_color = Color { red: 255, green: 255, blue: 255 };
+    let ring_color = Color { red: 240, green: 240, blue: 240 };
 
     let mut twister_sections = vec![];
     for (i, pipe_section) in pipe_sections.iter().enumerate() {
