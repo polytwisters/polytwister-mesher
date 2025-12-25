@@ -150,12 +150,16 @@ impl Mesh {
         Mesh { vertices: new_vertices, faces: self.faces }
     }
 
-    /**
-     * Make a plane parallel to the xy-plane at coordinate z.
-     */
+    /// Make a plane parallel to the xy-plane at coordinate z.
     pub fn plane(z: f64, half_length: f64, segments: usize) -> Self {
+        Self::partial_plane(z, half_length, segments, |_| true)
+    }
+
+    /// Make a plane parallel to the xy-plane at coordinate z, but filter the vertices using a
+    /// predicate.
+    pub fn partial_plane<F: Fn(&Point3<f64>) -> bool>(z: f64, half_length: f64, segments: usize, predicate: F) -> Self {
         // Point3<f64> indices: i * (segments + 1) + j
-        let mut vertices: Vec<Point3<f64>> = vec![];
+        let mut vertices: Vec<Option<Point3<f64>>> = vec![];
         for i in 0..=segments {
             let i_unipolar = (i as f64) / (segments as f64);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
@@ -164,7 +168,8 @@ impl Mesh {
                 let j_bipolar = j_unipolar * 2.0 - 1.0;
                 let x = i_bipolar * half_length;
                 let y = j_bipolar * half_length;
-                vertices.push(Point3::new(x, y, z));
+                let point = Point3::new(x, y, z);
+                vertices.push(if predicate(&point) { Some(point) } else { None });
             }
         }
 
@@ -177,22 +182,45 @@ impl Mesh {
                 let v3 = (i + 1) * hop + j;
                 let v4 = (i + 1) * hop + (j + 1) % hop;
 
-                // v1 -- v2
-                // | ,--' |
-                // v3 -- v4
-                faces.push(Face {
-                    v1: v1,
-                    v2: v2,
-                    v3: v3,
-                });
-                faces.push(Face {
-                    v1: v2,
-                    v2: v4,
-                    v3: v3,
-                });
+                let v2_exists = matches!(vertices[v2], Some(_));
+                let v3_exists = matches!(vertices[v3], Some(_));
+
+                if v2_exists && v3_exists {
+                    // Clockwise
+                    //
+                    // v1 -- v2
+                    // | ,--' |
+                    // v3 -- v4
+                    faces.push(Face {
+                        v1: v1,
+                        v2: v2,
+                        v3: v3,
+                    });
+                    faces.push(Face {
+                        v1: v2,
+                        v2: v4,
+                        v3: v3,
+                    });
+                } else {
+                    // Clockwise
+                    //
+                    // v1----v2
+                    // | `--. |
+                    // v3 -- v4
+                    faces.push(Face {
+                        v1: v1,
+                        v2: v2,
+                        v3: v4,
+                    });
+                    faces.push(Face {
+                        v1: v1,
+                        v2: v4,
+                        v3: v3,
+                    });
+                }
             }
         }
-        Mesh { vertices, faces }
+        Mesh::from_partial(&vertices, &faces)
     }
 
     fn offset_indices(faces: Vec<Face>, offset: usize) -> Vec<Face> {
