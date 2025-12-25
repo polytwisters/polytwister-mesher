@@ -54,10 +54,7 @@ impl Mesh {
     /**
      * Make a plane parallel to the xy-plane at coordinate z.
      */
-    pub fn plane(z: f64) -> Self {
-        let radius = 5.0;
-        let segments = 30;
-
+    pub fn plane(z: f64, half_length: f64, segments: usize) -> Self {
         // Point3<f64> indices: i * segments + j
         let mut vertices: Vec<Point3<f64>> = vec![];
         for i in 0..=segments {
@@ -66,8 +63,8 @@ impl Mesh {
             for j in 0..=segments {
                 let j_unipolar = (j as f64) / (segments as f64);
                 let j_bipolar = j_unipolar * 2.0 - 1.0;
-                let x = i_bipolar * radius;
-                let y = j_bipolar * radius;
+                let x = i_bipolar * half_length;
+                let y = j_bipolar * half_length;
                 vertices.push(Point3::new(x, y, z));
             }
         }
@@ -96,13 +93,6 @@ impl Mesh {
             }
         }
         Mesh { vertices, faces }
-    }
-
-    fn transform_pipe(self, pipe: &PipeSection) -> Self {
-        let new_vertices = self.vertices.into_iter().map(|vertex| {
-            pipe.transformation_from_base_cylinder().transform_point(&vertex)
-        }).collect::<Vec<_>>();
-        Mesh { vertices: new_vertices, faces: self.faces }
     }
 
     fn offset_indices(faces: Vec<Face>, offset: usize) -> Vec<Face> {

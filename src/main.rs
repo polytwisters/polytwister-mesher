@@ -26,8 +26,12 @@ struct Polytwister {
 }
 
 fn main() -> std::io::Result<()> {
-    let cylinder = Cylinder::base();
-    let cylinder_2 = Cylinder::example();
+    let w = 0.1;
+    let pipe_sections = vec![
+        PipeSection::new(1.0, 0.3, 0.0, 0.0, w),
+        PipeSection::new(0.0, 0.5, 0.5, 0.0, w),
+        PipeSection::new(1.0, 0.0, 0.5, 0.0, w),
+    ];
 
     let cylinder_options = CylinderMeshOptions {
         half_length: 5.0,
@@ -35,25 +39,43 @@ fn main() -> std::io::Result<()> {
         radial_segments: 128,
     };
 
-    let cylinder_mesh = cylinder.as_mesh(&cylinder_options);
-    let cylinder_mesh_2 = cylinder_2.as_mesh(&cylinder_options);
+    let mut meshes = vec![];
 
-    let cylinder_mesh = cylinder_mesh.filter_vertices(|point|
-        cylinder_2.contains(point)
-    );
-    let cylinder_mesh_2 = cylinder_mesh_2.filter_vertices(|point|
-        cylinder.contains(point)
-    );
+    for (i, pipe_section) in pipe_sections.iter().enumerate() {
+        let mut mesh = pipe_section.as_mesh(&cylinder_options);
+        for (j, pipe_section_2) in pipe_sections.iter().enumerate() {
+            if i != j {
+                mesh = mesh.filter_vertices(|p| pipe_section_2.contains(p));
+            }
+        }
+        meshes.push(mesh);
+    }
 
-    let strip_thickness = 0.1;
+    let strip_thickness = 0.05;
     let strip_radial_resolution = 16;
     let strip_linear_resolution = 128;
-    let strips: Vec<Polyline> = cylinder.intersect(&cylinder_2, strip_linear_resolution);
-    let strip_meshes = strips.iter().map(|polyline|
-        polyline.as_mesh(strip_thickness, strip_radial_resolution)
-    ).collect::<_>();
-    let mesh = Mesh::merge(strip_meshes);
-    let mesh = Mesh::merge(vec![cylinder_mesh, cylinder_mesh_2, mesh]);
+    for (i, pipe_section_1) in pipe_sections.iter().enumerate() {
+        for (j, pipe_section_2) in pipe_sections.iter().enumerate() {
+            if i == j {
+                continue;
+            }
+
+            let strip: Vec<Polyline> = pipe_section_1.as_cylinder().intersect(&pipe_section_2.as_cylinder(), strip_linear_resolution);
+            let strip_meshes = strip.iter().map(|polyline|
+                polyline.as_mesh(strip_thickness, strip_radial_resolution)
+            ).collect::<_>();
+            let mut mesh = Mesh::merge(strip_meshes);
+            for (k, pipe_section_3) in pipe_sections.iter().enumerate() {
+                if k == i || k == j {
+                    continue;
+                }
+                mesh = mesh.filter_vertices(|p| pipe_section_3.contains(p));
+            }
+            meshes.push(mesh);
+        }
+    }
+
+    let mesh = Mesh::merge(meshes);
 
     let mut buffer = File::create("out.obj")?;
     mesh.write_obj(&mut buffer)?;

@@ -1,5 +1,6 @@
 extern crate nalgebra as na;
 use na::{Affine3, Matrix2, Matrix3, Matrix4, Rotation3, Vector2, Vector3, Point3};
+use crate::pipe_section::PipeSection;
 use crate::utils::{squared};
 use crate::ellipse_spacing::{warp_elliptic_angle, ellipse_circumference};
 use crate::mesh::{Face, Mesh};
