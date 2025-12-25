@@ -113,7 +113,7 @@ fn main() -> std::io::Result<()> {
 
     let mesh = make_polytwister_mesh(&pipe_sections, &ring_sections);
 
-    let mut buffer = File::create("out.obj")?;
-    mesh.write_obj(&mut buffer)?;
+    let mut buffer = File::create("out.ply")?;
+    mesh.write_ply(&mut buffer)?;
     Ok(())
 }

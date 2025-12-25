@@ -253,18 +253,6 @@ impl Mesh {
         Mesh { vertices, faces }
     }
 
-    pub fn write_obj<W: Write>(&self, buffer: &mut W) -> std::io::Result<()> {
-        for vertex in &self.vertices {
-            // Z and Y are swapped here so the polytwister is upright.
-            write!(buffer, "v {} {} {}\n", vertex.x, vertex.z, vertex.y)?;
-        }
-        for face in &self.faces {
-            // OBJ vertex indices start from 1.
-            write!(buffer, "f {} {} {}\n", face.v1 + 1, face.v2 + 1, face.v3 + 1)?;
-        }
-        Ok(())
-    }
-
     /**
      * Given a predicate on vertex locations, return a new Mesh that removes all vertices that do
      * not satisfy that predicate, and any faces that are connected to said vertices.
@@ -274,5 +262,42 @@ impl Mesh {
             if (predicate(&p)) { Some(p.clone()) } else { None }
         ).collect::<Vec<_>>();
         Mesh::from_partial(&new_vertices, &self.faces)
+    }
+
+    pub fn write_obj<W: Write>(&self, buffer: &mut W) -> std::io::Result<()> {
+        for vertex in &self.vertices {
+            // Blender seems to swap Z and Y for OBJ, so we re-swap them here.
+            write!(buffer, "v {} {} {}\n", vertex.x, vertex.z, vertex.y)?;
+        }
+        for face in &self.faces {
+            // OBJ vertex indices start from 1.
+            write!(buffer, "f {} {} {}\n", face.v1 + 1, face.v2 + 1, face.v3 + 1)?;
+        }
+        Ok(())
+    }
+
+    pub fn write_ply<W: Write>(&self, buffer: &mut W) -> std::io::Result<()> {
+        write!(buffer, "ply\n")?;
+        write!(buffer, "format binary_little_endian 1.0\n")?;
+        write!(buffer, "element vertex {}\n", self.vertices.len())?;
+        write!(buffer, "property float x\n")?;
+        write!(buffer, "property float y\n")?;
+        write!(buffer, "property float z\n")?;
+        write!(buffer, "element face {}\n", self.faces.len())?;
+        write!(buffer, "property list uchar int vertex_index\n")?;
+        write!(buffer, "end_header\n")?;
+        for vertex in &self.vertices {
+            buffer.write(&(vertex.x as f32).to_le_bytes());
+            buffer.write(&(vertex.y as f32).to_le_bytes());
+            buffer.write(&(vertex.z as f32).to_le_bytes());
+        }
+        for face in &self.faces {
+            buffer.write(&[3u8]);
+            // PLY vertices start at 0.
+            buffer.write(&(face.v1 as u32).to_le_bytes());
+            buffer.write(&(face.v2 as u32).to_le_bytes());
+            buffer.write(&(face.v3 as u32).to_le_bytes());
+        }
+        Ok(())
     }
 }
