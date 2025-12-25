@@ -17,7 +17,7 @@ mod polyline;
 mod ring;
 use crate::cylinder::{Cylinder, CylinderMeshOptions};
 use crate::pipe_section::{PipeSection, TorusMeshOptions, TorusSection, TwisterSection};
-use crate::mesh::{Mesh};
+use crate::mesh::{Color, Mesh, MeshCollection};
 use crate::polyline::Polyline;
 use crate::ring::{RingSection, RingMeshOptions};
 
@@ -29,11 +29,11 @@ struct PolytwisterJSON {
     rings: Vec<Vec<f64>>,
 }
 
-fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>, ring_sections: &Vec<RingSection>) -> Mesh {
+fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>, ring_sections: &Vec<RingSection>) -> MeshCollection {
     let cylinder_options = CylinderMeshOptions {
         half_length: 5.0,
-        linear_segments: 64,
-        radial_segments: 64,
+        linear_segments: 128,
+        radial_segments: 128,
     };
     let torus_options = TorusMeshOptions {
         thickness: 0.05,
@@ -45,6 +45,9 @@ fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>, ring_sections: &Vec<R
         segments: 16,
         rings: 32, 
     };
+    let twister_color = Color { red: 255, green: 0, blue: 0 };
+    let strip_color = Color { red: 255, green: 255, blue: 255 };
+    let ring_color = Color { red: 255, green: 255, blue: 255 };
 
     let mut twister_sections = vec![];
     for (i, pipe_section) in pipe_sections.iter().enumerate() {
@@ -64,7 +67,7 @@ fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>, ring_sections: &Vec<R
 
     for twister_section in twister_sections {
         let mesh = twister_section.as_mesh(&cylinder_options);
-        meshes.push(mesh);
+        meshes.push((mesh, twister_color));
     }
 
     // Produce strip sections.
@@ -83,16 +86,16 @@ fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>, ring_sections: &Vec<R
                 }
                 mesh = mesh.filter_vertices(|p| pipe_section_3.contains(p));
             }
-            meshes.push(mesh);
+            meshes.push((mesh, strip_color));
         }
     }
 
     for ring_section in ring_sections {
         let mesh = ring_section.as_mesh(&ring_options);
-        meshes.push(mesh);
+        meshes.push((mesh, ring_color));
     }
 
-    Mesh::merge(meshes)
+    MeshCollection { meshes }
 }
 
 fn main() -> std::io::Result<()> {

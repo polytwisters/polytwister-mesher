@@ -1,7 +1,7 @@
 #[macro_use]
 use nalgebra as na;
 
-use core::f64;
+use core::{f64, num};
 use std::io::{Write};
 
 use na::{Point, Point3, Transform3, Vector3};
@@ -327,6 +327,66 @@ impl Mesh {
             buffer.write(&(face.v1 as u32).to_le_bytes());
             buffer.write(&(face.v2 as u32).to_le_bytes());
             buffer.write(&(face.v3 as u32).to_le_bytes());
+        }
+        Ok(())
+    }
+}
+
+
+#[derive(Clone, Copy, Debug)]
+pub struct Color {
+    pub red: u8,
+    pub green: u8,
+    pub blue: u8,
+}
+
+pub struct MeshCollection {
+    pub meshes: Vec<(Mesh, Color)>
+}
+
+impl MeshCollection {
+    pub fn write_ply<W: Write>(&self, buffer: &mut W) -> std::io::Result<()> {
+        let num_vertices: usize = self.meshes.iter().map(|(mesh, _)| mesh.vertices.len()).sum();
+        let num_faces: usize = self.meshes.iter().map(|(mesh, _)| mesh.faces.len()).sum();
+
+        write!(buffer, "ply\n")?;
+        write!(buffer, "format binary_little_endian 1.0\n")?;
+        write!(buffer, "element vertex {}\n", num_vertices)?;
+        write!(buffer, "property float x\n")?;
+        write!(buffer, "property float y\n")?;
+        write!(buffer, "property float z\n")?;
+        write!(buffer, "property float nx\n")?;
+        write!(buffer, "property float ny\n")?;
+        write!(buffer, "property float nz\n")?;
+        write!(buffer, "property uchar red\n")?;
+        write!(buffer, "property uchar green\n")?;
+        write!(buffer, "property uchar blue\n")?;
+        write!(buffer, "element face {}\n", num_faces)?;
+        write!(buffer, "property list uchar int vertex_index\n")?;
+        write!(buffer, "end_header\n")?;
+        for (mesh, color) in &self.meshes {
+            for vertex in &mesh.vertices {
+                buffer.write(&(vertex.p.x as f32).to_le_bytes());
+                buffer.write(&(vertex.p.y as f32).to_le_bytes());
+                buffer.write(&(vertex.p.z as f32).to_le_bytes());
+                buffer.write(&(vertex.n.x as f32).to_le_bytes());
+                buffer.write(&(vertex.n.y as f32).to_le_bytes());
+                buffer.write(&(vertex.n.z as f32).to_le_bytes());
+                buffer.write(&[color.red]);
+                buffer.write(&[color.green]);
+                buffer.write(&[color.blue]);
+            }
+        }
+        let mut offset = 0;
+        for (mesh, _) in &self.meshes {
+            for face in &mesh.faces {
+                buffer.write(&[3u8]);
+                // PLY vertices start at 0.
+                buffer.write(&((face.v1 + offset) as u32).to_le_bytes());
+                buffer.write(&((face.v2 + offset) as u32).to_le_bytes());
+                buffer.write(&((face.v3 + offset) as u32).to_le_bytes());
+            }
+            offset += mesh.vertices.len();
         }
         Ok(())
     }
