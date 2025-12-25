@@ -1,5 +1,5 @@
 extern crate nalgebra as na;
-use na::{Point3, Vector3};
+use na::{Point3, Vector3, Vector4};
 use crate::cylinder::{Cylinder, CylinderMeshOptions};
 use crate::mesh::{Mesh};
 use crate::utils::{squared};
@@ -20,6 +20,16 @@ pub struct PipeSection {
 impl PipeSection {
     pub fn new(a: f64, b: f64, c: f64, d: f64, w: f64) -> Self {
         PipeSection { a, b, c, d, w }
+    }
+
+    pub fn from_vector4(vector: &Vector4<f64>, w: f64) -> Self {
+        PipeSection {
+            a: vector.x,
+            b: vector.y,
+            c: vector.z,
+            d: vector.w,
+            w
+        }
     }
 
     /**
@@ -114,6 +124,7 @@ impl PipeSection {
 /// Cross section of a twister. Currently only for convex twisters.
 pub struct TwisterSection {
     pub pipe_section: PipeSection,
+    pub orthogonal_pipe_section: PipeSection,
     pub neighboring_pipe_sections: Vec<PipeSection>,
 }
 

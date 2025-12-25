@@ -1,5 +1,5 @@
 use na::{Complex, ComplexField};
-use nalgebra::{Point2, Point3};
+use nalgebra::{Point2, Point3, Vector4};
 use crate::{mesh::Mesh, utils::angle};
 
 pub struct RingSection {
@@ -17,6 +17,16 @@ pub struct RingMeshOptions {
 }
 
 impl RingSection {
+    pub fn from_vector4(vector: &Vector4<f64>, w: f64) -> Self {
+        RingSection {
+            a: vector.x,
+            b: vector.y,
+            c: vector.z,
+            d: vector.w,
+            w
+        }
+    }
+
     pub fn as_points(&self) -> Option<(Point3<f64>, Point3<f64>)> {
         let denom = self.c.hypot(self.d);
         if denom < 1e-10 {

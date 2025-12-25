@@ -59,20 +59,21 @@ impl Polyhedron {
 #[serde(rename_all="camelCase")]
 struct Polytwister {
     polyhedron: Polyhedron,
-    logs: Vec<Vector4<f64>>,
+    pipes: Vec<Vector4<f64>>,
+    orthogonal_pipes: Vec<Vector4<f64>>,
     rings: Vec<Vector4<f64>>,
 }
 
 impl Polytwister {
     fn pipe_cross_sections(&self, w: f64) -> Vec<PipeSection> {
-        self.logs.iter().map(|log: &Vector4<f64>| {
-            PipeSection { a: log[0], b: log[1], c: log[2], d: 0.0, w }
+        self.pipes.iter().map(|pipe: &Vector4<f64>| {
+            PipeSection::from_vector4(&pipe, w)
         }).collect::<Vec<_>>()
     }
 
     fn ring_cross_sections(&self, w: f64) -> Vec<RingSection> {
         self.rings.iter().map(|ring: &Vector4<f64>| {
-            RingSection { a: ring[0], b: ring[1], c: ring[2], d: 0.0, w }
+            RingSection::from_vector4(&ring, w)
         }).collect::<Vec<_>>()
     }
 
@@ -101,10 +102,12 @@ impl Polytwister {
 
         let mut twister_sections = vec![];
         for (pipe_index, pipe_section) in pipe_sections.iter().enumerate() {
+            let orthogonal_pipe_section = PipeSection::from_vector4(&self.orthogonal_pipes[pipe_index], w);
             let neighboring_pipe_sections = self.polyhedron.adjacent_face_indices(pipe_index)
                 .iter().map(|pipe_index_2| pipe_sections[*pipe_index_2]).collect::<Vec<_>>();
             twister_sections.push(TwisterSection {
                 pipe_section: pipe_section.clone(),
+                orthogonal_pipe_section,
                 neighboring_pipe_sections
             });
         }
