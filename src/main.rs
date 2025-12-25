@@ -31,12 +31,19 @@ fn main() -> std::io::Result<()> {
 
     let cylinder_options = CylinderMeshOptions {
         half_length: 5.0,
-        linear_segments: 32,
-        radial_segments: 32,
+        linear_segments: 64,
+        radial_segments: 64,
     };
 
     let cylinder_mesh = cylinder.as_mesh(&cylinder_options);
     let cylinder_mesh_2 = cylinder_2.as_mesh(&cylinder_options);
+
+    let cylinder_mesh = cylinder_mesh.filter_vertices(|point|
+        cylinder_2.contains(point)
+    );
+    let cylinder_mesh_2 = cylinder_mesh_2.filter_vertices(|point|
+        cylinder.contains(point)
+    );
 
     let strip_thickness = 0.05;
     let strip_radial_resolution = 16;

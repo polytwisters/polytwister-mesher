@@ -35,11 +35,11 @@ impl Cylinder {
 
     pub fn example() -> Cylinder {
         Cylinder {
-            m11: 0.1,
-            m12: -0.5,
+            m11: 0.3,
+            m12: -0.2,
             m13: 0.4,
-            m14: -0.1,
-            m21: 0.5,
+            m14: -0.3,
+            m21: 0.2,
             m22: -1.2,
             m23: 0.2,
             m24: 0.05,
@@ -77,6 +77,10 @@ impl Cylinder {
         squared(self.m11 * point.x + self.m12 * point.y + self.m13 * point.z + self.m14)
         + squared(self.m21 * point.x + self.m22 * point.y + self.m23 * point.z + self.m24)
         - 1.0
+    }
+
+    pub fn contains(&self, point: &Point3<f64>) -> bool {
+        self.scalar_field(point) <= 0.0
     }
 
     /**
