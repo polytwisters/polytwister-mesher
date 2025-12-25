@@ -7,9 +7,7 @@ use std::io::{Write};
 use na::{Point, Point3, Transform3, Vector3};
 use crate::pipe_section::{PipeSection};
 
-/**
- * Triangular face with three vertex indices. Vector3<f64> indices start with 0.
- */
+/// Triangular face with three vertex indices. Vector3<f64> indices start with 0.
 #[derive(Clone, Copy, Debug)]
 pub struct Face {
     pub v1: usize,
@@ -17,6 +15,7 @@ pub struct Face {
     pub v3: usize,
 }
 
+/// A triangular mesh in 3D space.
 pub struct Mesh {
     pub vertices: Vec<Point3<f64>>,
     pub faces: Vec<Face>,
@@ -24,6 +23,37 @@ pub struct Mesh {
 
 
 impl Mesh {
+    /// A "partial mesh" is one where some vertices may be None. Converting a partial mesh to a mesh
+    /// removes the "None" vertices and any faces they are connected to.
+    pub fn from_partial(vertices: &Vec<Option<Point3<f64>>>, faces: &Vec<Face>) -> Self {
+        let mut new_vertices = vec![];
+        let mut new_index = 0usize;
+        // Vector of vertex indices whose length is equal to self.vertices.len() such that
+        // old_to_new_indices[old_index] is Some(new_vertex_index) if the vertex exists, and None
+        // otherwise.
+        let mut old_to_new_indices: Vec<Option<usize>> = vec![];
+        for option_vertex in vertices.iter() {
+            if let Some(vertex) = option_vertex {
+                new_vertices.push(vertex.clone());
+                old_to_new_indices.push(Some(new_index));
+                new_index += 1;
+            } else {
+                old_to_new_indices.push(None);
+            }
+        }
+        let new_faces = faces.iter().filter_map(|face| {
+            let v1_new = old_to_new_indices[face.v1];
+            let v2_new = old_to_new_indices[face.v2];
+            let v3_new = old_to_new_indices[face.v3];
+            if let (Some(v1), Some(v2), Some(v3)) = (v1_new, v2_new, v3_new) {
+                Some(Face { v1, v2, v3 })
+            } else {
+                None
+            }
+        }).collect::<Vec<_>>();
+        Mesh { vertices: new_vertices, faces: new_faces }
+    }
+
     pub fn empty() -> Self {
         Mesh { vertices: vec![], faces: vec![] }
     }
@@ -205,31 +235,9 @@ impl Mesh {
      * not satisfy that predicate, and any faces that are connected to said vertices.
      */
     pub fn filter_vertices<F: Fn(&Point3<f64>) -> bool>(&self, predicate: F) -> Self {
-        let mut vertices = vec![];
-        let mut new_index = 0usize;
-        // Vector of vertex indices whose length is equal to self.vertices.len() such that
-        // old_to_new_indices[old_index] is Some(new_vertex_index) if the vertex is kept, and None
-        // otherwise.
-        let mut old_to_new_indices: Vec<Option<usize>> = vec![];
-        for vertex in self.vertices.iter() {
-            if predicate(&vertex) {
-                vertices.push(vertex.clone());
-                old_to_new_indices.push(Some(new_index));
-                new_index += 1;
-            } else {
-                old_to_new_indices.push(None);
-            }
-        }
-        let faces = self.faces.iter().filter_map(|face| {
-            let v1_new = old_to_new_indices[face.v1];
-            let v2_new = old_to_new_indices[face.v2];
-            let v3_new = old_to_new_indices[face.v3];
-            if let (Some(v1), Some(v2), Some(v3)) = (v1_new, v2_new, v3_new) {
-                Some(Face { v1, v2, v3 })
-            } else {
-                None
-            }
-        }).collect::<Vec<_>>();
-        Mesh { vertices, faces }
+        let new_vertices = self.vertices.iter().map(|p|
+            if (predicate(&p)) { Some(p.clone()) } else { None }
+        ).collect::<Vec<_>>();
+        Mesh::from_partial(&new_vertices, &self.faces)
     }
 }
