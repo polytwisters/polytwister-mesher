@@ -1,5 +1,4 @@
 use core::f64;
-use std::iter;
 
 use crate::{polyline::Polyline, cylinder::Cylinder, utils::linspace};
 use na::{Matrix2, Point2, Point3, Vector2, Vector3};

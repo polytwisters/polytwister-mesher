@@ -1,10 +1,8 @@
 extern crate nalgebra as na;
-use na::{Affine3, Matrix2, Matrix3, Matrix4, Rotation3, Vector2, Vector3, Point3};
+use na::{Point3};
 use crate::cylinder::{Cylinder, CylinderMeshOptions};
-use crate::mesh::{Mesh, Face};
-use crate::pipe_section;
+use crate::mesh::{Mesh};
 use crate::utils::{squared};
-use crate::ellipse_spacing::{warp_elliptic_angle, ellipse_circumference};
 
 /**
  * A 3D cross section of a pipe. (PipeCrossSection felt too long.)
