@@ -26,14 +26,7 @@ struct Polytwister {
     logs: Vec<Vec<f64>>,
 }
 
-fn main() -> std::io::Result<()> {
-    let w = 0.3;
-    let pipe_sections = vec![
-        PipeSection::new(0.0, 0.0, 1.0, 0.0, w),
-        PipeSection::new(-0.5, 0.0, -(1.0f64 / 3.0).sqrt(), 0.0, w),
-        PipeSection::new(-0.5, 0.0, (1.0f64 / 3.0).sqrt(), 0.0, w),
-    ];
-
+fn make_polytwister_mesh(pipe_sections: &Vec<PipeSection>) -> Mesh {
     let cylinder_options = CylinderMeshOptions {
         half_length: 5.0,
         linear_segments: 128,
@@ -47,6 +40,7 @@ fn main() -> std::io::Result<()> {
 
     let mut meshes = vec![];
 
+    // Produce twister sections.
     for (i, pipe_section) in pipe_sections.iter().enumerate() {
         let mut mesh = pipe_section.as_mesh(&cylinder_options);
         for (j, pipe_section_2) in pipe_sections.iter().enumerate() {
@@ -57,6 +51,7 @@ fn main() -> std::io::Result<()> {
         meshes.push(mesh);
     }
 
+    // Produce strip sections.
     for (i, pipe_section_1) in pipe_sections.iter().enumerate() {
         for (j, pipe_section_2) in pipe_sections.iter().enumerate() {
             if i == j {
@@ -74,7 +69,17 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    let mesh = Mesh::merge(meshes);
+    Mesh::merge(meshes)
+}
+
+fn main() -> std::io::Result<()> {
+    let w = 0.3;
+    let pipe_sections = vec![
+        PipeSection::new(0.0, 0.0, 1.0, 0.0, w),
+        PipeSection::new(-0.5, 0.0, -(1.0f64 / 3.0).sqrt(), 0.0, w),
+        PipeSection::new(-0.5, 0.0, (1.0f64 / 3.0).sqrt(), 0.0, w),
+    ];
+    let mesh = make_polytwister_mesh(&pipe_sections);
 
     let mut buffer = File::create("out.obj")?;
     mesh.write_obj(&mut buffer)?;
