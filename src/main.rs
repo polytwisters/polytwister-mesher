@@ -3,7 +3,9 @@ extern crate approx;
 
 use core::f64;
 use std::{fs::File, io::Read};
+use serde::Deserialize;
 extern crate nalgebra as na;
+use na::{Point3, Vector4};
 
 mod cylinder_intersections;
 mod pipe_section;
@@ -18,7 +20,7 @@ use crate::polytwister::Polytwister;
 
 fn main() -> std::io::Result<()> {
     let mut string = String::new();
-    let mut file = File::open("tetratwister.json")?;
+    let mut file = File::open("bloated_tetratwister.json")?;
     file.read_to_string(&mut string)?;
 
     let polytwister: Polytwister = serde_json::from_str(&string)?;

@@ -50,6 +50,7 @@ pub struct Polytwister {
     orthogonal_pipes: Vec<Vector4<f64>>,
     rings: Vec<Vector4<f64>>,
     twister_fillings: Vec<Vec<FillingRegion>>,
+    bloated: bool,
 }
 
 impl PolyhedronFace {
@@ -154,7 +155,7 @@ impl Polytwister {
             let pipe_section_2 = pipe_sections[adjacent_face_indices[1]];
             let orthogonal_pipe_section = orthogonal_pipe_sections[adjacent_face_indices[0]];
             let torus_section = StripSection::new(
-                &pipe_section_1, &pipe_section_2, &orthogonal_pipe_section, false
+                &pipe_section_1, &pipe_section_2, &orthogonal_pipe_section, self.bloated
             );
             let mut mesh = torus_section.as_mesh(&torus_options);
             meshes.push((mesh, strip_color));
