@@ -43,7 +43,8 @@ struct Args {
 enum Commands {
     /// Export a series of cross section meshes to a directory for an animation.
     /// 
-    /// The meshes are separated by frame and element type as follows:
+    /// The meshes are exported in a Stanford PLY format, separated by frame and element type as
+    /// follows:
     /// 
     /// ```
     /// out_dir/frame_0000_rings.ply
@@ -76,7 +77,11 @@ enum Commands {
         frames: usize,
     },
 
-    /// Export a single cross section of a polytwister as a mesh.
+    /// Export a single cross section of a polytwister as a mesh in the Stanford PLY format.
+    /// 
+    /// You can export the rings, strips, or individual twister orbits as meshes by providing the
+    /// relevant options. You can also use the `--all` option to generate a mesh that merges them
+    /// all together with colors for visualization.
     Section {
         /// Input polytwister geometry file.
         /// 
@@ -89,9 +94,8 @@ enum Commands {
 
         /// Output PLY mesh with everything: rings, strips, and twisters.
         /// 
-        /// The parts of the output mesh are colored using fields in the PLY file. This is for
-        /// quickly loading the file in the mesh viewer. It is better to export and load separately
-        /// if you want good customization options.
+        /// This is just for quickly loading the file to inspect in a mesh viewer, so there are not
+        /// a lot of customization options here.
         #[arg(long = "all")]
         merged_path: Option<PathBuf>,
 
