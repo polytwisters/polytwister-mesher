@@ -83,6 +83,19 @@ def make_material_from_config(config):
     return material
 
 
+materials_by_config = {}
+
+def make_material_if_needed(config):
+    """Memoized version of make_material_from_config."""
+    # Stupid way of making the keys hashable.
+    key = str(config)
+    if key in materials_by_config:
+        return materials_by_config[key]
+    material = make_material_from_config(config)
+    materials_by_config[key] = material
+    return material
+
+
 def shade_smooth_by_angle():
     bpy.ops.object.shade_smooth_by_angle(angle=math.radians(30.0))
 
@@ -271,13 +284,15 @@ def ply_is_empty(path):
     return first_bytes.split(b"\n")[2] == b"element vertex 0"
 
 
-def import_ply(path, frame_number):
+def import_ply(path, frame_number, material_config):
     # Blender creates an error importing an empty PLY file.
     if ply_is_empty(path):
         return
 
     deselect_all()
     bpy.ops.wm.ply_import(filepath=str(path))
+    bpy.context.object.active_material = make_material_if_needed(material_config)
+
     shade_smooth_by_angle()
     do_scale(DEFAULT_SCALE)
 
@@ -364,8 +379,45 @@ def main():
     render_config = config.get("render", {})
     set_up_for_render(render_config)
     material_config = config.get("material", {})
-    # TODO
-    # material = make_material_from_config(material_config)
+
+    ring_material_config = {
+        "Base Color": [
+            0.5,
+            0.5,
+            0.5,
+            1
+        ],
+        "Roughness": 0.5,
+    }
+
+    strip_material_config = {
+        "Base Color": [
+            1.0,
+            1.0,
+            1.0,
+            1
+        ],
+        "Roughness": 0.5,
+    }
+
+    twister_1_material_config = {
+        "Base Color": [
+            0.948,
+            0.1,
+            0.2,
+            1
+        ],
+        "Roughness": 0.5,
+    }
+    twister_2_material_config = {
+        "Base Color": [
+            0.448,
+            0.338,
+            1.0,
+            1
+        ],
+        "Roughness": 0.5,
+    }
 
     num_proper_frames = len(ring_paths)
     # One empty frame is added to the beginning and end of the animation. All frames in the middle
@@ -377,10 +429,10 @@ def main():
         # +1 to convert 0-indexing to 1-indexing, another +1 for the initial empty frame.
         frame_number = i + 2
 
-        import_ply(ring_paths[i], frame_number)
-        import_ply(strip_paths[i], frame_number)
-        import_ply(twister_1_paths[i], frame_number)
-        import_ply(twister_2_paths[i], frame_number)
+        import_ply(ring_paths[i], frame_number, ring_material_config)
+        import_ply(strip_paths[i], frame_number, strip_material_config)
+        import_ply(twister_1_paths[i], frame_number, twister_1_material_config)
+        import_ply(twister_2_paths[i], frame_number, twister_2_material_config)
     
     # To make things a bit more convenient when opening the .blend file interactively, navigate to
     # a frame where there is a visible mesh and align with the camera.
