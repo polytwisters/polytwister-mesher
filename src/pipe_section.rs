@@ -208,9 +208,9 @@ impl StripSection {
         let meshes = polylines.iter().map(|polyline|
             polyline.as_mesh_partial(|p| {
                 if self.bloated {
-                    self.orthogonal_pipe_section.contains(&p)
-                } else {
                     !self.orthogonal_pipe_section.contains(&p)
+                } else {
+                    self.orthogonal_pipe_section.contains(&p)
                 }
             }, options.thickness, options.radial_segments)
         ).collect::<_>();
