@@ -203,7 +203,7 @@ impl Cylinder {
      * if they exist. Return the displacement vectors, in the 3D world coordinate space, from the
      * ellipse's center to its vertices. They are returned in the order
      * (major vertex displacement, minor vertex displacement). These two vectors are guaranteed
-     * orthogonal to each other and to the axis of symmetry.
+     * orthogonal to each other, and their cross product is in the same direction as the axis line.
      * 
      * If the ellipse is a circle, there are no defined vertices, so this method returns any two
      * vectors whose lengths are equal to the radius of the circle, and which are orthogonal to each
@@ -214,7 +214,7 @@ impl Cylinder {
         let z = Vector3::z();
         // R rotates the cylinder's axis of symmetry to (0, 0, 1).
         let r = Rotation3::rotation_between(&direction, &z).unwrap_or(Rotation3::identity());
-        let r_inv = Rotation3::rotation_between(&z, &direction).unwrap_or(Rotation3::identity());
+        let r_inv = r.inverse();
         let project_xy: Matrix3<f64> = Matrix3::from_diagonal(&Vector3::new(1.0, 1.0, 0.0));
         let x = Vector3::x();
         let y = Vector3::y();
@@ -223,7 +223,8 @@ impl Cylinder {
         let da = r_inv * project_xy * r * self.transformation_from_base_cylinder().transform_vector(&x);
         let db = r_inv * project_xy * r * self.transformation_from_base_cylinder().transform_vector(&y);
         if db.norm_squared() > da.norm_squared() {
-            (db, da)
+            // Flip one sign so that the cross product is the right direction.
+            (-db, da)
         } else {
             (da, db)
         }
