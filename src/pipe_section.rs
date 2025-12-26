@@ -1,6 +1,6 @@
 extern crate nalgebra as na;
 use na::{Point3, Vector3, Vector4};
-use crate::cylinder::{Cylinder, CylinderMeshOptions};
+use crate::cylinder::{Cylinder, CylinderMeshConfig};
 use crate::mesh::{Mesh};
 use crate::pipe_section;
 use crate::polytwister::{FillingRegion, RegionMode};
@@ -79,7 +79,7 @@ impl PipeSection {
         }
     }
 
-    pub fn as_mesh(&self, options: &CylinderMeshOptions) -> Mesh {
+    pub fn as_mesh(&self, config: &CylinderMeshConfig) -> Mesh {
         if self.d != 0.0 {
             panic!("PipeSection::as_mesh does not yet work with d != 0");
         }
@@ -87,21 +87,21 @@ impl PipeSection {
         if self.is_plane() {
             if let Some(z) = self.plane_z() {
                 Mesh::merge(vec![
-                    Mesh::plane(z, options.half_length, options.linear_segments),
-                    Mesh::plane(-z, options.half_length, options.linear_segments),
+                    Mesh::plane(z, config.half_length, config.linear_segments),
+                    Mesh::plane(-z, config.half_length, config.linear_segments),
                 ])
             } else {
                 Mesh::empty()
             }
         } else {
-            self.as_cylinder().as_mesh(options)
+            self.as_cylinder().as_mesh(config)
         }
     }
 
     pub fn as_mesh_partial<F: Fn(&Point3<f64>) -> bool>(
         &self,
         predicate: F,
-        options: &CylinderMeshOptions
+        config: &CylinderMeshConfig
     ) -> Mesh {
         if self.d != 0.0 {
             panic!("PipeSection::as_mesh does not yet work with d != 0");
@@ -110,14 +110,14 @@ impl PipeSection {
         if self.is_plane() {
             if let Some(z) = self.plane_z() {
                 Mesh::merge(vec![
-                    Mesh::partial_plane(&predicate, z, options.half_length, options.linear_segments),
-                    Mesh::partial_plane(&predicate, -z, options.half_length, options.linear_segments),
+                    Mesh::partial_plane(&predicate, z, config.half_length, config.linear_segments),
+                    Mesh::partial_plane(&predicate, -z, config.half_length, config.linear_segments),
                 ])
             } else {
                 Mesh::empty()
             }
         } else {
-            self.as_cylinder().as_mesh_partial(&predicate, options)
+            self.as_cylinder().as_mesh_partial(&predicate, config)
         }
     }
 }
@@ -148,10 +148,10 @@ impl TwisterSection {
         })
     }
 
-    pub fn as_mesh(&self, options: &CylinderMeshOptions) -> Mesh {
+    pub fn as_mesh(&self, config: &CylinderMeshConfig) -> Mesh {
         let mut mesh = self.pipe_section.as_mesh_partial(
             |p| self.contains(p),
-            &options
+            &config
         );
         mesh
     }
@@ -167,7 +167,7 @@ pub struct StripSection {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct TorusMeshOptions {
+pub struct TorusMeshConfig {
     pub thickness: f64,
     pub linear_segments: usize,
     pub radial_segments: usize,
@@ -188,7 +188,7 @@ impl StripSection {
         }
     }
 
-    pub fn as_mesh(&self, options: &TorusMeshOptions) -> Mesh {
+    pub fn as_mesh(&self, config: &TorusMeshConfig) -> Mesh {
         let polylines = if self.pipe_section_1.is_plane() {
             if self.pipe_section_2.is_plane() {
                 // Both are planes. Intersection is empty.
@@ -196,7 +196,7 @@ impl StripSection {
             } else {
                 // Pipe section 1 is plane but pipe section 2 is not.
                 if let Some(z) = self.pipe_section_1.plane_z() {
-                    self.pipe_section_2.as_cylinder().intersect_z_planes(z, options.linear_segments)
+                    self.pipe_section_2.as_cylinder().intersect_z_planes(z, config.linear_segments)
                 } else {
                     vec![]
                 }
@@ -205,14 +205,14 @@ impl StripSection {
             if self.pipe_section_2.is_plane() {
                 // Pipe section 2 is plane but pipe section 1 is not.
                 if let Some(z) = self.pipe_section_2.plane_z() {
-                    self.pipe_section_1.as_cylinder().intersect_z_planes(z, options.linear_segments)
+                    self.pipe_section_1.as_cylinder().intersect_z_planes(z, config.linear_segments)
                 } else {
                     vec![]
                 }
             } else {
                 // Neither are planes.
                 self.pipe_section_1.as_cylinder().intersect_cylinder(
-                    &self.pipe_section_2.as_cylinder(), options.linear_segments
+                    &self.pipe_section_2.as_cylinder(), config.linear_segments
                 )
             }
         };
@@ -224,7 +224,7 @@ impl StripSection {
                 } else {
                     self.orthogonal_pipe_section.contains(&p)
                 }
-            }, options.thickness, options.radial_segments)
+            }, config.thickness, config.radial_segments)
         ).collect::<_>();
         Mesh::merge(meshes)
     }

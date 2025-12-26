@@ -1,10 +1,10 @@
 use serde::Deserialize;
 use na::{Point3, Vector4};
-use crate::cylinder::{Cylinder, CylinderMeshOptions};
-use crate::pipe_section::{PipeSection, TorusMeshOptions, StripSection, TwisterSection};
+use crate::cylinder::{Cylinder, CylinderMeshConfig};
+use crate::pipe_section::{PipeSection, TorusMeshConfig, StripSection, TwisterSection};
 use crate::mesh::{Color, Mesh, MeshCollection};
 use crate::polyline::Polyline;
-use crate::ring::{RingSection, RingMeshOptions};
+use crate::ring::{RingSection, RingMeshConfig};
 
 #[derive(Deserialize)]
 #[serde(rename_all="camelCase")]
@@ -105,17 +105,17 @@ impl Polytwister {
         let ring_sections = self.ring_cross_sections(w);
         let orthogonal_pipe_sections = self.orthogonal_pipe_cross_sections(w);
 
-        let cylinder_options = CylinderMeshOptions {
+        let cylinder_config = CylinderMeshConfig {
             half_length: 5.0,
             linear_segments: 128 * 3,
             radial_segments: 128 * 3,
         };
-        let torus_options = TorusMeshOptions {
+        let torus_config = TorusMeshConfig {
             thickness: 0.01,
             radial_segments: 16,
             linear_segments: 128,
         };
-        let ring_options = RingMeshOptions {
+        let ring_config = RingMeshConfig {
             radius: 0.02,
             segments: 16,
             rings: 32, 
@@ -146,7 +146,7 @@ impl Polytwister {
 
         for (index, twister_section) in twister_sections.iter().enumerate() {
             let orbit = self.polyhedron.faces[index].orbit;
-            let mesh = twister_section.as_mesh(&cylinder_options);
+            let mesh = twister_section.as_mesh(&cylinder_config);
             meshes.push((mesh, twister_colors[orbit as usize]));
         }
 
@@ -161,12 +161,12 @@ impl Polytwister {
             let torus_section = StripSection::new(
                 &pipe_section_1, &pipe_section_2, &orthogonal_pipe_section, self.bloated
             );
-            let mut mesh = torus_section.as_mesh(&torus_options);
+            let mut mesh = torus_section.as_mesh(&torus_config);
             meshes.push((mesh, strip_color));
         }
 
         for ring_section in ring_sections {
-            let mesh = ring_section.as_mesh(&ring_options);
+            let mesh = ring_section.as_mesh(&ring_config);
             meshes.push((mesh, ring_color));
         }
 

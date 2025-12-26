@@ -10,7 +10,7 @@ pub struct RingSection {
     pub w: f64,
 }
 
-pub struct RingMeshOptions {
+pub struct RingMeshConfig {
     pub radius: f64,
     pub segments: usize,
     pub rings: usize,
@@ -55,7 +55,7 @@ impl RingSection {
         ))
     }
 
-    pub fn as_mesh(&self, options: &RingMeshOptions) -> Mesh {
+    pub fn as_mesh(&self, options: &RingMeshConfig) -> Mesh {
         if let Some((center1, center2)) = self.as_points() {
             Mesh::merge(vec![
                 Mesh::uv_sphere(&center1, options.radius, options.segments, options.rings),

@@ -22,7 +22,7 @@ pub struct Cylinder {
 }
 
 
-pub struct CylinderMeshOptions {
+pub struct CylinderMeshConfig {
     pub half_length: f64,
     pub linear_segments: usize,
     pub radial_segments: usize,
@@ -257,7 +257,7 @@ impl Cylinder {
 
 
     /// Discretize this cylinder as a mesh.
-    pub fn as_mesh(&self, options: &CylinderMeshOptions) -> Mesh {
+    pub fn as_mesh(&self, options: &CylinderMeshConfig) -> Mesh {
         self.as_mesh_partial(|_| true, &options)
     }
 
@@ -266,7 +266,7 @@ impl Cylinder {
     pub fn as_mesh_partial<F: Fn(&Point3<f64>) -> bool>(
         &self,
         predicate: F,
-        options: &CylinderMeshOptions
+        options: &CylinderMeshConfig
     ) -> Mesh {
         let half_height = options.half_length;
         let linear_segments = options.linear_segments;
