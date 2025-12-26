@@ -3,7 +3,7 @@ use na::{Point3, Vector4};
 use crate::config::{Config, CylinderMeshConfig, RingMeshConfig, TorusMeshConfig};
 use crate::cylinder::{Cylinder};
 use crate::pipe_section::{PipeSection, StripSection, TwisterSection};
-use crate::mesh::{Color, Mesh, MeshCollection};
+use crate::mesh::{Color, Mesh, ColoredMeshCollection};
 use crate::polyline::Polyline;
 use crate::ring::{RingSection};
 
@@ -101,17 +101,8 @@ impl Polytwister {
         }).collect::<Vec<_>>()
     }
 
-    pub fn as_mesh(&self, w: f64, config: &Config) -> MeshCollection {
+    pub fn twister_sections(&self, w: f64, config: &Config) -> Vec<TwisterSection> {
         let pipe_sections = self.pipe_cross_sections(w);
-        let ring_sections = self.ring_cross_sections(w);
-        let orthogonal_pipe_sections = self.orthogonal_pipe_cross_sections(w);
-
-        let twister_colors = vec![
-            Color { red: 255, green: 0, blue: 238 },
-            Color { red: 25, green: 25, blue: 255 },
-        ];
-        let strip_color = Color { red: 255, green: 255, blue: 255 };
-        let ring_color = Color { red: 150, green: 150, blue: 150 };
 
         let mut twister_sections = vec![];
         for (pipe_index, pipe_section) in pipe_sections.iter().enumerate() {
@@ -127,16 +118,44 @@ impl Polytwister {
                 filling
             });
         }
+        twister_sections
+    }
 
+    pub fn twister_orbit_as_meshes(&self, w: f64, orbit: u8, config: &Config) -> Vec<Mesh> {
+        let twister_sections = self.twister_sections(w, config);
         let mut meshes = vec![];
-
         for (index, twister_section) in twister_sections.iter().enumerate() {
-            let orbit = self.polyhedron.faces[index].orbit;
-            let mesh = twister_section.as_mesh(&config.twisters);
-            meshes.push((mesh, twister_colors[orbit as usize]));
+            if self.polyhedron.faces[index].orbit == orbit {
+                let mesh = twister_section.as_mesh(&config.twisters);
+                meshes.push(mesh);
+            }
         }
+        meshes
+    }
 
-        for (edge_index, edge) in self.polyhedron.edges.iter().enumerate() {
+    pub fn twister_orbit_as_mesh(&self, w: f64, orbit: u8, config: &Config) -> Mesh {
+        Mesh::merge(self.twister_orbit_as_meshes(w, orbit, config))
+    }
+
+    pub fn rings_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh> {
+        let ring_sections = self.ring_cross_sections(w);
+        let mut meshes = vec![];
+        for ring_section in ring_sections {
+            let mesh = ring_section.as_mesh(&config.rings);
+            meshes.push(mesh);
+        }
+        meshes
+    }
+
+    pub fn rings_as_mesh(&self, w: f64, config: &Config) -> Mesh {
+        Mesh::merge(self.rings_as_meshes(w, config))
+    }
+
+    pub fn strips_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh> {
+        let pipe_sections = self.pipe_cross_sections(w);
+        let orthogonal_pipe_sections = self.orthogonal_pipe_cross_sections(w);
+
+        self.polyhedron.edges.iter().enumerate().map(|(edge_index, edge)| {
             let adjacent_face_indices = self.polyhedron.edge_adjacent_face_indices(edge_index);
             if adjacent_face_indices.len() != 2 {
                 panic!("Edge not adjacent to two faces");
@@ -147,15 +166,28 @@ impl Polytwister {
             let torus_section = StripSection::new(
                 &pipe_section_1, &pipe_section_2, &orthogonal_pipe_section, self.bloated
             );
-            let mut mesh = torus_section.as_mesh(&config.strips);
-            meshes.push((mesh, strip_color));
-        }
+            torus_section.as_mesh(&config.strips)
+        }).collect::<Vec<_>>()
+    }
 
-        for ring_section in ring_sections {
-            let mesh = ring_section.as_mesh(&config.rings);
-            meshes.push((mesh, ring_color));
-        }
+    pub fn strips_as_mesh(&self, w: f64, config: &Config) -> Mesh {
+        Mesh::merge(self.strips_as_meshes(w, config))
+    }
 
-        MeshCollection { meshes }
+    pub fn as_mesh(&self, w: f64, config: &Config) -> ColoredMeshCollection {
+        let strip_color = Color { red: 255, green: 255, blue: 255 };
+        let ring_color = Color { red: 150, green: 150, blue: 150 };
+        let twister_colors = vec![
+            Color { red: 255, green: 0, blue: 238 },
+            Color { red: 25, green: 25, blue: 255 },
+        ];
+        ColoredMeshCollection {
+            meshes: vec![
+                (self.rings_as_mesh(w, config), ring_color),
+                (self.strips_as_mesh(w, config), strip_color),
+                (self.twister_orbit_as_mesh(w, 0, config), twister_colors[0]),
+                (self.twister_orbit_as_mesh(w, 1, config), twister_colors[1]),
+            ]
+        }
     }
 }

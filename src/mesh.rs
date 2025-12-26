@@ -340,11 +340,11 @@ pub struct Color {
     pub blue: u8,
 }
 
-pub struct MeshCollection {
+pub struct ColoredMeshCollection {
     pub meshes: Vec<(Mesh, Color)>
 }
 
-impl MeshCollection {
+impl ColoredMeshCollection {
     pub fn write_ply<W: Write>(&self, buffer: &mut W) -> std::io::Result<()> {
         let num_vertices: usize = self.meshes.iter().map(|(mesh, _)| mesh.vertices.len()).sum();
         let num_faces: usize = self.meshes.iter().map(|(mesh, _)| mesh.faces.len()).sum();
