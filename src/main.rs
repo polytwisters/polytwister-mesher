@@ -17,7 +17,7 @@ mod ellipse_spacing;
 mod polyline;
 mod ring;
 use crate::cylinder::{Cylinder, CylinderMeshOptions};
-use crate::pipe_section::{PipeSection, TorusMeshOptions, TorusSection, TwisterSection};
+use crate::pipe_section::{PipeSection, TorusMeshOptions, StripSection, TwisterSection};
 use crate::mesh::{Color, Mesh, MeshCollection};
 use crate::polyline::Polyline;
 use crate::ring::{RingSection, RingMeshOptions};
@@ -152,11 +152,10 @@ impl Polytwister {
             let pipe_section_1 = pipe_sections[adjacent_face_indices[0]];
             let pipe_section_2 = pipe_sections[adjacent_face_indices[1]];
             let orthogonal_pipe_section = orthogonal_pipe_sections[adjacent_face_indices[0]];
-            let torus_section = TorusSection::new(
+            let torus_section = StripSection::new(
                 &pipe_section_1, &pipe_section_2, &orthogonal_pipe_section, false
             );
             let mut mesh = torus_section.as_mesh(&torus_options);
-            mesh = mesh.filter_vertices(|p| orthogonal_pipe_section.contains(p));
             meshes.push((mesh, strip_color));
         }
 

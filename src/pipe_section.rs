@@ -147,10 +147,10 @@ impl TwisterSection {
 
 
 #[derive(Clone, Copy, Debug)]
-pub struct TorusSection {
+pub struct StripSection {
     pub pipe_section_1: PipeSection,
     pub pipe_section_2: PipeSection,
-    pub cutting_pipe_section: PipeSection,
+    pub orthogonal_pipe_section: PipeSection,
     pub bloated: bool,
 }
 
@@ -161,17 +161,17 @@ pub struct TorusMeshOptions {
     pub radial_segments: usize,
 }
 
-impl TorusSection {
+impl StripSection {
     pub fn new(
         pipe_section_1: &PipeSection,
         pipe_section_2: &PipeSection,
-        cutting_pipe_section: &PipeSection,
+        orthogonal_pipe_section: &PipeSection,
         bloated: bool,
     ) -> Self {
         Self {
             pipe_section_1: pipe_section_1.clone(),
             pipe_section_2: pipe_section_2.clone(),
-            cutting_pipe_section: cutting_pipe_section.clone(),
+            orthogonal_pipe_section: orthogonal_pipe_section.clone(),
             bloated,
         }
     }
@@ -204,9 +204,11 @@ impl TorusSection {
                 )
             }
         };
-        
+
         let meshes = polylines.iter().map(|polyline|
-            polyline.as_mesh(options.thickness, options.radial_segments)
+            polyline.as_mesh_partial(|p| {
+                self.orthogonal_pipe_section.contains(&p)
+            }, options.thickness, options.radial_segments)
         ).collect::<_>();
         Mesh::merge(meshes)
     }

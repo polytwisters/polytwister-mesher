@@ -19,7 +19,12 @@ impl Polyline {
     /**
      * Produce a mesh visualizing this polyline as a thick tube.
      */
-    pub fn as_mesh(&self, thickness: f64, radial_segments: usize) -> Mesh {
+    pub fn as_mesh_partial<F: Fn(&Point3<f64>) -> bool>(
+        &self,
+        predicate: F,
+        thickness: f64,
+        radial_segments: usize,
+    ) -> Mesh {
         let num_points = self.points.len();
 
         // Doesn't make sense to do less than 3 points as cross products will be undefined.
@@ -42,7 +47,7 @@ impl Polyline {
                 let normal = x * cos + y * sin;
                 let mesh_point = point + normal * thickness;
                 let vertex = Vertex::new(mesh_point, normal);
-                vertices.push(vertex);
+                vertices.push(if predicate(point) { Some(vertex) } else { None });
             }
         }
 
@@ -71,7 +76,7 @@ impl Polyline {
             }
         }
 
-        Mesh { vertices, faces }
+        Mesh::from_partial(&vertices, &faces)
     }
 
     pub fn transform(self, transform: &Affine3<f64>) -> Polyline {
