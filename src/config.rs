@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 
 #[derive(Deserialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all="camelCase", default)]
 #[derive(Clone, Copy, Debug)]
 pub struct CylinderMeshConfig {
     pub half_length: f64,
@@ -21,7 +21,7 @@ impl Default for CylinderMeshConfig {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all="camelCase", default)]
 #[derive(Clone, Copy, Debug)]
 pub struct TorusMeshConfig {
     pub thickness: f64,
@@ -40,7 +40,7 @@ impl Default for TorusMeshConfig {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all="camelCase", default)]
 #[derive(Clone, Copy, Debug)]
 pub struct RingMeshConfig {
     pub radius: f64,
@@ -59,7 +59,7 @@ impl Default for RingMeshConfig {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all="camelCase", default)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Config {
     pub rings: RingMeshConfig,
