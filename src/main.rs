@@ -80,7 +80,7 @@ enum Commands {
     /// Export a single cross section of a polytwister as a mesh in the Stanford PLY format.
     /// 
     /// You can export the rings, strips, or individual twister orbits as meshes by providing the
-    /// relevant options. You can also use the `--all` option to generate a mesh that merges them
+    /// relevant options. You can also use the `--merged` option to generate a mesh that merges them
     /// all together with colors for visualization.
     Section {
         /// Input polytwister geometry file.
@@ -96,7 +96,7 @@ enum Commands {
         /// 
         /// This is just for quickly loading the file to inspect in a mesh viewer, so there are not
         /// a lot of customization options here.
-        #[arg(long = "all")]
+        #[arg(long = "merged")]
         merged_path: Option<PathBuf>,
 
         /// Output PLY mesh for ring cross sections.
@@ -161,7 +161,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 any_output = true;
             }
             if !any_output {
-                eprintln!("Warning: no output mesh files provided. Try using --all, --rings, --strips, --twisters-1, or --twisters-2.");
+                eprintln!("Warning: no output mesh files provided. Try using --merged, --rings, --strips, --twisters-1, or --twisters-2.");
             }
 
             Ok(())
