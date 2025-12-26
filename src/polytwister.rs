@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use na::{Point3, Vector4};
 use crate::config::{Config, CylinderMeshConfig, RingMeshConfig, TorusMeshConfig};
@@ -5,7 +7,7 @@ use crate::cylinder::{Cylinder};
 use crate::pipe_section::{PipeSection, StripSection, TwisterSection};
 use crate::mesh::{Color, Mesh, ColoredMesh};
 use crate::polyline::Polyline;
-use crate::ring::{RingSection};
+use crate::ring::{self, RingSection};
 
 #[derive(Deserialize)]
 #[serde(rename_all="camelCase")]
@@ -57,8 +59,8 @@ pub struct Polytwister {
 pub struct PolytwisterMeshes {
     pub ring_meshes: Vec<Mesh>,
     pub strip_meshes: Vec<Mesh>,
-    pub twister_meshes_orbit_0: Vec<Mesh>,
     pub twister_meshes_orbit_1: Vec<Mesh>,
+    pub twister_meshes_orbit_2: Vec<Mesh>,
 }
 
 impl PolyhedronFace {
@@ -185,8 +187,8 @@ impl Polytwister {
         PolytwisterMeshes {
             ring_meshes: self.rings_as_meshes(w, config),
             strip_meshes: self.strips_as_meshes(w, config),
-            twister_meshes_orbit_0: self.twister_orbit_as_meshes(w, 0, config),
-            twister_meshes_orbit_1:  self.twister_orbit_as_meshes(w, 1, config),
+            twister_meshes_orbit_1: self.twister_orbit_as_meshes(w, 0, config),
+            twister_meshes_orbit_2:  self.twister_orbit_as_meshes(w, 1, config),
         }
     }
 
@@ -196,25 +198,38 @@ impl Polytwister {
 }
 
 impl PolytwisterMeshes {
+    pub fn write_plys(&self, dir: &PathBuf, prefix: &str) -> std::io::Result<()> {
+        let ring_mesh = Mesh::merge(self.ring_meshes.clone());
+        let strip_mesh = Mesh::merge(self.strip_meshes.clone());
+        let twister_mesh_orbit_1 = Mesh::merge(self.twister_meshes_orbit_1.clone());
+        let twister_mesh_orbit_2 = Mesh::merge(self.twister_meshes_orbit_2.clone());
+
+        ring_mesh.write_ply_file(&dir.join(format!("{prefix}_rings.ply")));
+        strip_mesh.write_ply_file(&dir.join(format!("{prefix}_strips.ply")));
+        twister_mesh_orbit_1.write_ply_file(&dir.join(format!("{prefix}_twisters_1.ply")));
+        twister_mesh_orbit_2.write_ply_file(&dir.join(format!("{prefix}_twisters_2.ply")));
+
+        Ok(())
+    }
 
     /// Combine all ring, strip, and twister meshes into a single colored mesh.
-    pub fn as_colored_mesh(self) -> ColoredMesh {
+    pub fn as_colored_mesh(&self) -> ColoredMesh {
         let strip_color = Color { red: 255, green: 255, blue: 255 };
         let ring_color = Color { red: 150, green: 150, blue: 150 };
         let twister_colors = vec![
             Color { red: 255, green: 0, blue: 238 },
             Color { red: 25, green: 25, blue: 255 },
         ];
-        let ring_mesh = Mesh::merge(self.ring_meshes);
-        let strip_mesh = Mesh::merge(self.strip_meshes);
-        let twister_mesh_orbit_0 = Mesh::merge(self.twister_meshes_orbit_0);
-        let twister_mesh_orbit_1 = Mesh::merge(self.twister_meshes_orbit_1);
+        let ring_mesh = Mesh::merge(self.ring_meshes.clone());
+        let strip_mesh = Mesh::merge(self.strip_meshes.clone());
+        let twister_mesh_orbit_1 = Mesh::merge(self.twister_meshes_orbit_1.clone());
+        let twister_mesh_orbit_2 = Mesh::merge(self.twister_meshes_orbit_2.clone());
         ColoredMesh {
             meshes: vec![
                 (ring_mesh, ring_color),
                 (strip_mesh, strip_color),
-                (twister_mesh_orbit_0, twister_colors[0]),
-                (twister_mesh_orbit_1, twister_colors[1]),
+                (twister_mesh_orbit_1, twister_colors[0]),
+                (twister_mesh_orbit_2, twister_colors[1]),
             ]
         }
     }

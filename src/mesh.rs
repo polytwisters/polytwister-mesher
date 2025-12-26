@@ -3,6 +3,8 @@ use nalgebra as na;
 
 use core::{f64, num};
 use std::io::{Write};
+use std::path::PathBuf;
+use std::fs::{File};
 
 use na::{Point, Point3, Transform3, Vector3};
 use crate::pipe_section::{PipeSection};
@@ -27,6 +29,7 @@ pub struct Face {
     pub v3: usize,
 }
 
+#[derive(Clone)]
 /// A triangular mesh in 3D space.
 pub struct Mesh {
     pub vertices: Vec<Vertex>,
@@ -314,20 +317,26 @@ impl Mesh {
         write!(buffer, "property list uchar int vertex_index\n")?;
         write!(buffer, "end_header\n")?;
         for vertex in &self.vertices {
-            buffer.write(&(vertex.p.x as f32).to_le_bytes());
-            buffer.write(&(vertex.p.y as f32).to_le_bytes());
-            buffer.write(&(vertex.p.z as f32).to_le_bytes());
-            buffer.write(&(vertex.n.x as f32).to_le_bytes());
-            buffer.write(&(vertex.n.y as f32).to_le_bytes());
-            buffer.write(&(vertex.n.z as f32).to_le_bytes());
+            buffer.write(&(vertex.p.x as f32).to_le_bytes())?;
+            buffer.write(&(vertex.p.y as f32).to_le_bytes())?;
+            buffer.write(&(vertex.p.z as f32).to_le_bytes())?;
+            buffer.write(&(vertex.n.x as f32).to_le_bytes())?;
+            buffer.write(&(vertex.n.y as f32).to_le_bytes())?;
+            buffer.write(&(vertex.n.z as f32).to_le_bytes())?;
         }
         for face in &self.faces {
-            buffer.write(&[3u8]);
+            buffer.write(&[3u8])?;
             // PLY vertices start at 0.
-            buffer.write(&(face.v1 as u32).to_le_bytes());
-            buffer.write(&(face.v2 as u32).to_le_bytes());
-            buffer.write(&(face.v3 as u32).to_le_bytes());
+            buffer.write(&(face.v1 as u32).to_le_bytes())?;
+            buffer.write(&(face.v2 as u32).to_le_bytes())?;
+            buffer.write(&(face.v3 as u32).to_le_bytes())?;
         }
+        Ok(())
+    }
+
+    pub fn write_ply_file(&self, path: &PathBuf) -> std::io::Result<()> {
+        let mut buffer = File::create(path)?;
+        self.write_ply(&mut buffer)?;
         Ok(())
     }
 }
@@ -340,6 +349,7 @@ pub struct Color {
     pub blue: u8,
 }
 
+/// A collection of meshes with an RGB color assigned to each one.
 pub struct ColoredMesh {
     pub meshes: Vec<(Mesh, Color)>
 }
@@ -366,28 +376,34 @@ impl ColoredMesh {
         write!(buffer, "end_header\n")?;
         for (mesh, color) in &self.meshes {
             for vertex in &mesh.vertices {
-                buffer.write(&(vertex.p.x as f32).to_le_bytes());
-                buffer.write(&(vertex.p.y as f32).to_le_bytes());
-                buffer.write(&(vertex.p.z as f32).to_le_bytes());
-                buffer.write(&(vertex.n.x as f32).to_le_bytes());
-                buffer.write(&(vertex.n.y as f32).to_le_bytes());
-                buffer.write(&(vertex.n.z as f32).to_le_bytes());
-                buffer.write(&[color.red]);
-                buffer.write(&[color.green]);
-                buffer.write(&[color.blue]);
+                buffer.write(&(vertex.p.x as f32).to_le_bytes())?;
+                buffer.write(&(vertex.p.y as f32).to_le_bytes())?;
+                buffer.write(&(vertex.p.z as f32).to_le_bytes())?;
+                buffer.write(&(vertex.n.x as f32).to_le_bytes())?;
+                buffer.write(&(vertex.n.y as f32).to_le_bytes())?;
+                buffer.write(&(vertex.n.z as f32).to_le_bytes())?;
+                buffer.write(&[color.red])?;
+                buffer.write(&[color.green])?;
+                buffer.write(&[color.blue])?;
             }
         }
         let mut offset = 0;
         for (mesh, _) in &self.meshes {
             for face in &mesh.faces {
-                buffer.write(&[3u8]);
+                buffer.write(&[3u8])?;
                 // PLY vertices start at 0.
-                buffer.write(&((face.v1 + offset) as u32).to_le_bytes());
-                buffer.write(&((face.v2 + offset) as u32).to_le_bytes());
-                buffer.write(&((face.v3 + offset) as u32).to_le_bytes());
+                buffer.write(&((face.v1 + offset) as u32).to_le_bytes())?;
+                buffer.write(&((face.v2 + offset) as u32).to_le_bytes())?;
+                buffer.write(&((face.v3 + offset) as u32).to_le_bytes())?;
             }
             offset += mesh.vertices.len();
         }
+        Ok(())
+    }
+
+    pub fn write_ply_file(&self, path: &PathBuf) -> std::io::Result<()> {
+        let mut buffer = File::create(path)?;
+        self.write_ply(&mut buffer)?;
         Ok(())
     }
 }
