@@ -121,8 +121,8 @@ impl Polytwister {
             rings: 32, 
         };
         let twister_colors = vec![
-            Color { red: 255, green: 128, blue: 238 },
-            Color { red: 128, green: 128, blue: 255 },
+            Color { red: 255, green: 0, blue: 238 },
+            Color { red: 25, green: 25, blue: 255 },
         ];
         let strip_color = Color { red: 255, green: 255, blue: 255 };
         let ring_color = Color { red: 150, green: 150, blue: 150 };
