@@ -50,6 +50,15 @@ enum Commands {
 fn main() -> std::io::Result<()> {
     let args = Args::parse();
 
+    let config: Config = if let Some(config_path) = args.config {
+        let mut string = String::new();
+        let mut config_file = File::open(config_path)?;
+        config_file.read_to_string(&mut string)?;
+        serde_json::from_str(&string)?
+    } else {
+        Default::default()
+    };
+
     match &args.command {
         Commands::Section { input_json, w, output_ply } => {
             let config: Config = Default::default();
