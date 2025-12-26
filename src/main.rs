@@ -20,7 +20,7 @@ use crate::polytwister::Polytwister;
 
 fn main() -> std::io::Result<()> {
     let mut string = String::new();
-    let mut file = File::open("bloated_tetratwister.json")?;
+    let mut file = File::open("gaquaviditer.json")?;
     file.read_to_string(&mut string)?;
 
     let polytwister: Polytwister = serde_json::from_str(&string)?;

@@ -107,20 +107,23 @@ impl Polytwister {
 
         let cylinder_options = CylinderMeshOptions {
             half_length: 5.0,
-            linear_segments: 128 * 2,
-            radial_segments: 128 * 2,
+            linear_segments: 128 * 3,
+            radial_segments: 128 * 3,
         };
         let torus_options = TorusMeshOptions {
-            thickness: 0.05,
+            thickness: 0.01,
             radial_segments: 16,
             linear_segments: 128,
         };
         let ring_options = RingMeshOptions {
-            radius: 0.08,
+            radius: 0.02,
             segments: 16,
             rings: 32, 
         };
-        let twister_color = Color { red: 255, green: 0, blue: 0 };
+        let twister_colors = vec![
+            Color { red: 255, green: 128, blue: 238 },
+            Color { red: 128, green: 128, blue: 255 },
+        ];
         let strip_color = Color { red: 255, green: 255, blue: 255 };
         let ring_color = Color { red: 150, green: 150, blue: 150 };
 
@@ -141,9 +144,10 @@ impl Polytwister {
 
         let mut meshes = vec![];
 
-        for twister_section in twister_sections {
+        for (index, twister_section) in twister_sections.iter().enumerate() {
+            let orbit = self.polyhedron.faces[index].orbit;
             let mesh = twister_section.as_mesh(&cylinder_options);
-            meshes.push((mesh, twister_color));
+            meshes.push((mesh, twister_colors[orbit as usize]));
         }
 
         for (edge_index, edge) in self.polyhedron.edges.iter().enumerate() {
