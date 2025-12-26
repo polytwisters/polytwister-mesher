@@ -4,6 +4,7 @@ use crate::pipe_section::PipeSection;
 use crate::utils::{squared};
 use crate::ellipse_spacing::{warp_elliptic_angle, ellipse_circumference};
 use crate::mesh::{Face, Mesh, Vertex};
+use crate::config::{CylinderMeshConfig};
 
 /**
  * An infinite hollow cylinder in R^3 created as the invertible affine
@@ -19,13 +20,6 @@ pub struct Cylinder {
     pub m22: f64,
     pub m23: f64,
     pub m24: f64,
-}
-
-
-pub struct CylinderMeshConfig {
-    pub half_length: f64,
-    pub linear_segments: usize,
-    pub radial_segments: usize,
 }
 
 

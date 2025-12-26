@@ -1,6 +1,7 @@
 extern crate nalgebra as na;
 use na::{Point3, Vector3, Vector4};
-use crate::cylinder::{Cylinder, CylinderMeshConfig};
+use crate::cylinder::{Cylinder};
+use crate::config::{CylinderMeshConfig, TorusMeshConfig};
 use crate::mesh::{Mesh};
 use crate::pipe_section;
 use crate::polytwister::{FillingRegion, RegionMode};
@@ -164,13 +165,6 @@ pub struct StripSection {
     pub pipe_section_2: PipeSection,
     pub orthogonal_pipe_section: PipeSection,
     pub bloated: bool,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct TorusMeshConfig {
-    pub thickness: f64,
-    pub linear_segments: usize,
-    pub radial_segments: usize,
 }
 
 impl StripSection {

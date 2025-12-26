@@ -1,6 +1,7 @@
 use na::{Complex, ComplexField};
 use nalgebra::{Point2, Point3, Vector4};
 use crate::{mesh::Mesh, utils::angle};
+use crate::config::{RingMeshConfig};
 
 pub struct RingSection {
     pub a: f64,
@@ -8,12 +9,6 @@ pub struct RingSection {
     pub c: f64,
     pub d: f64,
     pub w: f64,
-}
-
-pub struct RingMeshConfig {
-    pub radius: f64,
-    pub segments: usize,
-    pub rings: usize,
 }
 
 impl RingSection {

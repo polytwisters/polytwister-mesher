@@ -18,11 +18,15 @@ mod ellipse_spacing;
 mod polyline;
 mod ring;
 mod polytwister;
+mod config;
+use crate::config::Config;
 use crate::polytwister::Polytwister;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
+    /// Path to a JSON config file
+    #[arg(short, long, value_name = "FILE")]
     config: Option<PathBuf>,
     
     #[command(subcommand)]
@@ -31,7 +35,7 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Commands {
-    CrossSection {
+    Section {
         /// Input JSON file describing the geometry of the polytwister.
         input_json: PathBuf,
 
@@ -47,13 +51,15 @@ fn main() -> std::io::Result<()> {
     let args = Args::parse();
 
     match &args.command {
-        Commands::CrossSection { input_json, w, output_ply } => {
+        Commands::Section { input_json, w, output_ply } => {
+            let config: Config = Default::default();
+
             let mut string = String::new();
             let mut file = File::open(input_json)?;
             file.read_to_string(&mut string)?;
 
             let polytwister: Polytwister = serde_json::from_str(&string)?;
-            let mesh = polytwister.as_mesh(*w);
+            let mesh = polytwister.as_mesh(*w, &config);
 
             let mut buffer = File::create(output_ply)?;
             mesh.write_ply(&mut buffer)?;
