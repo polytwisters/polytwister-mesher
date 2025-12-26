@@ -2,6 +2,8 @@ extern crate nalgebra as na;
 use na::{Point3, Vector3, Vector4};
 use crate::cylinder::{Cylinder, CylinderMeshOptions};
 use crate::mesh::{Mesh};
+use crate::pipe_section;
+use crate::polytwister::{FillingRegion, RegionMode};
 use crate::utils::{squared};
 
 /**
@@ -126,19 +128,29 @@ pub struct TwisterSection {
     pub pipe_section: PipeSection,
     pub orthogonal_pipe_section: PipeSection,
     pub neighboring_pipe_sections: Vec<PipeSection>,
+    pub filling: Vec<FillingRegion>,
 }
 
 impl TwisterSection {
+    pub fn contains(&self, point: &Point3<f64>) -> bool {
+        let inner = self.orthogonal_pipe_section.contains(point);
+        let outer = !inner;
+        let order: u32 = self.neighboring_pipe_sections.iter().map(|ps|
+            if ps.contains(point) { 1 } else { 0 }
+        ).sum();
+        self.filling.iter().any(|region| {
+            region.order == order
+            && match region.mode {
+                RegionMode::Inner => inner,
+                RegionMode::Outer => outer,
+                RegionMode::Both => true
+            }
+        })
+    }
+
     pub fn as_mesh(&self, options: &CylinderMeshOptions) -> Mesh {
         let mut mesh = self.pipe_section.as_mesh_partial(
-            |p| {
-                for pipe_section_2 in self.neighboring_pipe_sections.iter() {
-                    if !pipe_section_2.contains(p) {
-                        return false;
-                    }
-                }
-                true
-            },
+            |p| self.contains(p),
             &options
         );
         mesh
@@ -207,7 +219,11 @@ impl StripSection {
 
         let meshes = polylines.iter().map(|polyline|
             polyline.as_mesh_partial(|p| {
-                self.orthogonal_pipe_section.contains(&p)
+                if self.bloated {
+                    !self.orthogonal_pipe_section.contains(&p)
+                } else {
+                    self.orthogonal_pipe_section.contains(&p)
+                }
             }, options.thickness, options.radial_segments)
         ).collect::<_>();
         Mesh::merge(meshes)
