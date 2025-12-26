@@ -30,12 +30,6 @@ struct PolyhedronFace {
     orbit: u8,
 }
 
-impl PolyhedronFace {
-    fn adjacent_to_face(&self, other: &PolyhedronFace) -> bool {
-        self.edges.iter().any(|e| other.edges.contains(e))
-    }
-}
-
 #[derive(Deserialize)]
 #[serde(rename_all="camelCase")]
 struct PolyhedronEdge {
@@ -48,6 +42,36 @@ struct PolyhedronEdge {
 struct Polyhedron {
     faces: Vec<PolyhedronFace>,
     edges: Vec<PolyhedronEdge>,
+}
+
+#[derive(Deserialize)]
+enum RegionMode {
+    Inner,
+    Outer,
+    Both
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
+struct TwisterFilling {
+    order: u32,
+    mode: RegionMode
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
+struct Polytwister {
+    polyhedron: Polyhedron,
+    pipes: Vec<Vector4<f64>>,
+    orthogonal_pipes: Vec<Vector4<f64>>,
+    rings: Vec<Vector4<f64>>,
+    twister_fillings: Vec<Vec<TwisterFilling>>,
+}
+
+impl PolyhedronFace {
+    fn adjacent_to_face(&self, other: &PolyhedronFace) -> bool {
+        self.edges.iter().any(|e| other.edges.contains(e))
+    }
 }
 
 impl Polyhedron {
@@ -70,16 +94,6 @@ impl Polyhedron {
             }
         }).collect::<_>()
     }
-}
-
-
-#[derive(Deserialize)]
-#[serde(rename_all="camelCase")]
-struct Polytwister {
-    polyhedron: Polyhedron,
-    pipes: Vec<Vector4<f64>>,
-    orthogonal_pipes: Vec<Vector4<f64>>,
-    rings: Vec<Vector4<f64>>,
 }
 
 impl Polytwister {
