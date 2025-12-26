@@ -223,10 +223,12 @@ impl Cylinder {
         let da = r_inv * project_xy * r * self.transformation_from_base_cylinder().transform_vector(&x);
         let db = r_inv * project_xy * r * self.transformation_from_base_cylinder().transform_vector(&y);
         if db.norm_squared() > da.norm_squared() {
-            // Flip one sign so that the cross product is the right direction.
-            (-db, da)
+            (db, da)
         } else {
-            (da, db)
+            // Flip a sign so the triangles are oriented correctly. I determined this sign
+            // flip empirically, some twister cross sections will have backwards triangles if this
+            // isn't done somewhere.
+            (-da, db)
         }
     }
 
