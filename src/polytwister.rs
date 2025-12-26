@@ -3,7 +3,7 @@ use na::{Point3, Vector4};
 use crate::config::{Config, CylinderMeshConfig, RingMeshConfig, TorusMeshConfig};
 use crate::cylinder::{Cylinder};
 use crate::pipe_section::{PipeSection, StripSection, TwisterSection};
-use crate::mesh::{Color, Mesh, ColoredMeshCollection};
+use crate::mesh::{Color, Mesh, ColoredMesh};
 use crate::polyline::Polyline;
 use crate::ring::{RingSection};
 
@@ -52,6 +52,13 @@ pub struct Polytwister {
     rings: Vec<Vector4<f64>>,
     twister_fillings: Vec<Vec<FillingRegion>>,
     bloated: bool,
+}
+
+pub struct PolytwisterMeshes {
+    pub ring_meshes: Vec<Mesh>,
+    pub strip_meshes: Vec<Mesh>,
+    pub twister_meshes_orbit_0: Vec<Mesh>,
+    pub twister_meshes_orbit_1: Vec<Mesh>,
 }
 
 impl PolyhedronFace {
@@ -174,19 +181,40 @@ impl Polytwister {
         Mesh::merge(self.strips_as_meshes(w, config))
     }
 
-    pub fn as_mesh(&self, w: f64, config: &Config) -> ColoredMeshCollection {
+    pub fn as_meshes(&self, w: f64, config: &Config) -> PolytwisterMeshes {
+        PolytwisterMeshes {
+            ring_meshes: self.rings_as_meshes(w, config),
+            strip_meshes: self.strips_as_meshes(w, config),
+            twister_meshes_orbit_0: self.twister_orbit_as_meshes(w, 0, config),
+            twister_meshes_orbit_1:  self.twister_orbit_as_meshes(w, 1, config),
+        }
+    }
+
+    pub fn as_colored_mesh(&self, w: f64, config: &Config) -> ColoredMesh {
+        self.as_meshes(w, config).as_colored_mesh()
+    }
+}
+
+impl PolytwisterMeshes {
+
+    /// Combine all ring, strip, and twister meshes into a single colored mesh.
+    pub fn as_colored_mesh(self) -> ColoredMesh {
         let strip_color = Color { red: 255, green: 255, blue: 255 };
         let ring_color = Color { red: 150, green: 150, blue: 150 };
         let twister_colors = vec![
             Color { red: 255, green: 0, blue: 238 },
             Color { red: 25, green: 25, blue: 255 },
         ];
-        ColoredMeshCollection {
+        let ring_mesh = Mesh::merge(self.ring_meshes);
+        let strip_mesh = Mesh::merge(self.strip_meshes);
+        let twister_mesh_orbit_0 = Mesh::merge(self.twister_meshes_orbit_0);
+        let twister_mesh_orbit_1 = Mesh::merge(self.twister_meshes_orbit_1);
+        ColoredMesh {
             meshes: vec![
-                (self.rings_as_mesh(w, config), ring_color),
-                (self.strips_as_mesh(w, config), strip_color),
-                (self.twister_orbit_as_mesh(w, 0, config), twister_colors[0]),
-                (self.twister_orbit_as_mesh(w, 1, config), twister_colors[1]),
+                (ring_mesh, ring_color),
+                (strip_mesh, strip_color),
+                (twister_mesh_orbit_0, twister_colors[0]),
+                (twister_mesh_orbit_1, twister_colors[1]),
             ]
         }
     }

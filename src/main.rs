@@ -83,7 +83,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             file.read_to_string(&mut string)?;
             let polytwister: Polytwister = serde_json::from_str(&string)?;
 
-            let mesh = polytwister.as_mesh(*w, &config);
+            let mesh = polytwister.as_colored_mesh(*w, &config);
 
             let mut buffer = File::create(output_ply)?;
             mesh.write_ply(&mut buffer)?;
@@ -103,7 +103,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 eprintln!("frame {i}, w = {w}");
                 let file_name = format!("section_{i:04}.ply");
                 let output_ply = output_dir.join(file_name);
-                let mesh = polytwister.as_mesh(w, &config);
+                let mesh = polytwister.as_colored_mesh(w, &config);
                 let mut buffer = File::create(output_ply)?;
                 mesh.write_ply(&mut buffer)?;
             }
