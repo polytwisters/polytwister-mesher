@@ -22,6 +22,7 @@ mod polyline;
 mod ring;
 mod polytwister;
 mod config;
+mod marching_squares;
 use crate::config::Config;
 use crate::polytwister::Polytwister;
 use crate::utils::linspace;
