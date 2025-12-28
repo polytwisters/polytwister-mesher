@@ -62,7 +62,9 @@ struct MSVertices {
 fn bisection_search<F: Fn(f64) -> bool>(f: F) -> f64 {
     let mut x_min = 0.0; 
     let mut x_max = 1.0;
-    debug_assert!(f(x_min) != f(x_max));
+    if f(x_min) == f(x_max) {
+        return 1.0;
+    }
     // True if the function is ramping from false to true.
     let upward = f(x_max);
     let mut x;
@@ -107,6 +109,7 @@ impl Grid {
                 self.theta_index_to_theta(theta_index)
             ),
             MSVertex::HorizontalEdge(u_index, theta_index) => {
+                dbg!("horiz", u_index, theta_index);
                 let t = bisection_search(|t|
                     inside(
                         self.u_index_to_u(u_index),
@@ -231,12 +234,16 @@ impl MarchingSquares {
         );
 
         match shape {
+            // Empty
             (false, false, false, false) => vec![],
+    
+            // Full
             (true, true, true, true) => vec![
                 MSTriangle { v1: v.0, v2: v.5, v3: v.2 },
                 MSTriangle { v1: v.2, v2: v.5, v3: v.7 },
             ],
 
+            // Single corner
             (true, false, false, false) => vec![
                 MSTriangle { v1: v.0, v2: v.3, v3: v.1 },
             ],
@@ -250,6 +257,17 @@ impl MarchingSquares {
                 MSTriangle { v1: v.4, v2: v.6, v3: v.7 },
             ],
 
+            // Opposite, diagonal corners
+            (true, false, false, true) => vec![
+                MSTriangle { v1: v.0, v2: v.3, v3: v.1 },
+                MSTriangle { v1: v.4, v2: v.6, v3: v.7 },
+            ],
+            (false, true, true, false) => vec![
+                MSTriangle { v1: v.2, v2: v.1, v3: v.4 },
+                MSTriangle { v1: v.3, v2: v.5, v3: v.6 },
+            ],
+
+            // Two adjacent corners
             (true, true, false, false) => vec![
                 MSTriangle { v1: v.0, v2: v.3, v3: v.2 },
                 MSTriangle { v1: v.3, v2: v.4, v3: v.2 },
@@ -267,6 +285,7 @@ impl MarchingSquares {
                 MSTriangle { v1: v.6, v2: v.7, v3: v.2 },
             ],
 
+            // Three corners
             (true, true, true, false) => vec![
                 MSTriangle { v1: v.0, v2: v.4, v3: v.2 },
                 MSTriangle { v1: v.0, v2: v.6, v3: v.4 },
@@ -294,6 +313,7 @@ impl MarchingSquares {
 
 #[cfg(test)]
 mod test {
+    use core::f64;
     use std::path::PathBuf;
 
     use super::*;
@@ -308,7 +328,7 @@ mod test {
         };
         let ms = MarchingSquares::new(grid);
         let mesh = ms.mesh(&|u, theta|
-            u * 2.0 - (theta * 2.0).sin() <= 0.0
+            u > (theta * 2.0).cos()
         );
         mesh.write_ply_file(&PathBuf::from("out_ms.ply"));
     }
