@@ -32,28 +32,39 @@ struct Cell {
     pub shape: u8,
 }
 
-/// A *discrete* vertex location used during marching squares. MSVertex::Corner is a vertex located
+/// A unique square in the quad tree. The discrete coordinate of its upper left corner is
+/// (u_index, theta_index) / 2^depth and its side length is 2^depth.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct MSSquare {
+    pub u_index: usize,
+    pub theta_index: usize, 
+    pub depth: usize,
+    // The MSSquare does need to know the number of radial segments of the cylinder.
+    pub theta_cells: usize,
+}
+
+/// A discrete vertex location used during marching squares. MSPoint::Corner is a vertex located
 /// at the corner of a square. HorizontalEdge and VerticalEdge are located on edges of squares.
 /// In the latter two cases, the floating-point coordinates are not known yet, and are later derived
 /// using interpolation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-enum MSVertex {
-    Corner(usize, usize),
-    HorizontalEdge(usize, usize),
-    VerticalEdge(usize, usize),
+enum MSPoint {
+    Corner(MSSquare),
+    HorizontalEdge(MSSquare),
+    VerticalEdge(MSSquare),
 }
 
 struct MSTriangle {
-    pub v1: MSVertex,
-    pub v2: MSVertex,
-    pub v3: MSVertex,
+    pub v1: MSPoint,
+    pub v2: MSPoint,
+    pub v3: MSPoint,
 }
 
 /// A collection of marching squares vertices, maintaining their "MS coordinates" (discrete coords
 /// with information on whether vertices are on corners/edges) and Euclidean coordinates and
 /// indices in the final Mesh object to be produced.
 struct MSVertices {
-    ms_vertex_to_mesh_vertex: HashMap<MSVertex, usize>,
+    ms_vertex_to_mesh_vertex: HashMap<MSPoint, usize>,
     mesh_vertices: Vec<Vertex>,
 }
 
@@ -80,6 +91,54 @@ fn bisection_search<F: Fn(f64) -> bool>(f: F) -> f64 {
     (x_min + x_max) / 2.0
 }
 
+impl MSSquare {
+    fn new_root(u_index: usize, theta_index: usize, theta_cells: usize) -> Self {
+        MSSquare { u_index, theta_index, theta_cells, depth: 0 }
+    }
+
+    fn offset(&self, du: isize, dtheta: isize) -> Self {
+        MSSquare {
+            // Not sure the logic is right here when they become negative
+            u_index: (self.u_index as isize + du) as usize,
+            theta_index: (self.theta_index as isize + dtheta).rem_euclid(self.theta_cells as isize) as usize,
+            depth: self.depth,
+            theta_cells: self.theta_cells,
+        }
+    }
+
+    fn top_left(&self) -> MSPoint {
+        MSPoint::Corner(self.clone())
+    }
+
+    fn top_right(&self) -> MSPoint {
+        MSPoint::Corner(self.offset(0, 1))
+    }
+
+    fn bottom_left(&self) -> MSPoint {
+        MSPoint::Corner(self.offset(1, 0))
+    }
+
+    fn bottom_right(&self) -> MSPoint {
+        MSPoint::Corner(self.offset(1, 1))
+    }
+
+    fn top_middle(&self) -> MSPoint {
+        MSPoint::HorizontalEdge(self.clone())
+    }
+
+    fn left_middle(&self) -> MSPoint {
+        MSPoint::VerticalEdge(self.clone())
+    }
+
+    fn bottom_middle(&self) -> MSPoint {
+        MSPoint::HorizontalEdge(self.offset(1, 0))
+    }
+
+    fn right_middle(&self) -> MSPoint {
+        MSPoint::VerticalEdge(self.offset(0, 1))
+    }
+}
+
 impl Grid {
     pub fn u_spacing(&self) -> f64 {
         (self.u_max - self.u_min) / (self.u_cells + 1) as f64
@@ -102,13 +161,15 @@ impl Grid {
         (theta_index.rem_euclid(self.theta_cells) as f64 / self.theta_cells as f64) * f64::consts::TAU
     }
 
-    fn vertex_coordinate<F: Fn(f64, f64) -> bool>(&self, vertex: MSVertex, inside: &F) -> (f64, f64) {
+    fn vertex_coordinate<F: Fn(f64, f64) -> bool>(&self, vertex: MSPoint, inside: &F) -> (f64, f64) {
         match vertex {
-            MSVertex::Corner(u_index, theta_index) => (
-                self.u_index_to_u(u_index),
-                self.theta_index_to_theta(theta_index)
+            MSPoint::Corner(square) => (
+                self.u_index_to_u(square.u_index),
+                self.theta_index_to_theta(square.theta_index)
             ),
-            MSVertex::HorizontalEdge(u_index, theta_index) => {
+            MSPoint::HorizontalEdge(square) => {
+                let u_index = square.u_index;
+                let theta_index = square.theta_index;
                 let t = bisection_search(|t|
                     inside(
                         self.u_index_to_u(u_index),
@@ -120,7 +181,9 @@ impl Grid {
                     self.theta_index_to_theta(theta_index) + self.theta_spacing() * t
                 )
             },
-            MSVertex::VerticalEdge(u_index, theta_index) => {
+            MSPoint::VerticalEdge(square) => {
+                let u_index = square.u_index;
+                let theta_index = square.theta_index;
                 let t = bisection_search(|t|
                     inside(
                         self.u_index_to_u(u_index) + self.u_spacing() * t,
@@ -144,7 +207,7 @@ impl MSVertices {
         }
     }
 
-    fn realize_vertex<F: Fn(f64, f64) -> bool>(&mut self, ms_vertex: MSVertex, grid: &Grid, inside: &F) -> usize {
+    fn realize_vertex<F: Fn(f64, f64) -> bool>(&mut self, ms_vertex: MSPoint, grid: &Grid, inside: &F) -> usize {
         if let Some(&mesh_index) = self.ms_vertex_to_mesh_vertex.get(&ms_vertex) {
             return mesh_index;
         }
@@ -210,6 +273,8 @@ impl MarchingSquares {
         let theta1 = self.grid.theta_index_to_theta(theta_index);
         let theta2 = self.grid.theta_index_to_theta(theta_index + 1);
 
+        let square = MSSquare::new_root(u_index, theta_index, self.grid.theta_cells);
+
         let shape = (
             inside(u1, theta1),
             inside(u1, theta2),
@@ -222,14 +287,14 @@ impl MarchingSquares {
         //     3---x---4
         // iu2 5---6---7
         let v = (
-            MSVertex::Corner(iu1, it1),
-            MSVertex::HorizontalEdge(iu1, it1),
-            MSVertex::Corner(iu1, it2),
-            MSVertex::VerticalEdge(iu1, it1),
-            MSVertex::VerticalEdge(iu1, it2),
-            MSVertex::Corner(iu2, it1),
-            MSVertex::HorizontalEdge(iu2, it1),
-            MSVertex::Corner(iu2, it2),
+            square.top_left(),
+            square.top_middle(),
+            square.top_right(),
+            square.left_middle(),
+            square.right_middle(),
+            square.bottom_left(),
+            square.bottom_middle(),
+            square.bottom_right(),
         );
 
         match shape {
