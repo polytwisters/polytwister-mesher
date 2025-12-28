@@ -109,7 +109,6 @@ impl Grid {
                 self.theta_index_to_theta(theta_index)
             ),
             MSVertex::HorizontalEdge(u_index, theta_index) => {
-                dbg!("horiz", u_index, theta_index);
                 let t = bisection_search(|t|
                     inside(
                         self.u_index_to_u(u_index),
