@@ -96,11 +96,12 @@ impl MSSquare {
         MSSquare { u_index, theta_index, theta_cells, depth: 0 }
     }
 
-    fn offset(&self, du: isize, dtheta: isize) -> Self {
+    /// Offset this MSSquare to another MSSquare of the same depth. Only positive offsets are
+    /// allowed.
+    fn offset(&self, du: usize, dtheta: usize) -> Self {
         MSSquare {
-            // Not sure the logic is right here when they become negative
-            u_index: (self.u_index as isize + du) as usize,
-            theta_index: (self.theta_index as isize + dtheta).rem_euclid(self.theta_cells as isize) as usize,
+            u_index: (self.u_index + du) as usize,
+            theta_index: (self.theta_index + dtheta).rem_euclid(self.theta_cells),
             depth: self.depth,
             theta_cells: self.theta_cells,
         }
@@ -136,6 +137,107 @@ impl MSSquare {
 
     fn right_middle(&self) -> MSPoint {
         MSPoint::VerticalEdge(self.offset(0, 1))
+    }
+
+    /// Given the "inside-ness" of the four corners of this square (true if inside the shape and
+    /// false otherwise), triangulate the shape in this square.
+    fn triangulate(
+        &self,
+        top_left: bool, 
+        top_right: bool,
+        bottom_left: bool,
+        bottom_right: bool
+    ) -> Vec<MSTriangle> {
+        //    it1     it2
+        // iu1 0---1---2
+        //     3---x---4
+        // iu2 5---6---7
+        let v = (
+            self.top_left(),
+            self.top_middle(),
+            self.top_right(),
+            self.left_middle(),
+            self.right_middle(),
+            self.bottom_left(),
+            self.bottom_middle(),
+            self.bottom_right(),
+        );
+
+        match (top_left, top_right, bottom_left, bottom_right) {
+            // Empty
+            (false, false, false, false) => vec![],
+    
+            // Full
+            (true, true, true, true) => vec![
+                MSTriangle { v1: v.0, v2: v.5, v3: v.2 },
+                MSTriangle { v1: v.2, v2: v.5, v3: v.7 },
+            ],
+
+            // Single corner
+            (true, false, false, false) => vec![
+                MSTriangle { v1: v.0, v2: v.3, v3: v.1 },
+            ],
+            (false, true, false, false) => vec![
+                MSTriangle { v1: v.2, v2: v.1, v3: v.4 },
+            ],
+            (false, false, true, false) => vec![
+                MSTriangle { v1: v.3, v2: v.5, v3: v.6 },
+            ],
+            (false, false, false, true) => vec![
+                MSTriangle { v1: v.4, v2: v.6, v3: v.7 },
+            ],
+
+            // Opposite, diagonal corners
+            (true, false, false, true) => vec![
+                MSTriangle { v1: v.0, v2: v.3, v3: v.1 },
+                MSTriangle { v1: v.4, v2: v.6, v3: v.7 },
+            ],
+            (false, true, true, false) => vec![
+                MSTriangle { v1: v.2, v2: v.1, v3: v.4 },
+                MSTriangle { v1: v.3, v2: v.5, v3: v.6 },
+            ],
+
+            // Two adjacent corners
+            (true, true, false, false) => vec![
+                MSTriangle { v1: v.0, v2: v.3, v3: v.2 },
+                MSTriangle { v1: v.3, v2: v.4, v3: v.2 },
+            ],
+            (true, false, true, false) => vec![
+                MSTriangle { v1: v.0, v2: v.5, v3: v.1 },
+                MSTriangle { v1: v.1, v2: v.5, v3: v.6 },
+            ],
+            (false, false, true, true) => vec![
+                MSTriangle { v1: v.3, v2: v.5, v3: v.4 },
+                MSTriangle { v1: v.5, v2: v.7, v3: v.4 },
+            ],
+            (false, true, false, true) => vec![
+                MSTriangle { v1: v.1, v2: v.6, v3: v.2 },
+                MSTriangle { v1: v.6, v2: v.7, v3: v.2 },
+            ],
+
+            // Three corners
+            (true, true, true, false) => vec![
+                MSTriangle { v1: v.0, v2: v.4, v3: v.2 },
+                MSTriangle { v1: v.0, v2: v.6, v3: v.4 },
+                MSTriangle { v1: v.0, v2: v.5, v3: v.6 },
+            ],
+            (true, false, true, true) => vec![
+                MSTriangle { v1: v.0, v2: v.5, v3: v.1 },
+                MSTriangle { v1: v.1, v2: v.5, v3: v.4 },
+                MSTriangle { v1: v.4, v2: v.5, v3: v.7 },
+            ],
+            (true, true, false, true) => vec![
+                MSTriangle { v1: v.2, v2: v.0, v3: v.3 },
+                MSTriangle { v1: v.2, v2: v.3, v3: v.6 },
+                MSTriangle { v1: v.2, v2: v.6, v3: v.7 },
+            ],
+            (false, true, true, true) => vec![
+                MSTriangle { v1: v.7, v2: v.2, v3: v.1 },
+                MSTriangle { v1: v.7, v2: v.1, v3: v.3 },
+                MSTriangle { v1: v.7, v2: v.3, v3: v.5 },
+            ],
+            _ => panic!()
+        }
     }
 }
 
@@ -244,8 +346,7 @@ impl MarchingSquares {
         let mut faces = vec![];
         for u in 0..self.grid.u_cells {
             for t in 0..self.grid.theta_cells {
-                let triangle_iter = self.mesh_cell(u, t, inside);
-                for triangle in triangle_iter {
+                for triangle in self.mesh_cell(u, t, inside) {
                     let v1 = realization.realize_vertex(triangle.v1, &self.grid, &inside);
                     let v2 = realization.realize_vertex(triangle.v2, &self.grid, &inside);
                     let v3 = realization.realize_vertex(triangle.v3, &self.grid, &inside);
@@ -262,7 +363,7 @@ impl MarchingSquares {
         u_index: usize,
         theta_index: usize,
         inside: &F
-    ) -> impl Iterator<Item = MSTriangle> {
+    ) -> Vec<MSTriangle> {
         let iu1 = u_index;
         let iu2 = u_index + 1;
         let it1 = theta_index;
@@ -275,103 +376,12 @@ impl MarchingSquares {
 
         let square = MSSquare::new_root(u_index, theta_index, self.grid.theta_cells);
 
-        let shape = (
+        square.triangulate(
             inside(u1, theta1),
             inside(u1, theta2),
             inside(u2, theta1),
             inside(u2, theta2),
-        );
-
-        //    it1     it2
-        // iu1 0---1---2
-        //     3---x---4
-        // iu2 5---6---7
-        let v = (
-            square.top_left(),
-            square.top_middle(),
-            square.top_right(),
-            square.left_middle(),
-            square.right_middle(),
-            square.bottom_left(),
-            square.bottom_middle(),
-            square.bottom_right(),
-        );
-
-        match shape {
-            // Empty
-            (false, false, false, false) => vec![],
-    
-            // Full
-            (true, true, true, true) => vec![
-                MSTriangle { v1: v.0, v2: v.5, v3: v.2 },
-                MSTriangle { v1: v.2, v2: v.5, v3: v.7 },
-            ],
-
-            // Single corner
-            (true, false, false, false) => vec![
-                MSTriangle { v1: v.0, v2: v.3, v3: v.1 },
-            ],
-            (false, true, false, false) => vec![
-                MSTriangle { v1: v.2, v2: v.1, v3: v.4 },
-            ],
-            (false, false, true, false) => vec![
-                MSTriangle { v1: v.3, v2: v.5, v3: v.6 },
-            ],
-            (false, false, false, true) => vec![
-                MSTriangle { v1: v.4, v2: v.6, v3: v.7 },
-            ],
-
-            // Opposite, diagonal corners
-            (true, false, false, true) => vec![
-                MSTriangle { v1: v.0, v2: v.3, v3: v.1 },
-                MSTriangle { v1: v.4, v2: v.6, v3: v.7 },
-            ],
-            (false, true, true, false) => vec![
-                MSTriangle { v1: v.2, v2: v.1, v3: v.4 },
-                MSTriangle { v1: v.3, v2: v.5, v3: v.6 },
-            ],
-
-            // Two adjacent corners
-            (true, true, false, false) => vec![
-                MSTriangle { v1: v.0, v2: v.3, v3: v.2 },
-                MSTriangle { v1: v.3, v2: v.4, v3: v.2 },
-            ],
-            (true, false, true, false) => vec![
-                MSTriangle { v1: v.0, v2: v.5, v3: v.1 },
-                MSTriangle { v1: v.1, v2: v.5, v3: v.6 },
-            ],
-            (false, false, true, true) => vec![
-                MSTriangle { v1: v.3, v2: v.5, v3: v.4 },
-                MSTriangle { v1: v.5, v2: v.7, v3: v.4 },
-            ],
-            (false, true, false, true) => vec![
-                MSTriangle { v1: v.1, v2: v.6, v3: v.2 },
-                MSTriangle { v1: v.6, v2: v.7, v3: v.2 },
-            ],
-
-            // Three corners
-            (true, true, true, false) => vec![
-                MSTriangle { v1: v.0, v2: v.4, v3: v.2 },
-                MSTriangle { v1: v.0, v2: v.6, v3: v.4 },
-                MSTriangle { v1: v.0, v2: v.5, v3: v.6 },
-            ],
-            (true, false, true, true) => vec![
-                MSTriangle { v1: v.0, v2: v.5, v3: v.1 },
-                MSTriangle { v1: v.1, v2: v.5, v3: v.4 },
-                MSTriangle { v1: v.4, v2: v.5, v3: v.7 },
-            ],
-            (true, true, false, true) => vec![
-                MSTriangle { v1: v.2, v2: v.0, v3: v.3 },
-                MSTriangle { v1: v.2, v2: v.3, v3: v.6 },
-                MSTriangle { v1: v.2, v2: v.6, v3: v.7 },
-            ],
-            (false, true, true, true) => vec![
-                MSTriangle { v1: v.7, v2: v.2, v3: v.1 },
-                MSTriangle { v1: v.7, v2: v.1, v3: v.3 },
-                MSTriangle { v1: v.7, v2: v.3, v3: v.5 },
-            ],
-            _ => panic!()
-        } .into_iter()
+        )
     }
 }
 
@@ -392,7 +402,7 @@ mod test {
         };
         let ms = MarchingSquares::new(grid);
         let mesh = ms.mesh(&|u, theta|
-            u > (theta * 2.0).cos()
+            (theta - f64::consts::PI).hypot(u) < 1.0
         );
         mesh.write_ply_file(&PathBuf::from("out_ms.ply"));
     }
