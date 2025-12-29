@@ -436,7 +436,9 @@ impl MarchingSquares {
         let iu1 = square.u_index;
         let iu2 = square.u_index + 1;
         let it1 = square.theta_index;
-        let it2 = (square.theta_index + 1).rem_euclid(self.grid.theta_cells);
+        let it2 = (square.theta_index + 1).rem_euclid(
+            self.grid.theta_cells * Grid::inv_depth_scale(square.depth) as usize
+        );
 
         let u1 = self.grid.u_index_to_u(iu1, square.depth);
         let u2 = self.grid.u_index_to_u(iu2, square.depth);
