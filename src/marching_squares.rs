@@ -133,10 +133,10 @@ impl MSSquare {
     fn offset(&self, du: usize, dtheta: usize) -> Self {
         let theta_index = ((self.theta_index + dtheta) as u64).rem_euclid(
             self.theta_cells as u64 * Grid::inv_depth_scale(self.depth)
-        );
+        ) as usize;
         MSSquare {
-            u_index: (self.u_index + du) as usize,
-            theta_index: theta_index as usize,
+            u_index: self.u_index + du,
+            theta_index: theta_index,
             depth: self.depth,
             theta_cells: self.theta_cells,
         }
@@ -342,7 +342,8 @@ impl Grid {
 
     pub fn theta_index_to_theta_continuous(&self, theta_index: f64, depth: u8) -> f64 {
         let tmp = theta_index / self.theta_cells as f64;
-        (tmp * Grid::depth_scale(depth)).rem_euclid(1.0) * f64::consts::TAU
+        let result = tmp * Grid::depth_scale(depth) * f64::consts::TAU;
+        result
     }
 
     fn vertex_coordinate(&self, vertex: MSPoint, isosurface: &impl Isosurface) -> (f64, f64) {
@@ -355,13 +356,7 @@ impl Grid {
                 let u_index = square.u_index;
                 let theta_index = square.theta_index;
                 let depth = square.depth;
-                // TODO fix code dupe ewww
-                let t = bisection_search(|t|
-                    isosurface.contains_surface_coord(
-                        self.u_index_to_u(u_index, depth),
-                        self.theta_index_to_theta_continuous(theta_index as f64 + t, depth)
-                    ) 
-                );
+                let t = 0.5;
                 (
                     self.u_index_to_u(u_index, depth),
                     self.theta_index_to_theta_continuous(theta_index as f64 + t, depth)
@@ -371,12 +366,7 @@ impl Grid {
                 let u_index = square.u_index;
                 let theta_index = square.theta_index;
                 let depth = square.depth;
-                let t = bisection_search(|t|
-                    isosurface.contains_surface_coord(
-                        self.u_index_to_u_continuous(u_index as f64 + t, depth),
-                        self.theta_index_to_theta(theta_index, depth)
-                    ) 
-                );
+                let t = 0.5;
                 (
                     self.u_index_to_u_continuous(u_index as f64 + t, depth),
                     self.theta_index_to_theta(theta_index, depth)
@@ -517,25 +507,27 @@ mod test {
 
     impl Isosurface for ExampleIsosurface {
         fn surface_coords_to_point(&self, u: f64, theta: f64) -> Point3<f64> {
-            Point3::new(theta.cos(), theta.sin(), u)
+            Point3::new(u, theta, 0.0)
         }
         fn surface_coords_to_normal(&self, u: f64, theta: f64) -> Vector3<f64> {
-            Vector3::new(theta.cos(), theta.sin(), 0.0)
+            Vector3::z()
         }
         fn contains_point(&self, p: &Point3<f64>) -> bool {
-            p.z < p.x.sin()
+            (p - Point3::new(0.0, 3.0, 0.0)).norm() < 1.0
         }
     }
 
     #[test]
     fn test_ms() {
         let grid = Grid {
-            u_cells: 40,
-            theta_cells: 40,
+            u_cells: 8,
+            theta_cells: 8,
             u_min: -2.0,
             u_max: 2.0,
         };
-        let mesh = meshify(&ExampleIsosurface { }, &grid, 0);
+        let max_depth = 1;
+        let mesh = meshify(&ExampleIsosurface { }, &grid, max_depth);
         mesh.write_ply_file(&PathBuf::from("out_ms.ply"));
+        panic!();
     }
 }
