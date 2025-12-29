@@ -15,7 +15,8 @@ use crate::mesh::{self, Face, Mesh, Vertex};
 pub struct MarchingSquares {
     grid: Grid,
     /// Index u_index * theta_cells + theta_index.
-    cells: Vec<Cell>,
+    cells: Vec<Node>,
+    max_depth: u8,
 }
 
 /// Information about the grid, allowing conversion between discrete and continuous coordinates.
@@ -27,9 +28,16 @@ struct Grid {
     pub u_max: f64,
 }
 
-/// One cell in the Marching Squares algorithm.
-struct Cell {
-    pub shape: u8,
+struct Node {
+    square: MSSquare,
+    subtree: Subtree,
+}
+
+enum Subtree {
+    Parent(Box<(Node, Node, Node, Node)>),
+    Leaf((bool, bool, bool, bool)),
+    Full,
+    Empty
 }
 
 /// A unique square in the quad tree. The discrete coordinate of its upper left corner is
@@ -38,7 +46,7 @@ struct Cell {
 struct MSSquare {
     pub u_index: usize,
     pub theta_index: usize, 
-    pub depth: usize,
+    pub depth: u8,
     // The MSSquare does need to know the number of radial segments of the cylinder.
     pub theta_cells: usize,
 }
@@ -99,9 +107,12 @@ impl MSSquare {
     /// Offset this MSSquare to another MSSquare of the same depth. Only positive offsets are
     /// allowed.
     fn offset(&self, du: usize, dtheta: usize) -> Self {
+        let theta_index = ((self.theta_index + dtheta) as u64).rem_euclid(
+            self.theta_cells as u64 * Grid::inv_depth_scale(self.depth)
+        );
         MSSquare {
             u_index: (self.u_index + du) as usize,
-            theta_index: (self.theta_index + dtheta).rem_euclid(self.theta_cells),
+            theta_index: theta_index as usize,
             depth: self.depth,
             theta_cells: self.theta_cells,
         }
@@ -143,10 +154,7 @@ impl MSSquare {
     /// false otherwise), triangulate the shape in this square.
     fn triangulate(
         &self,
-        top_left: bool, 
-        top_right: bool,
-        bottom_left: bool,
-        bottom_right: bool
+        corners: (bool, bool, bool, bool)
     ) -> Vec<MSTriangle> {
         //    it1     it2
         // iu1 0---1---2
@@ -163,7 +171,7 @@ impl MSSquare {
             self.bottom_right(),
         );
 
-        match (top_left, top_right, bottom_left, bottom_right) {
+        match corners {
             // Empty
             (false, false, false, false) => vec![],
     
@@ -239,9 +247,50 @@ impl MSSquare {
             _ => panic!()
         }
     }
+
+    fn subdivide(&self) -> (MSSquare, MSSquare, MSSquare, MSSquare) {
+        let top_left = MSSquare {
+            u_index: self.u_index * 2,
+            theta_index: self.theta_index * 2,
+            depth: self.depth + 1,
+            theta_cells: self.theta_cells,
+        };
+        (
+            top_left,
+            top_left.offset(0, 1),
+            top_left.offset(1, 0),
+            top_left.offset(1, 1),
+        )
+    }
+}
+
+impl Node {
+    fn triangulate(&self) -> Vec<MSTriangle> {
+        match &self.subtree {
+            Subtree::Empty => vec![],
+            Subtree::Full => self.square.triangulate((true, true, true, true)),
+            Subtree::Leaf(corners) => self.square.triangulate(corners.clone()),
+            Subtree::Parent(children) => {
+                let mut result = vec![];
+                result.extend(children.0.triangulate());
+                result.extend(children.1.triangulate());
+                result.extend(children.2.triangulate());
+                result.extend(children.3.triangulate());
+                result
+            }
+        }
+    }
 }
 
 impl Grid {
+    fn inv_depth_scale(depth: u8) -> u64 {
+        1 << (depth as u64)
+    }
+
+    fn depth_scale(depth: u8) -> f64 {
+        1.0 / Grid::inv_depth_scale(depth) as f64
+    }
+
     pub fn u_spacing(&self) -> f64 {
         (self.u_max - self.u_min) / (self.u_cells + 1) as f64
     }
@@ -252,49 +301,61 @@ impl Grid {
 
     /// Convert the index of a U line to its U coordinate. The u_index is the index of the
     /// *boundary* of the cell, not the cell itself.
-    pub fn u_index_to_u(&self, u_index: usize) -> f64 {
-        let unipolar = u_index as f64 / (self.u_cells + 1) as f64;
-        self.u_min + unipolar * (self.u_max - self.u_min)
+    pub fn u_index_to_u(&self, u_index: usize, depth: u8) -> f64 {
+        self.u_index_to_u_continuous(u_index as f64, depth)
     }
 
     /// Convert the index of a theta line to its theta coordinate. The theta_index is the index of
     /// the *boundary* of the cell, not the cell itself.
-    pub fn theta_index_to_theta(&self, theta_index: usize) -> f64 {
-        (theta_index.rem_euclid(self.theta_cells) as f64 / self.theta_cells as f64) * f64::consts::TAU
+    pub fn theta_index_to_theta(&self, theta_index: usize, depth: u8) -> f64 {
+        self.theta_index_to_theta_continuous(theta_index as f64, depth)
+    }
+
+    pub fn u_index_to_u_continuous(&self, u_index: f64, depth: u8) -> f64 {
+        let unipolar = u_index / (self.u_cells + 1) as f64 * Grid::depth_scale(depth);
+        self.u_min + unipolar * (self.u_max - self.u_min)
+    }
+
+    pub fn theta_index_to_theta_continuous(&self, theta_index: f64, depth: u8) -> f64 {
+        let tmp = theta_index / self.theta_cells as f64;
+        (tmp * Grid::depth_scale(depth)).rem_euclid(1.0) * f64::consts::TAU
     }
 
     fn vertex_coordinate<F: Fn(f64, f64) -> bool>(&self, vertex: MSPoint, inside: &F) -> (f64, f64) {
         match vertex {
             MSPoint::Corner(square) => (
-                self.u_index_to_u(square.u_index),
-                self.theta_index_to_theta(square.theta_index)
+                self.u_index_to_u(square.u_index, square.depth),
+                self.theta_index_to_theta(square.theta_index, square.depth)
             ),
             MSPoint::HorizontalEdge(square) => {
                 let u_index = square.u_index;
                 let theta_index = square.theta_index;
+                let depth = square.depth;
+                // TODO fix code dupe ewww
                 let t = bisection_search(|t|
                     inside(
-                        self.u_index_to_u(u_index),
-                        self.theta_index_to_theta(theta_index) + self.theta_spacing() * t
+                        self.u_index_to_u(u_index, depth),
+                        self.theta_index_to_theta_continuous(theta_index as f64 + t, depth)
                     ) 
                 );
                 (
-                    self.u_index_to_u(u_index),
-                    self.theta_index_to_theta(theta_index) + self.theta_spacing() * t
+                    self.u_index_to_u(u_index, depth),
+                    self.theta_index_to_theta_continuous(theta_index as f64 + t, depth)
                 )
             },
             MSPoint::VerticalEdge(square) => {
                 let u_index = square.u_index;
                 let theta_index = square.theta_index;
+                let depth = square.depth;
                 let t = bisection_search(|t|
                     inside(
-                        self.u_index_to_u(u_index) + self.u_spacing() * t,
-                        self.theta_index_to_theta(theta_index)
+                        self.u_index_to_u_continuous(u_index as f64 + t, depth),
+                        self.theta_index_to_theta(theta_index, depth)
                     ) 
                 );
                 (
-                    self.u_index_to_u(u_index) + self.u_spacing() * t,
-                    self.theta_index_to_theta(theta_index)
+                    self.u_index_to_u_continuous(u_index as f64 + t, depth),
+                    self.theta_index_to_theta(theta_index, depth)
                 )
             },
         }
@@ -317,11 +378,11 @@ impl MSVertices {
         let mesh_index = self.mesh_vertices.len();
         self.mesh_vertices.push(Vertex {
             p: Point3::new(
-                -coordinate_2d.1.cos(),
-                coordinate_2d.1.sin(),
                 coordinate_2d.0,
+                coordinate_2d.1,
+                0.0,
             ),
-            n: Vector3::z()
+            n: Vector3::z(),
         });
         self.ms_vertex_to_mesh_vertex.insert(ms_vertex, mesh_index);
         mesh_index
@@ -333,55 +394,83 @@ impl MSVertices {
 }
 
 impl MarchingSquares {
-    fn new(grid: Grid) -> Self {
+    fn new(grid: Grid, max_depth: u8) -> Self {
         MarchingSquares {
-            grid, cells: vec![]
+            grid,
+            cells: Vec::with_capacity(grid.theta_cells * grid.u_cells),
+            max_depth,
         }
     }
 
-    /// Sample the scalar field and produce a Mesh.
-    fn mesh<F: Fn(f64, f64) -> bool>(&self, inside: &F) -> Mesh {
-        let mut vertex_index = 0usize;
-        let mut realization = MSVertices::new();
-        let mut faces = vec![];
-        for u in 0..self.grid.u_cells {
-            for t in 0..self.grid.theta_cells {
-                for triangle in self.mesh_cell(u, t, inside) {
-                    let v1 = realization.realize_vertex(triangle.v1, &self.grid, &inside);
-                    let v2 = realization.realize_vertex(triangle.v2, &self.grid, &inside);
-                    let v3 = realization.realize_vertex(triangle.v3, &self.grid, &inside);
-                    faces.push(Face { v1, v2, v3 });
-                }
-            }
-        }
-        Mesh { faces, vertices: realization.into_vertices() }
-    }
-
-    /// Sample the shape field at four points and return an appropriate MSTriangle.
-    fn mesh_cell<F: Fn(f64, f64) -> bool>(
+    fn make_node<F: Fn(f64, f64) -> bool>(
         &self, 
-        u_index: usize,
-        theta_index: usize,
+        square: MSSquare,
         inside: &F
-    ) -> Vec<MSTriangle> {
-        let iu1 = u_index;
-        let iu2 = u_index + 1;
-        let it1 = theta_index;
-        let it2 = (theta_index + 1).rem_euclid(self.grid.theta_cells);
+    ) -> Node {
+        // TODO: Move this logic to MSSquare.
+        let iu1 = square.u_index;
+        let iu2 = square.u_index + 1;
+        let it1 = square.theta_index;
+        let it2 = (square.theta_index + 1).rem_euclid(self.grid.theta_cells);
 
-        let u1 = self.grid.u_index_to_u(u_index);
-        let u2 = self.grid.u_index_to_u(u_index + 1);
-        let theta1 = self.grid.theta_index_to_theta(theta_index);
-        let theta2 = self.grid.theta_index_to_theta(theta_index + 1);
+        let u1 = self.grid.u_index_to_u(iu1, square.depth);
+        let u2 = self.grid.u_index_to_u(iu2, square.depth);
+        let theta1 = self.grid.theta_index_to_theta(it1, square.depth);
+        let theta2 = self.grid.theta_index_to_theta(it2, square.depth);
 
-        let square = MSSquare::new_root(u_index, theta_index, self.grid.theta_cells);
-
-        square.triangulate(
+        let corners = (
             inside(u1, theta1),
             inside(u1, theta2),
             inside(u2, theta1),
             inside(u2, theta2),
-        )
+        );
+
+        let subtree = match corners {
+            (true, true, true, true) => Subtree::Full,
+            (false, false, false, false) => Subtree::Empty,
+            _ => {
+                if square.depth >= self.max_depth {
+                    Subtree::Leaf(corners)
+                } else {
+                    let subsquares = square.subdivide();
+                    Subtree::Parent(
+                        Box::new((
+                            self.make_node(subsquares.0, inside),
+                            self.make_node(subsquares.1, inside),
+                            self.make_node(subsquares.2, inside),
+                            self.make_node(subsquares.3, inside),
+                        ))
+                    )
+                }
+            }
+        };
+
+        Node {
+            square,
+            subtree
+        }
+    }
+
+    /// Sample the scalar field and produce a Mesh.
+    fn mesh<F: Fn(f64, f64) -> bool>(&mut self, inside: &F) -> Mesh {
+        for u_index in 0..self.grid.u_cells {
+            for t_index in 0..self.grid.theta_cells {
+                let square = MSSquare::new_root(u_index, t_index, self.grid.theta_cells);
+                self.cells.push(self.make_node(square, inside));
+            }
+        }
+
+        let mut realization = MSVertices::new();
+        let mut faces = vec![];
+        for cell in self.cells.iter() {
+            for triangle in cell.triangulate() {
+                let v1 = realization.realize_vertex(triangle.v1, &self.grid, &inside);
+                let v2 = realization.realize_vertex(triangle.v2, &self.grid, &inside);
+                let v3 = realization.realize_vertex(triangle.v3, &self.grid, &inside);
+                faces.push(Face { v1, v2, v3 });
+            }
+        }
+        Mesh { faces, vertices: realization.into_vertices() }
     }
 }
 
@@ -400,7 +489,8 @@ mod test {
             u_min: -2.0,
             u_max: 2.0,
         };
-        let ms = MarchingSquares::new(grid);
+        let max_depth = 0;
+        let mut ms = MarchingSquares::new(grid, 0);
         let mesh = ms.mesh(&|u, theta|
             (theta - f64::consts::PI).hypot(u) < 1.0
         );
