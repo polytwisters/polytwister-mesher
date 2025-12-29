@@ -1,3 +1,11 @@
+//! A Marching Squares isosurface mesher specifically for meshing the intersection of a hollow
+//! cylinder with an arbitrary set given by an implicit function in R^3. In particular, given the
+//! parametric function U : R x S^1 -> R^3 and an indicator function C : R^3 -> {0, 1}, create a
+//! triangle mesh that approximates the set of all 3D points x = U(u, theta) such that C(x) = 1.
+//! 
+//! Although the mesh is in 3D, we do not need the full Marching Cubes algorithm as we are actually
+//! meshing an surface that is a subset of an existing 2D surface with an explicit parametrization.
+
 use core::f64;
 use std::collections::HashMap;
 use na::{Point3, Vector3};
@@ -6,7 +14,7 @@ use crate::mesh::{self, Face, Mesh, Vertex};
 
 /// An isosurface comprises two functions: an explicit parametrization that converts surface
 /// coordinates (u, theta) into a Vertex with a 3D location and normal, and an indicator function
-/// that returns whether the point (u, theta) in surface coordinates.
+/// that returns whether the point (u, theta) in surface coordinates is inside the shape.
 pub trait Isosurface {
     fn vertex(&self, u: f64, theta: f64) -> Vertex;
     fn contains(&self, u: f64, theta: f64) -> bool;
