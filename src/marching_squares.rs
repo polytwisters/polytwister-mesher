@@ -16,8 +16,13 @@ use crate::mesh::{self, Face, Mesh, Vertex};
 /// coordinates (u, theta) into a Vertex with a 3D location and normal, and an indicator function
 /// that returns whether the point (u, theta) in surface coordinates is inside the shape.
 pub trait Isosurface {
-    fn vertex(&self, u: f64, theta: f64) -> Vertex;
-    fn contains(&self, u: f64, theta: f64) -> bool;
+    fn surface_coords_to_point(&self, u: f64, theta: f64) -> Point3<f64>;
+    fn surface_coords_to_normal(&self, u: f64, theta: f64) -> Vector3<f64>;
+    fn contains_point(&self, p: &Point3<f64>) -> bool;
+
+    fn contains_surface_coord(&self, u: f64, theta: f64) -> bool {
+        self.contains_point(&self.surface_coords_to_point(u, theta))
+    }
 }
 
 /// Marching Squares mesher for *cylindrical* 2D space with coordinates (u, theta). The grid cells
@@ -32,7 +37,7 @@ pub struct MarchingSquares {
 
 /// Information about the grid, allowing conversion between discrete and continuous coordinates.
 #[derive(Copy, Clone, Debug)]
-struct Grid {
+pub struct Grid {
     pub u_cells: usize,
     pub theta_cells: usize,
     pub u_min: f64,
@@ -352,7 +357,7 @@ impl Grid {
                 let depth = square.depth;
                 // TODO fix code dupe ewww
                 let t = bisection_search(|t|
-                    isosurface.contains(
+                    isosurface.contains_surface_coord(
                         self.u_index_to_u(u_index, depth),
                         self.theta_index_to_theta_continuous(theta_index as f64 + t, depth)
                     ) 
@@ -367,7 +372,7 @@ impl Grid {
                 let theta_index = square.theta_index;
                 let depth = square.depth;
                 let t = bisection_search(|t|
-                    isosurface.contains(
+                    isosurface.contains_surface_coord(
                         self.u_index_to_u_continuous(u_index as f64 + t, depth),
                         self.theta_index_to_theta(theta_index, depth)
                     ) 
@@ -400,9 +405,10 @@ impl MSVertices {
         }
         let coordinate_2d = grid.vertex_coordinate(ms_vertex, isosurface);
         let mesh_index = self.mesh_vertices.len();
-        self.mesh_vertices.push(
-            isosurface.vertex(coordinate_2d.0, coordinate_2d.1)
-        );
+        self.mesh_vertices.push(Vertex {
+            p: isosurface.surface_coords_to_point(coordinate_2d.0, coordinate_2d.1),
+            n: isosurface.surface_coords_to_normal(coordinate_2d.0, coordinate_2d.1),
+        });
         self.ms_vertex_to_mesh_vertex.insert(ms_vertex, mesh_index);
         mesh_index
     }
@@ -438,10 +444,10 @@ impl MarchingSquares {
         let theta2 = self.grid.theta_index_to_theta(it2, square.depth);
 
         let corners = (
-            isosurface.contains(u1, theta1),
-            isosurface.contains(u1, theta2),
-            isosurface.contains(u2, theta1),
-            isosurface.contains(u2, theta2),
+            isosurface.contains_surface_coord(u1, theta1),
+            isosurface.contains_surface_coord(u1, theta2),
+            isosurface.contains_surface_coord(u2, theta1),
+            isosurface.contains_surface_coord(u2, theta2),
         );
 
         let subtree = match corners {
@@ -493,6 +499,11 @@ impl MarchingSquares {
     }
 }
 
+pub fn meshify(isosurface: &impl Isosurface, grid: &Grid, max_depth: u8) -> Mesh {
+    let mut ms = MarchingSquares::new(*grid, max_depth);
+    ms.mesh(isosurface)
+}
+
 #[cfg(test)]
 mod test {
     use core::f64;
@@ -505,14 +516,14 @@ mod test {
     struct ExampleIsosurface;
 
     impl Isosurface for ExampleIsosurface {
-        fn vertex(&self, u: f64, theta: f64) -> Vertex {
-            Vertex {
-                p: Point3::new(u, theta, 0.0),
-                n: Vector3::z(),
-            }
+        fn surface_coords_to_point(&self, u: f64, theta: f64) -> Point3<f64> {
+            Point3::new(theta.cos(), theta.sin(), u)
         }
-        fn contains(&self, u: f64, theta: f64) -> bool {
-            (theta - f64::consts::PI).hypot(u) < 1.0
+        fn surface_coords_to_normal(&self, u: f64, theta: f64) -> Vector3<f64> {
+            Vector3::new(theta.cos(), theta.sin(), 0.0)
+        }
+        fn contains_point(&self, p: &Point3<f64>) -> bool {
+            p.z < p.x.sin()
         }
     }
 
@@ -524,9 +535,7 @@ mod test {
             u_min: -2.0,
             u_max: 2.0,
         };
-        let max_depth = 0;
-        let mut ms = MarchingSquares::new(grid, 0);
-        let mesh = ms.mesh(&ExampleIsosurface { });
+        let mesh = meshify(&ExampleIsosurface { }, &grid, 0);
         mesh.write_ply_file(&PathBuf::from("out_ms.ply"));
     }
 }

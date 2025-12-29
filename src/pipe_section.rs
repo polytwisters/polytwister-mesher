@@ -6,6 +6,7 @@ use crate::mesh::{Mesh};
 use crate::pipe_section;
 use crate::polytwister::{FillingRegion, RegionMode};
 use crate::utils::{squared};
+use crate::marching_squares::{Isosurface, Grid, meshify};
 
 /**
  * A 3D cross section of a pipe. (PipeCrossSection felt too long.)
@@ -132,8 +133,8 @@ pub struct TwisterSection {
     pub filling: Vec<FillingRegion>,
 }
 
-impl TwisterSection {
-    pub fn contains(&self, point: &Point3<f64>) -> bool {
+impl Isosurface for TwisterSection {
+    fn contains_point(&self, point: &Point3<f64>) -> bool {
         let inner = self.orthogonal_pipe_section.contains(point);
         let outer = !inner;
         let order: u32 = self.neighboring_pipe_sections.iter().map(|ps|
@@ -149,12 +150,38 @@ impl TwisterSection {
         })
     }
 
+    fn surface_coords_to_point(&self, u: f64, theta: f64) -> Point3<f64> {
+        if self.pipe_section.is_plane() {
+            // TODO
+            Point3::origin()
+        } else {
+            self.pipe_section.as_cylinder().surface_coords_to_cartesian(u, theta)
+        }
+    }
+
+    fn surface_coords_to_normal(&self, u: f64, theta: f64) -> Vector3<f64> {
+        if self.pipe_section.is_plane() {
+            // TODO
+            Vector3::zeros()
+        } else {
+            self.pipe_section.as_cylinder().scalar_field_gradient(
+                &self.pipe_section.as_cylinder().surface_coords_to_cartesian(u, theta)
+            )
+        }
+    }
+}
+
+impl TwisterSection {
+
     pub fn as_mesh(&self, config: &CylinderMeshConfig) -> Mesh {
-        let mut mesh = self.pipe_section.as_mesh_partial(
-            |p| self.contains(p),
-            &config
-        );
-        mesh
+        let grid = Grid {
+            u_cells: 40,
+            theta_cells: 40,
+            u_min: -5.0,
+            u_max: 5.0,
+        };
+        let max_depth = 0;
+        meshify(self, &grid, max_depth)
     }
 }
 

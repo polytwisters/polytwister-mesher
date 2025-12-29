@@ -217,12 +217,9 @@ impl Cylinder {
         let da = r_inv * project_xy * r * self.transformation_from_base_cylinder().transform_vector(&x);
         let db = r_inv * project_xy * r * self.transformation_from_base_cylinder().transform_vector(&y);
         if db.norm_squared() > da.norm_squared() {
-            (db, da)
+            (-db, da)
         } else {
-            // Flip a sign so the triangles are oriented correctly. I determined this sign
-            // flip empirically, some twister cross sections will have backwards triangles if this
-            // isn't done somewhere.
-            (-da, db)
+            (da, db)
         }
     }
 
@@ -241,7 +238,7 @@ impl Cylinder {
      * the range of u is the entire real line. Changing theta moves the point in an elliptical loop
      * orthogonal to the cylinder's axis, ranging from 0 to 2pi.
      */
-    fn surface_coords_to_cartesian(&self, u: f64, theta: f64) -> Point3<f64> {
+    pub fn surface_coords_to_cartesian(&self, u: f64, theta: f64) -> Point3<f64> {
         let (start, direction) = self.axis_line();
         let (da, db) = self.ellipse_vertex_displacements();
         let cx = theta.cos();
