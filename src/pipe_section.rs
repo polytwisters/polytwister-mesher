@@ -175,12 +175,12 @@ impl TwisterSection {
 
     pub fn as_mesh(&self, config: &CylinderMeshConfig) -> Mesh {
         let grid = Grid {
-            u_cells: 40,
-            theta_cells: 40,
+            u_cells: 60,
+            theta_cells: 60,
             u_min: -5.0,
             u_max: 5.0,
         };
-        let max_depth = 0;
+        let max_depth = 2;
         meshify(self, &grid, max_depth)
     }
 }

@@ -519,25 +519,26 @@ mod test {
 
     impl Isosurface for ExampleIsosurface {
         fn surface_coords_to_point(&self, u: f64, theta: f64) -> Point3<f64> {
-            Point3::new(theta.cos(), theta.sin(), u)
+            Point3::new(-theta.cos(), theta.sin(), u)
         }
         fn surface_coords_to_normal(&self, u: f64, theta: f64) -> Vector3<f64> {
-            Vector3::new(theta.cos(), theta.sin(), 0.0)
+            Vector3::new(-theta.cos(), theta.sin(), 0.0)
         }
         fn contains_point(&self, p: &Point3<f64>) -> bool {
-            p.z < p.x.sin()
+            p.z < (p.x * 8.0).sin() * 0.2
         }
     }
 
     #[test]
     fn test_ms() {
         let grid = Grid {
-            u_cells: 40,
-            theta_cells: 40,
+            u_cells: 30,
+            theta_cells: 30,
             u_min: -2.0,
             u_max: 2.0,
         };
-        let mesh = meshify(&ExampleIsosurface { }, &grid, 0);
+        let max_depth = 2;
+        let mesh = meshify(&ExampleIsosurface { }, &grid, 2);
         mesh.write_ply_file(&PathBuf::from("out_ms.ply"));
     }
 }
