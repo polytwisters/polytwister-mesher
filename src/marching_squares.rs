@@ -28,15 +28,23 @@ struct Grid {
     pub u_max: f64,
 }
 
+/// A node in the quadtree. It knows its gometric location as an MSSquare.
 struct Node {
     square: MSSquare,
     subtree: Subtree,
 }
 
+/// The subtree associated with a node.
 enum Subtree {
+    /// The node has four children.
     Parent(Box<(Node, Node, Node, Node)>),
+    /// A square at the lowest level of the quadtree which contains the boundary of the shape. The
+    /// four bools indicate which of the top left, top right, bottom left, and bottom right corners
+    /// are in the shape.
     Leaf((bool, bool, bool, bool)),
+    /// A square entirely inside the shape.
     Full,
+    /// A square entirely outside the shape.
     Empty
 }
 
