@@ -1,13 +1,16 @@
-//! An implementation of Marching Squares algorithm on a cylinder, converting a 2D boolean function
-//! R x S^1 -> {0, 1} to a triangular mesh. The function is referred to as "inside," taking
-//! arguments u (linear) and theta (circular, from 0 to 2pi) and returning a bool which is true if
-//! the point (u, theta) is inside the shape.
-
 use core::f64;
 use std::collections::HashMap;
 use na::{Point3, Vector3};
 
 use crate::mesh::{self, Face, Mesh, Vertex};
+
+/// An isosurface comprises two functions: an explicit parametrization that converts surface
+/// coordinates (u, theta) into a Vertex with a 3D location and normal, and an indicator function
+/// that returns whether the point (u, theta) in surface coordinates.
+pub trait Isosurface {
+    fn vertex(&self, u: f64, theta: f64) -> Vertex;
+    fn contains(&self, u: f64, theta: f64) -> bool;
+}
 
 /// Marching Squares mesher for *cylindrical* 2D space with coordinates (u, theta). The grid cells
 /// are stored in a 1D vector in a u-major order. For visualization we flatten out the grid and
@@ -329,7 +332,7 @@ impl Grid {
         (tmp * Grid::depth_scale(depth)).rem_euclid(1.0) * f64::consts::TAU
     }
 
-    fn vertex_coordinate<F: Fn(f64, f64) -> bool>(&self, vertex: MSPoint, inside: &F) -> (f64, f64) {
+    fn vertex_coordinate(&self, vertex: MSPoint, isosurface: &impl Isosurface) -> (f64, f64) {
         match vertex {
             MSPoint::Corner(square) => (
                 self.u_index_to_u(square.u_index, square.depth),
@@ -341,7 +344,7 @@ impl Grid {
                 let depth = square.depth;
                 // TODO fix code dupe ewww
                 let t = bisection_search(|t|
-                    inside(
+                    isosurface.contains(
                         self.u_index_to_u(u_index, depth),
                         self.theta_index_to_theta_continuous(theta_index as f64 + t, depth)
                     ) 
@@ -356,7 +359,7 @@ impl Grid {
                 let theta_index = square.theta_index;
                 let depth = square.depth;
                 let t = bisection_search(|t|
-                    inside(
+                    isosurface.contains(
                         self.u_index_to_u_continuous(u_index as f64 + t, depth),
                         self.theta_index_to_theta(theta_index, depth)
                     ) 
@@ -378,20 +381,20 @@ impl MSVertices {
         }
     }
 
-    fn realize_vertex<F: Fn(f64, f64) -> bool>(&mut self, ms_vertex: MSPoint, grid: &Grid, inside: &F) -> usize {
+    fn realize_vertex(
+        &mut self,
+        ms_vertex: MSPoint,
+        grid: &Grid,
+        isosurface: &impl Isosurface
+    ) -> usize {
         if let Some(&mesh_index) = self.ms_vertex_to_mesh_vertex.get(&ms_vertex) {
             return mesh_index;
         }
-        let coordinate_2d = grid.vertex_coordinate(ms_vertex, inside);
+        let coordinate_2d = grid.vertex_coordinate(ms_vertex, isosurface);
         let mesh_index = self.mesh_vertices.len();
-        self.mesh_vertices.push(Vertex {
-            p: Point3::new(
-                coordinate_2d.0,
-                coordinate_2d.1,
-                0.0,
-            ),
-            n: Vector3::z(),
-        });
+        self.mesh_vertices.push(
+            isosurface.vertex(coordinate_2d.0, coordinate_2d.1)
+        );
         self.ms_vertex_to_mesh_vertex.insert(ms_vertex, mesh_index);
         mesh_index
     }
@@ -410,10 +413,10 @@ impl MarchingSquares {
         }
     }
 
-    fn make_node<F: Fn(f64, f64) -> bool>(
+    fn make_node(
         &self, 
         square: MSSquare,
-        inside: &F
+        isosurface: &impl Isosurface
     ) -> Node {
         // TODO: Move this logic to MSSquare.
         let iu1 = square.u_index;
@@ -427,10 +430,10 @@ impl MarchingSquares {
         let theta2 = self.grid.theta_index_to_theta(it2, square.depth);
 
         let corners = (
-            inside(u1, theta1),
-            inside(u1, theta2),
-            inside(u2, theta1),
-            inside(u2, theta2),
+            isosurface.contains(u1, theta1),
+            isosurface.contains(u1, theta2),
+            isosurface.contains(u2, theta1),
+            isosurface.contains(u2, theta2),
         );
 
         let subtree = match corners {
@@ -443,10 +446,10 @@ impl MarchingSquares {
                     let subsquares = square.subdivide();
                     Subtree::Parent(
                         Box::new((
-                            self.make_node(subsquares.0, inside),
-                            self.make_node(subsquares.1, inside),
-                            self.make_node(subsquares.2, inside),
-                            self.make_node(subsquares.3, inside),
+                            self.make_node(subsquares.0, isosurface),
+                            self.make_node(subsquares.1, isosurface),
+                            self.make_node(subsquares.2, isosurface),
+                            self.make_node(subsquares.3, isosurface),
                         ))
                     )
                 }
@@ -459,12 +462,12 @@ impl MarchingSquares {
         }
     }
 
-    /// Sample the scalar field and produce a Mesh.
-    fn mesh<F: Fn(f64, f64) -> bool>(&mut self, inside: &F) -> Mesh {
+    /// Sample the isosurface and produce a Mesh.
+    fn mesh(&mut self, isosurface: &impl Isosurface) -> Mesh {
         for u_index in 0..self.grid.u_cells {
             for t_index in 0..self.grid.theta_cells {
                 let square = MSSquare::new_root(u_index, t_index, self.grid.theta_cells);
-                self.cells.push(self.make_node(square, inside));
+                self.cells.push(self.make_node(square, isosurface));
             }
         }
 
@@ -472,9 +475,9 @@ impl MarchingSquares {
         let mut faces = vec![];
         for cell in self.cells.iter() {
             for triangle in cell.triangulate() {
-                let v1 = realization.realize_vertex(triangle.v1, &self.grid, &inside);
-                let v2 = realization.realize_vertex(triangle.v2, &self.grid, &inside);
-                let v3 = realization.realize_vertex(triangle.v3, &self.grid, &inside);
+                let v1 = realization.realize_vertex(triangle.v1, &self.grid, isosurface);
+                let v2 = realization.realize_vertex(triangle.v2, &self.grid, isosurface);
+                let v3 = realization.realize_vertex(triangle.v3, &self.grid, isosurface);
                 faces.push(Face { v1, v2, v3 });
             }
         }
@@ -487,7 +490,23 @@ mod test {
     use core::f64;
     use std::path::PathBuf;
 
+    use na::Point2;
+
     use super::*;
+
+    struct ExampleIsosurface;
+
+    impl Isosurface for ExampleIsosurface {
+        fn vertex(&self, u: f64, theta: f64) -> Vertex {
+            Vertex {
+                p: Point3::new(u, theta, 0.0),
+                n: Vector3::z(),
+            }
+        }
+        fn contains(&self, u: f64, theta: f64) -> bool {
+            (theta - f64::consts::PI).hypot(u) < 1.0
+        }
+    }
 
     #[test]
     fn test_ms() {
@@ -499,9 +518,7 @@ mod test {
         };
         let max_depth = 0;
         let mut ms = MarchingSquares::new(grid, 0);
-        let mesh = ms.mesh(&|u, theta|
-            (theta - f64::consts::PI).hypot(u) < 1.0
-        );
+        let mesh = ms.mesh(&ExampleIsosurface { });
         mesh.write_ply_file(&PathBuf::from("out_ms.ply"));
     }
 }
