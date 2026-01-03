@@ -126,7 +126,7 @@ impl GridAxis {
         }
     }
 
-    fn points(&self) -> usize {
+    fn num_points(&self) -> usize {
         match self {
             GridAxis::Circular(size, max) => *size,
             GridAxis::Linear(size, min, max) => *size,
@@ -388,7 +388,7 @@ impl MarchingSquares {
     fn new(grid: Grid) -> Self {
         MarchingSquares {
             grid,
-            cells: Vec::with_capacity(grid.u_axis.points() * grid.v_axis.points()),
+            cells: Vec::with_capacity(grid.u_axis.num_points() * grid.v_axis.num_points()),
         }
     }
 
@@ -423,8 +423,8 @@ impl MarchingSquares {
 
     /// Sample the isosurface and produce a Mesh.
     fn mesh(&mut self, isosurface: &impl Isosurface) -> Mesh {
-        for ui in 0..self.grid.u_axis.points() {
-            for vi in 0..self.grid.v_axis.points() {
+        for ui in 0..self.grid.u_axis.num_points() {
+            for vi in 0..self.grid.v_axis.num_points() {
                 let square = Square::new(ui, vi);
                 self.cells.push(self.make_node(square, isosurface));
             }
