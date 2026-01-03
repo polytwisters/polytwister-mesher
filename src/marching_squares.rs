@@ -61,7 +61,7 @@ struct Cell {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct Square {
     pub ui: usize,
-    pub vi: usize, 
+    pub vi: usize,
 }
 
 /// A point on the grid which is either a corner or on the edge of a QSquare. If it's on an edge,
@@ -146,6 +146,14 @@ impl GridAxis {
 impl Square {
     fn new(ui: usize, vi: usize) -> Self {
         Square { ui, vi }
+    }
+
+    /// Given a Grid, produce a new square which wraps the indices as necessary for circular axes.
+    fn wrap(&self, grid: &Grid) -> Self {
+        Square {
+            ui: grid.u_axis.wrap(self.ui),
+            vi: grid.v_axis.wrap(self.vi),
+        }
     }
 
     /// Offset this Square to another Square. Only positive offsets are allowed. The units of the
@@ -289,6 +297,17 @@ impl Square {
     }
 }
 
+impl MSPoint {
+    /// Given a Grid, produce a new MSPoint which wraps the indices as necessary for circular axes.
+    fn wrap(&self, grid: &Grid) -> Self {
+        match self {
+            Self::Corner(square) => Self::Corner(square.wrap(grid)),
+            Self::HorizontalEdge(square) => Self::HorizontalEdge(square.wrap(grid)),
+            Self::VerticalEdge(square) => Self::VerticalEdge(square.wrap(grid)),
+        }
+    }
+}
+
 impl Cell {
     fn triangulate(&self) -> Vec<MSTriangle> {
         self.square.triangulate(self.corners.clone())
@@ -366,16 +385,21 @@ impl MSVertices {
         grid: &Grid,
         isosurface: &impl Isosurface
     ) -> usize {
-        if let Some(&mesh_index) = self.ms_vertex_to_mesh_vertex.get(&ms_vertex) {
+        // Wrap the incoming vertex in case of cylindrical topology.
+        let ms_vertex_normalized = ms_vertex.wrap(grid);
+        // Try to retrieve a cached vertex if possible.
+        if let Some(&mesh_index) = self.ms_vertex_to_mesh_vertex.get(&ms_vertex_normalized) {
             return mesh_index;
         }
-        let coordinate_2d = grid.vertex_coordinate(ms_vertex, isosurface);
+        // Create a new Vertex, using the isosurface methods to compute its location and normal.
+        let coordinate_2d = grid.vertex_coordinate(ms_vertex_normalized, isosurface);
         let mesh_index = self.mesh_vertices.len();
         self.mesh_vertices.push(Vertex {
             p: isosurface.surface_coords_to_point(coordinate_2d.0, coordinate_2d.1),
             n: isosurface.surface_coords_to_normal(coordinate_2d.0, coordinate_2d.1),
         });
-        self.ms_vertex_to_mesh_vertex.insert(ms_vertex, mesh_index);
+        // Cache its index and return.
+        self.ms_vertex_to_mesh_vertex.insert(ms_vertex_normalized, mesh_index);
         mesh_index
     }
 
@@ -527,7 +551,8 @@ mod test {
             v_axis: GridAxis::Linear(1, -2.0, 2.0),
         };
         let mesh = meshify(&ExampleIsosurface3 { }, &grid);
-        mesh.write_ply_file(&PathBuf::from("prism.ply"));
+        // This should generate a triangular prism (with open caps) which has 6 vertices. If it has
+        // 8 vertices, then something is wrong with how the circular axis is treated.
         assert_eq!(mesh.num_vertices(), 6);
     }
 }
