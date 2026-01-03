@@ -121,7 +121,7 @@ impl GridAxis {
                 (index / *size as f64).rem_euclid(1.0) * max
             },
             GridAxis::Linear(size, min, max) => {
-                min + index * (max - min) / (*size + 1) as f64
+                min + index * (max - min) / *size as f64
             },
         }
     }
@@ -129,11 +129,12 @@ impl GridAxis {
     fn points(&self) -> usize {
         match self {
             GridAxis::Circular(size, max) => *size,
-            GridAxis::Linear(size, min, max) => *size + 1,
+            GridAxis::Linear(size, min, max) => *size,
         }
     }
 
-    /// For a linear GridAxis, do nothing. For a circular grid axis, take the index modulo the depth.
+    /// For a linear GridAxis, do nothing. For a circular grid axis, take the index modulo the size
+    /// of the grid.
     fn wrap(&self, index: usize) -> usize {
         match self {
             GridAxis::Circular(size, max) => index.rem_euclid(*size),
@@ -147,9 +148,9 @@ impl Square {
         Square { ui, vi }
     }
 
-    /// Offset this QSquare to another QSquare of the same depth. Only positive offsets are
-    /// allowed. The units of the offset are such that offsets of (1, 0) and (0, 1) move to
-    /// vertically and horizontally adjacent squares.
+    /// Offset this Square to another Square. Only positive offsets are allowed. The units of the
+    /// offset are such that offsets of (1, 0) and (0, 1) move to vertically and horizontally
+    /// adjacent squares.
     fn offset(&self, du: usize, dv: usize) -> Self {
         Square {
             ui: self.ui + du,
@@ -472,12 +473,61 @@ mod test {
     }
 
     #[test]
-    fn test_ms() {
+    fn test_cylinder() {
         let grid = Grid {
             u_axis: GridAxis::Circular(20, f64::consts::TAU),
             v_axis: GridAxis::Linear(30, -2.0, 2.0),
         };
         let mesh = meshify(&ExampleIsosurface { }, &grid);
-        mesh.write_ply_file(&PathBuf::from("out_ms.ply"));
+        mesh.write_ply_file(&PathBuf::from("cylinder.ply"));
+    }
+
+    struct ExampleIsosurface2;
+
+    impl Isosurface for ExampleIsosurface2 {
+        fn surface_coords_to_point(&self, u: f64, v: f64) -> Point3<f64> {
+            Point3::new(u, v, 0.0)
+        }
+        fn surface_coords_to_normal(&self, u: f64, v: f64) -> Vector3<f64> {
+            Vector3::new(0.0, 0.0, 1.0)
+        }
+        fn contains_point(&self, p: &Point3<f64>) -> bool {
+            p.x.hypot(p.y) < 1.0
+        }
+    }
+
+    #[test]
+    fn test_plane() {
+        let grid = Grid {
+            u_axis: GridAxis::Linear(20, -2.0, 2.0),
+            v_axis: GridAxis::Linear(30, -2.0, 2.0),
+        };
+        let mesh = meshify(&ExampleIsosurface2 { }, &grid);
+        mesh.write_ply_file(&PathBuf::from("plane.ply"));
+    }
+
+    struct ExampleIsosurface3;
+
+    impl Isosurface for ExampleIsosurface3 {
+        fn surface_coords_to_point(&self, u: f64, v: f64) -> Point3<f64> {
+            Point3::new(u.cos(), u.sin(), v)
+        }
+        fn surface_coords_to_normal(&self, u: f64, v: f64) -> Vector3<f64> {
+            Vector3::new(u.cos(), u.sin(), 0.0)
+        }
+        fn contains_point(&self, p: &Point3<f64>) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn test_triangular_prism() {
+        let grid = Grid {
+            u_axis: GridAxis::Circular(3, f64::consts::TAU),
+            v_axis: GridAxis::Linear(1, -2.0, 2.0),
+        };
+        let mesh = meshify(&ExampleIsosurface3 { }, &grid);
+        mesh.write_ply_file(&PathBuf::from("prism.ply"));
+        assert_eq!(mesh.num_vertices(), 6);
     }
 }

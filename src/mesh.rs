@@ -30,7 +30,7 @@ pub struct Face {
 }
 
 #[derive(Clone)]
-/// A triangular mesh in 3D space.
+/// A triangular mesh in 3D space. Vertices have normals.
 pub struct Mesh {
     pub vertices: Vec<Vertex>,
     pub faces: Vec<Face>,
@@ -38,6 +38,11 @@ pub struct Mesh {
 
 
 impl Mesh {
+    /// Make a new empty mesh.
+    pub fn empty() -> Self {
+        Mesh { vertices: vec![], faces: vec![] }
+    }
+
     /// A "partial mesh" is one where some vertices may be None. Converting a partial mesh to a mesh
     /// removes the "None" vertices and any faces they are connected to.
     pub fn from_partial(vertices: &Vec<Option<Vertex>>, faces: &Vec<Face>) -> Self {
@@ -69,10 +74,7 @@ impl Mesh {
         Mesh { vertices: new_vertices, faces: new_faces }
     }
 
-    pub fn empty() -> Self {
-        Mesh { vertices: vec![], faces: vec![] }
-    }
-
+    /// Make a spherical mesh.
     pub fn uv_sphere(center: &Point3<f64>, radius: f64, segments: usize, rings: usize) -> Self {
         // Point3<f64> indices: i * segments + j
         // i is the segment index, j is in the ring index.
@@ -251,6 +253,14 @@ impl Mesh {
             }
         }
         Mesh::from_partial(&vertices, &faces)
+    }
+
+    pub fn num_vertices(&self) -> usize {
+        self.vertices.len()
+    }
+
+    pub fn num_faces(&self) -> usize {
+        self.faces.len()
     }
 
     fn offset_indices(faces: Vec<Face>, offset: usize) -> Vec<Face> {
