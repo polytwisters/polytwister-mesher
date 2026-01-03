@@ -1,4 +1,6 @@
 extern crate nalgebra as na;
+use core::f64;
+
 use na::{Point3, Vector3, Vector4};
 use crate::cylinder::{Cylinder};
 use crate::config::{CylinderMeshConfig, TorusMeshConfig};
@@ -6,7 +8,7 @@ use crate::mesh::{Mesh};
 use crate::pipe_section;
 use crate::polytwister::{FillingRegion, RegionMode};
 use crate::utils::{squared};
-use crate::marching_squares::{Isosurface, Grid, meshify};
+use crate::marching_squares::{Isosurface, Grid, GridAxis, meshify};
 
 /**
  * A 3D cross section of a pipe. (PipeCrossSection felt too long.)
@@ -175,13 +177,10 @@ impl TwisterSection {
 
     pub fn as_mesh(&self, config: &CylinderMeshConfig) -> Mesh {
         let grid = Grid {
-            u_cells: 60,
-            theta_cells: 60,
-            u_min: -5.0,
-            u_max: 5.0,
+            u_axis: GridAxis::Circular(30, f64::consts::TAU),
+            v_axis: GridAxis::Linear(30, -5.0, 5.0),
         };
-        let max_depth = 2;
-        meshify(self, &grid, max_depth)
+        meshify(self, &grid)
     }
 }
 

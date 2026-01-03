@@ -1,10 +1,13 @@
-//! A Marching Squares isosurface mesher specifically for meshing the intersection of a hollow
-//! cylinder with an arbitrary set given by an implicit function in R^3. In particular, given the
-//! parametric function U : R x S^1 -> R^3 and an indicator function C : R^3 -> {0, 1}, create a
-//! triangle mesh that approximates the set of all 3D points x = U(u, theta) such that C(x) = 1.
+//! A Marching Squares mesher for 2D manifolds embedded in 3D space.
 //! 
-//! Although the mesh is in 3D, we do not need the full Marching Cubes algorithm as we are actually
-//! meshing an surface that is a subset of an existing 2D surface with an explicit parametrization.
+//! In its basic usage, this mesher takes a 2D surface given as an explicit parametrization
+//! U(u, v) : R^2 -> R^3 and an implicit indicator function C : R^3 -> {0, 1}, creating a triangle
+//! mesh in 3D space that approximates the 2D surface formed by all 3D points x = U(u, v) such that
+//! C(x) = 1. In addition, either u or v can be a circular variable, so the surface U can be a
+//! topological cylinder or torus.
+//! 
+//! This is not the full 3D Marching Cubes algorithm, but rather the simpler 2D version of it,
+//! which happens to be on a surface that is in 3D space and possibly curved.
 
 use core::f64;
 use std::collections::HashMap;
@@ -13,88 +16,72 @@ use na::{Point3, Vector3};
 use crate::mesh::{self, Face, Mesh, Vertex};
 
 /// An isosurface comprises two functions: an explicit parametrization that converts surface
-/// coordinates (u, theta) into a Vertex with a 3D location and normal, and an indicator function
-/// that returns whether the point (u, theta) in surface coordinates is inside the shape.
+/// coordinates (u, v) into a Vertex with a 3D location and normal, and an indicator function
+/// that returns whether the point (u, v) in surface coordinates is inside the shape.
 pub trait Isosurface {
-    fn surface_coords_to_point(&self, u: f64, theta: f64) -> Point3<f64>;
-    fn surface_coords_to_normal(&self, u: f64, theta: f64) -> Vector3<f64>;
+    fn surface_coords_to_point(&self, u: f64, v: f64) -> Point3<f64>;
+    fn surface_coords_to_normal(&self, u: f64, v: f64) -> Vector3<f64>;
     fn contains_point(&self, p: &Point3<f64>) -> bool;
 
-    fn contains_surface_coord(&self, u: f64, theta: f64) -> bool {
-        self.contains_point(&self.surface_coords_to_point(u, theta))
+    fn contains_surface_coord(&self, u: f64, v: f64) -> bool {
+        self.contains_point(&self.surface_coords_to_point(u, v))
     }
 }
 
-/// Marching Squares mesher for *cylindrical* 2D space with coordinates (u, theta). The grid cells
+/// Marching Squares mesher for *cylindrical* 2D space with coordinates (u, v). The grid cells
 /// are stored in a 1D vector in a u-major order. For visualization we flatten out the grid and
-/// say that u is the vertical direction and theta is the horizontal direction.
+/// say that u is the vertical direction and v is the horizontal direction.
 pub struct MarchingSquares {
     grid: Grid,
-    /// Index u_index * theta_cells + theta_index.
-    cells: Vec<Node>,
-    max_depth: u8,
+    cells: Vec<Cell>,
 }
 
-/// Information about the grid, allowing conversion between discrete and continuous coordinates.
 #[derive(Copy, Clone, Debug)]
 pub struct Grid {
-    pub u_cells: usize,
-    pub theta_cells: usize,
-    pub u_min: f64,
-    pub u_max: f64,
+    pub u_axis: GridAxis,
+    pub v_axis: GridAxis,
 }
 
-/// A node in the quadtree. It knows its gometric location as an MSSquare.
-struct Node {
-    square: MSSquare,
-    subtree: Subtree,
+#[derive(Copy, Clone, Debug)]
+pub enum GridAxis {
+    // num segments, min, max
+    Linear(usize, f64, f64),
+    // num segments, max
+    Circular(usize, f64),
 }
 
-/// The subtree associated with a node.
-enum Subtree {
-    /// The node has four children.
-    Parent(Box<(Node, Node, Node, Node)>),
-    /// A square at the lowest level of the quadtree which contains the boundary of the shape. The
-    /// four bools indicate which of the top left, top right, bottom left, and bottom right corners
-    /// are in the shape.
-    Leaf((bool, bool, bool, bool)),
-    /// A square entirely inside the shape.
-    Full,
-    /// A square entirely outside the shape.
-    Empty
+/// A cell in Marching Squares whose corners have been determined to be inside or outside the
+/// implicit surface.
+struct Cell {
+    square: Square,
+    corners: (bool, bool, bool, bool),
 }
 
-/// A unique square in the quad tree. The discrete coordinate of its upper left corner is
-/// (u_index, theta_index) / 2^depth and its side length is 2^depth.
+/// A unit-size square in Marching Squares.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-struct MSSquare {
-    pub u_index: usize,
-    pub theta_index: usize, 
-    pub depth: u8,
-    // The MSSquare does need to know the number of radial segments of the cylinder.
-    pub theta_cells: usize,
+struct Square {
+    pub ui: usize,
+    pub vi: usize, 
 }
 
-/// A discrete vertex location used during marching squares. MSPoint::Corner is a vertex located
-/// at the corner of a square. HorizontalEdge and VerticalEdge are located on edges of squares.
-/// In the latter two cases, the floating-point coordinates are not known yet, and are later derived
-/// using interpolation.
+/// A point on the grid which is either a corner or on the edge of a QSquare. If it's on an edge,
+/// we do not know at this time where it is on the edge -- that will be computed later.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum MSPoint {
-    Corner(MSSquare),
-    HorizontalEdge(MSSquare),
-    VerticalEdge(MSSquare),
+    Corner(Square),
+    HorizontalEdge(Square),
+    VerticalEdge(Square),
 }
 
+/// A triangle produced by Marching Squares.
 struct MSTriangle {
     pub v1: MSPoint,
     pub v2: MSPoint,
     pub v3: MSPoint,
 }
 
-/// A collection of marching squares vertices, maintaining their "MS coordinates" (discrete coords
-/// with information on whether vertices are on corners/edges) and Euclidean coordinates and
-/// indices in the final Mesh object to be produced.
+/// A collection of marching triangle vertices, with a mapping from MSPoints to vertex indices in the
+/// final Mesh object.
 struct MSVertices {
     ms_vertex_to_mesh_vertex: HashMap<MSPoint, usize>,
     mesh_vertices: Vec<Vertex>,
@@ -123,22 +110,50 @@ fn bisection_search<F: Fn(f64) -> bool>(f: F) -> f64 {
     (x_min + x_max) / 2.0
 }
 
-impl MSSquare {
-    fn new_root(u_index: usize, theta_index: usize, theta_cells: usize) -> Self {
-        MSSquare { u_index, theta_index, theta_cells, depth: 0 }
+impl GridAxis {
+    fn spacing(&self) -> f64 {
+        self.index_to_value(1.0)
     }
 
-    /// Offset this MSSquare to another MSSquare of the same depth. Only positive offsets are
-    /// allowed.
-    fn offset(&self, du: usize, dtheta: usize) -> Self {
-        let theta_index = ((self.theta_index + dtheta) as u64).rem_euclid(
-            self.theta_cells as u64 * Grid::inv_depth_scale(self.depth)
-        );
-        MSSquare {
-            u_index: (self.u_index + du) as usize,
-            theta_index: theta_index as usize,
-            depth: self.depth,
-            theta_cells: self.theta_cells,
+    fn index_to_value(&self, index: f64) -> f64 {
+        match self {
+            GridAxis::Circular(size, max) => {
+                (index / *size as f64).rem_euclid(1.0) * max
+            },
+            GridAxis::Linear(size, min, max) => {
+                min + index * (max - min) / (*size + 1) as f64
+            },
+        }
+    }
+
+    fn points(&self) -> usize {
+        match self {
+            GridAxis::Circular(size, max) => *size,
+            GridAxis::Linear(size, min, max) => *size + 1,
+        }
+    }
+
+    /// For a linear GridAxis, do nothing. For a circular grid axis, take the index modulo the depth.
+    fn wrap(&self, index: usize) -> usize {
+        match self {
+            GridAxis::Circular(size, max) => index.rem_euclid(*size),
+            GridAxis::Linear(size, min, max) => index,
+        }
+    }
+}
+
+impl Square {
+    fn new(ui: usize, vi: usize) -> Self {
+        Square { ui, vi }
+    }
+
+    /// Offset this QSquare to another QSquare of the same depth. Only positive offsets are
+    /// allowed. The units of the offset are such that offsets of (1, 0) and (0, 1) move to
+    /// vertically and horizontally adjacent squares.
+    fn offset(&self, du: usize, dv: usize) -> Self {
+        Square {
+            ui: self.ui + du,
+            vi: self.vi + dv,
         }
     }
 
@@ -271,115 +286,65 @@ impl MSSquare {
             _ => panic!()
         }
     }
-
-    fn subdivide(&self) -> (MSSquare, MSSquare, MSSquare, MSSquare) {
-        let top_left = MSSquare {
-            u_index: self.u_index * 2,
-            theta_index: self.theta_index * 2,
-            depth: self.depth + 1,
-            theta_cells: self.theta_cells,
-        };
-        (
-            top_left,
-            top_left.offset(0, 1),
-            top_left.offset(1, 0),
-            top_left.offset(1, 1),
-        )
-    }
 }
 
-impl Node {
+impl Cell {
     fn triangulate(&self) -> Vec<MSTriangle> {
-        match &self.subtree {
-            Subtree::Empty => vec![],
-            Subtree::Full => self.square.triangulate((true, true, true, true)),
-            Subtree::Leaf(corners) => self.square.triangulate(corners.clone()),
-            Subtree::Parent(children) => {
-                let mut result = vec![];
-                result.extend(children.0.triangulate());
-                result.extend(children.1.triangulate());
-                result.extend(children.2.triangulate());
-                result.extend(children.3.triangulate());
-                result
-            }
-        }
+        self.square.triangulate(self.corners.clone())
     }
 }
 
 impl Grid {
-    fn inv_depth_scale(depth: u8) -> u64 {
-        1 << (depth as u64)
-    }
-
-    fn depth_scale(depth: u8) -> f64 {
-        1.0 / Grid::inv_depth_scale(depth) as f64
-    }
-
     pub fn u_spacing(&self) -> f64 {
-        (self.u_max - self.u_min) / (self.u_cells + 1) as f64
+        self.u_axis.spacing()
     }
 
-    pub fn theta_spacing(&self) -> f64 {
-        f64::consts::TAU / (self.theta_cells + 1) as f64
+    pub fn v_spacing(&self) -> f64 {
+        self.v_axis.spacing()
     }
 
-    /// Convert the index of a U line to its U coordinate. The u_index is the index of the
-    /// *boundary* of the cell, not the cell itself.
-    pub fn u_index_to_u(&self, u_index: usize, depth: u8) -> f64 {
-        self.u_index_to_u_continuous(u_index as f64, depth)
+    pub fn ui_to_u(&self, ui: f64) -> f64 {
+        self.u_axis.index_to_value(ui)
     }
 
-    /// Convert the index of a theta line to its theta coordinate. The theta_index is the index of
-    /// the *boundary* of the cell, not the cell itself.
-    pub fn theta_index_to_theta(&self, theta_index: usize, depth: u8) -> f64 {
-        self.theta_index_to_theta_continuous(theta_index as f64, depth)
-    }
-
-    pub fn u_index_to_u_continuous(&self, u_index: f64, depth: u8) -> f64 {
-        let unipolar = u_index / (self.u_cells + 1) as f64 * Grid::depth_scale(depth);
-        self.u_min + unipolar * (self.u_max - self.u_min)
-    }
-
-    pub fn theta_index_to_theta_continuous(&self, theta_index: f64, depth: u8) -> f64 {
-        let tmp = theta_index / self.theta_cells as f64;
-        (tmp * Grid::depth_scale(depth)).rem_euclid(1.0) * f64::consts::TAU
+    pub fn vi_to_v(&self, vi: f64) -> f64 {
+        self.v_axis.index_to_value(vi)
     }
 
     fn vertex_coordinate(&self, vertex: MSPoint, isosurface: &impl Isosurface) -> (f64, f64) {
         match vertex {
             MSPoint::Corner(square) => (
-                self.u_index_to_u(square.u_index, square.depth),
-                self.theta_index_to_theta(square.theta_index, square.depth)
+                self.ui_to_u(square.ui as f64),
+                self.vi_to_v(square.vi as f64)
             ),
             MSPoint::HorizontalEdge(square) => {
-                let u_index = square.u_index;
-                let theta_index = square.theta_index;
-                let depth = square.depth;
+                let ui = square.ui as f64;
+                let vi = square.vi as f64;
                 // TODO fix code dupe ewww
                 let t = bisection_search(|t|
                     isosurface.contains_surface_coord(
-                        self.u_index_to_u(u_index, depth),
-                        self.theta_index_to_theta_continuous(theta_index as f64 + t, depth)
+                        self.ui_to_u(ui),
+                        self.vi_to_v(vi + t)
                     ) 
                 );
                 (
-                    self.u_index_to_u(u_index, depth),
-                    self.theta_index_to_theta_continuous(theta_index as f64 + t, depth)
+                    self.ui_to_u(ui),
+                    self.vi_to_v(vi + t)
                 )
             },
             MSPoint::VerticalEdge(square) => {
-                let u_index = square.u_index;
-                let theta_index = square.theta_index;
-                let depth = square.depth;
+                let ui = square.ui as f64;
+                let vi = square.vi as f64;
+                // TODO fix code dupe ewww
                 let t = bisection_search(|t|
                     isosurface.contains_surface_coord(
-                        self.u_index_to_u_continuous(u_index as f64 + t, depth),
-                        self.theta_index_to_theta(theta_index, depth)
+                        self.ui_to_u(ui + t),
+                        self.vi_to_v(vi)
                     ) 
                 );
                 (
-                    self.u_index_to_u_continuous(u_index as f64 + t, depth),
-                    self.theta_index_to_theta(theta_index, depth)
+                    self.ui_to_u(ui + t),
+                    self.vi_to_v(vi)
                 )
             },
         }
@@ -419,70 +384,47 @@ impl MSVertices {
 }
 
 impl MarchingSquares {
-    fn new(grid: Grid, max_depth: u8) -> Self {
+    fn new(grid: Grid) -> Self {
         MarchingSquares {
             grid,
-            cells: Vec::with_capacity(grid.theta_cells * grid.u_cells),
-            max_depth,
+            cells: Vec::with_capacity(grid.u_axis.points() * grid.v_axis.points()),
         }
     }
 
     fn make_node(
         &self, 
-        square: MSSquare,
+        square: Square,
         isosurface: &impl Isosurface
-    ) -> Node {
+    ) -> Cell {
         // TODO: Move this logic to MSSquare.
-        let iu1 = square.u_index;
-        let iu2 = square.u_index + 1;
-        let it1 = square.theta_index;
-        let it2 = (square.theta_index + 1).rem_euclid(
-            self.grid.theta_cells * Grid::inv_depth_scale(square.depth) as usize
-        );
+        let ui1 = square.ui;
+        let ui2 = square.ui + 1;
+        let vi1 = square.vi;
+        let vi2 = square.vi + 1;
 
-        let u1 = self.grid.u_index_to_u(iu1, square.depth);
-        let u2 = self.grid.u_index_to_u(iu2, square.depth);
-        let theta1 = self.grid.theta_index_to_theta(it1, square.depth);
-        let theta2 = self.grid.theta_index_to_theta(it2, square.depth);
+        let u1 = self.grid.ui_to_u(ui1 as f64);
+        let u2 = self.grid.ui_to_u(ui2 as f64);
+        let v1 = self.grid.vi_to_v(vi1 as f64);
+        let v2 = self.grid.vi_to_v(vi2 as f64);
 
         let corners = (
-            isosurface.contains_surface_coord(u1, theta1),
-            isosurface.contains_surface_coord(u1, theta2),
-            isosurface.contains_surface_coord(u2, theta1),
-            isosurface.contains_surface_coord(u2, theta2),
+            isosurface.contains_surface_coord(u1, v1),
+            isosurface.contains_surface_coord(u1, v2),
+            isosurface.contains_surface_coord(u2, v1),
+            isosurface.contains_surface_coord(u2, v2),
         );
 
-        let subtree = match corners {
-            (true, true, true, true) => Subtree::Full,
-            (false, false, false, false) => Subtree::Empty,
-            _ => {
-                if square.depth >= self.max_depth {
-                    Subtree::Leaf(corners)
-                } else {
-                    let subsquares = square.subdivide();
-                    Subtree::Parent(
-                        Box::new((
-                            self.make_node(subsquares.0, isosurface),
-                            self.make_node(subsquares.1, isosurface),
-                            self.make_node(subsquares.2, isosurface),
-                            self.make_node(subsquares.3, isosurface),
-                        ))
-                    )
-                }
-            }
-        };
-
-        Node {
+        Cell {
             square,
-            subtree
+            corners
         }
     }
 
     /// Sample the isosurface and produce a Mesh.
     fn mesh(&mut self, isosurface: &impl Isosurface) -> Mesh {
-        for u_index in 0..self.grid.u_cells {
-            for t_index in 0..self.grid.theta_cells {
-                let square = MSSquare::new_root(u_index, t_index, self.grid.theta_cells);
+        for ui in 0..self.grid.u_axis.points() {
+            for vi in 0..self.grid.v_axis.points() {
+                let square = Square::new(ui, vi);
                 self.cells.push(self.make_node(square, isosurface));
             }
         }
@@ -501,8 +443,8 @@ impl MarchingSquares {
     }
 }
 
-pub fn meshify(isosurface: &impl Isosurface, grid: &Grid, max_depth: u8) -> Mesh {
-    let mut ms = MarchingSquares::new(*grid, max_depth);
+pub fn meshify(isosurface: &impl Isosurface, grid: &Grid) -> Mesh {
+    let mut ms = MarchingSquares::new(*grid);
     ms.mesh(isosurface)
 }
 
@@ -518,27 +460,24 @@ mod test {
     struct ExampleIsosurface;
 
     impl Isosurface for ExampleIsosurface {
-        fn surface_coords_to_point(&self, u: f64, theta: f64) -> Point3<f64> {
-            Point3::new(-theta.cos(), theta.sin(), u)
+        fn surface_coords_to_point(&self, u: f64, v: f64) -> Point3<f64> {
+            Point3::new(-u.cos(), u.sin(), v)
         }
-        fn surface_coords_to_normal(&self, u: f64, theta: f64) -> Vector3<f64> {
-            Vector3::new(-theta.cos(), theta.sin(), 0.0)
+        fn surface_coords_to_normal(&self, u: f64, v: f64) -> Vector3<f64> {
+            Vector3::new(-u.cos(), u.sin(), 0.0)
         }
         fn contains_point(&self, p: &Point3<f64>) -> bool {
-            p.z < (p.x * 8.0).sin() * 0.2
+            p.z < (p.x * 8.0).sin() * 0.5
         }
     }
 
     #[test]
     fn test_ms() {
         let grid = Grid {
-            u_cells: 30,
-            theta_cells: 30,
-            u_min: -2.0,
-            u_max: 2.0,
+            u_axis: GridAxis::Circular(20, f64::consts::TAU),
+            v_axis: GridAxis::Linear(30, -2.0, 2.0),
         };
-        let max_depth = 2;
-        let mesh = meshify(&ExampleIsosurface { }, &grid, 2);
+        let mesh = meshify(&ExampleIsosurface { }, &grid);
         mesh.write_ply_file(&PathBuf::from("out_ms.ply"));
     }
 }
