@@ -120,12 +120,12 @@ impl Polytwister {
             let orthogonal_pipe_section = PipeSection::from_vector4(&self.orthogonal_pipes[pipe_index], w);
             let neighboring_pipe_sections = self.polyhedron.adjacent_face_indices(pipe_index)
                 .iter().map(|pipe_index_2| pipe_sections[*pipe_index_2]).collect::<Vec<_>>();
-            twister_sections.push(TwisterSection {
-                pipe_section: pipe_section.clone(),
+            twister_sections.push(TwisterSection::new(
+                pipe_section.clone(),
                 orthogonal_pipe_section,
                 neighboring_pipe_sections,
                 filling
-            });
+            ));
         }
         twister_sections
     }

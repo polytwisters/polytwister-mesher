@@ -11,7 +11,7 @@ use crate::utils::{squared};
 use crate::marching_squares::{Isosurface, Grid, GridAxis, meshify};
 
 /**
- * A 3D cross section of a pipe. (PipeCrossSection felt too long.)
+ * A 3D cross section of a pipe. May be an affine-transformed cylinder, a pair of planes, or empty.
  */
 #[derive(Clone, Copy, Debug)]
 pub struct PipeSection {
@@ -127,16 +127,32 @@ impl PipeSection {
 }
 
 
-/// Cross section of a twister. Currently only for convex twisters.
+/// Cross section of a twister.
 pub struct TwisterSection {
     pub pipe_section: PipeSection,
+    pub filling_info: TwisterFillingInfo,
+}
+
+/// All the geometric information needed to fill a twister, without the twister pipe section itself.
+#[derive(Clone)]
+pub struct TwisterFillingInfo {
     pub orthogonal_pipe_section: PipeSection,
     pub neighboring_pipe_sections: Vec<PipeSection>,
     pub filling: Vec<FillingRegion>,
 }
 
-impl Isosurface for TwisterSection {
-    fn contains_point(&self, point: &Point3<f64>) -> bool {
+pub struct TwisterCylindricalIsosurface {
+    pub pipe_section: PipeSection,
+    pub filling_info: TwisterFillingInfo,
+}
+
+pub struct TwisterPlanarIsosurface {
+    pub z: f64,
+    pub filling_info: TwisterFillingInfo,
+}
+
+impl TwisterFillingInfo {
+    pub fn contains_point(&self, point: &Point3<f64>) -> bool {
         let inner = self.orthogonal_pipe_section.contains(point);
         let outer = !inner;
         let order: u32 = self.neighboring_pipe_sections.iter().map(|ps|
@@ -151,36 +167,86 @@ impl Isosurface for TwisterSection {
             }
         })
     }
+}
 
-    fn surface_coords_to_point(&self, u: f64, theta: f64) -> Point3<f64> {
-        if self.pipe_section.is_plane() {
-            // TODO
-            Point3::origin()
-        } else {
-            self.pipe_section.as_cylinder().surface_coords_to_cartesian(u, theta)
-        }
+impl Isosurface for TwisterCylindricalIsosurface {
+    fn contains_point(&self, p: &Point3<f64>) -> bool {
+        self.filling_info.contains_point(p)
     }
-
+    fn surface_coords_to_point(&self, u: f64, theta: f64) -> Point3<f64> {
+        self.pipe_section.as_cylinder().surface_coords_to_cartesian(u, theta)
+    }
     fn surface_coords_to_normal(&self, u: f64, theta: f64) -> Vector3<f64> {
-        if self.pipe_section.is_plane() {
-            // TODO
-            Vector3::zeros()
-        } else {
-            self.pipe_section.as_cylinder().scalar_field_gradient(
-                &self.pipe_section.as_cylinder().surface_coords_to_cartesian(u, theta)
-            )
-        }
+        self.pipe_section.as_cylinder().scalar_field_gradient(
+            &self.pipe_section.as_cylinder().surface_coords_to_cartesian(u, theta)
+        )
+    }
+}
+
+impl Isosurface for TwisterPlanarIsosurface {
+    fn contains_point(&self, p: &Point3<f64>) -> bool {
+        self.filling_info.contains_point(p)
+    }
+    fn surface_coords_to_point(&self, u: f64, v: f64) -> Point3<f64> {
+        Point3::new(u, v, self.z)
+    }
+    fn surface_coords_to_normal(&self, u: f64, v: f64) -> Vector3<f64> {
+        Vector3::z()
     }
 }
 
 impl TwisterSection {
+    pub fn new(
+        pipe_section: PipeSection,
+        orthogonal_pipe_section: PipeSection,
+        neighboring_pipe_sections: Vec<PipeSection>,
+        filling: Vec<FillingRegion>,
+    ) -> Self {
+        Self {
+            pipe_section,
+            filling_info: TwisterFillingInfo {
+                orthogonal_pipe_section,
+                neighboring_pipe_sections,
+                filling
+            }
+        }
+    }
 
     pub fn as_mesh(&self, config: &CylinderMeshConfig) -> Mesh {
-        let grid = Grid {
-            u_axis: GridAxis::Circular(30, f64::consts::TAU),
-            v_axis: GridAxis::Linear(30, -5.0, 5.0),
-        };
-        meshify(self, &grid)
+        let extent = 5.0;
+        let segments = 30;
+        if self.pipe_section.is_plane() {
+            if let Some(z) = self.pipe_section.plane_z() {
+                let grid = Grid {
+                    u_axis: GridAxis::Linear(segments, -extent, extent),
+                    v_axis: GridAxis::Linear(segments, -extent, extent),
+                };
+                let plane_1 = TwisterPlanarIsosurface {
+                    z: z,
+                    filling_info: self.filling_info.clone(),
+                };
+                let plane_2 = TwisterPlanarIsosurface {
+                    z: -z,
+                    filling_info: self.filling_info.clone(),
+                };
+                Mesh::merge(vec![
+                    meshify(&plane_1, &grid),
+                    meshify(&plane_2, &grid),
+                ])
+            } else {
+                Mesh::empty()
+            }
+        } else {
+            let grid = Grid {
+                u_axis: GridAxis::Linear(segments, -5.0, 5.0),
+                v_axis: GridAxis::Circular(segments, f64::consts::TAU),
+            };
+            let surface = TwisterCylindricalIsosurface {
+                pipe_section: self.pipe_section,
+                filling_info: self.filling_info.clone(),
+            };
+            meshify(&surface, &grid)
+        }
     }
 }
 
