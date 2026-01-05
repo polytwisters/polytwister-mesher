@@ -20,6 +20,10 @@ pub fn sort4(x: (f64, f64, f64, f64)) -> (f64, f64, f64, f64) {
     (tmp[0], tmp[1], tmp[2], tmp[3])
 }
 
+pub fn lerp(x1: f64, x2: f64, t: f64) -> f64 {
+    x1 + (x2 - x1) * t
+}
+
 /**
  * Return a linearly spaced series of n values in the closed interval [start, end]. Both endpoints
  * are inclusive.

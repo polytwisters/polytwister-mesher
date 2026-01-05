@@ -15,6 +15,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 mod cylinder_intersections;
 mod pipe_section;
 mod cylinder;
+mod cylinder_curve;
 mod mesh;
 mod utils;
 mod ellipse_spacing;

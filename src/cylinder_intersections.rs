@@ -1,7 +1,9 @@
 use core::f64;
+use std::io::Empty;
 
-use crate::{polyline::Polyline, cylinder::Cylinder, utils::linspace};
-use na::{Matrix2, Point2, Point3, Vector2, Vector3};
+use crate::{cylinder::Cylinder, pipe_section::{self, PipeSection}, polyline::Polyline, utils::linspace};
+use crate::cylinder_curve::{CCurve};
+use na::{Matrix2, Point2, Point3, Vector2, Vector3, Affine3, Matrix4};
 use crate::utils::{squared, sort2, sort4, angle, unzip_circle};
 
 /**
@@ -14,7 +16,7 @@ pub struct Line2D {
 
 impl Line2D {
     /**
-     * Return the intersection of this line with the circle ccos(theta)^2 + sin(theta)^2 = 0.
+     * Return the intersection of this line with the circle cos(theta)^2 + sin(theta)^2 = 0.
      * Returns either a tuple of two thetas (the same point twice if the line is tangent), or None
      * if the line does not intersect the circle.
      */
@@ -106,7 +108,7 @@ impl Cylinder {
      * produce a negative discriminant, these values are needed. I found that this produces simpler
      * code than using an Option for when there are no solutions.
      */
-    fn intersect_z_line_core(&self, xy: &Point2<f64>) -> (f64, f64, f64) {
+    pub fn intersect_z_line_core(&self, xy: &Point2<f64>) -> (f64, f64, f64) {
         let m = self.matrix();
         let x = xy.x;
         let y = xy.y;
@@ -128,7 +130,7 @@ impl Cylinder {
     /**
      * Return true if the line (cos(theta), sin(theta), z) intersects the pipe section.
      */
-    fn intersects_z_line_theta(&self, theta: f64) -> bool {
+    pub fn intersects_z_line_theta(&self, theta: f64) -> bool {
         let p = Point2::new(theta.cos(), theta.sin());
         self.intersect_z_line_core(&p).0 >= 0.0
     }
@@ -136,7 +138,7 @@ impl Cylinder {
     /**
      * Intersect the line (cos(theta), sin(theta), z). It is assumed that there is an intersection.
      */
-    fn intersect_z_line_theta(&self, theta: f64) -> (Point3<f64>, Point3<f64>) {
+    pub fn intersect_z_line_theta(&self, theta: f64) -> (Point3<f64>, Point3<f64>) {
         let p = Point2::new(theta.cos(), theta.sin());
         let (_, z1, z2) = self.intersect_z_line_core(&p);
         (
@@ -236,59 +238,68 @@ impl Cylinder {
         }
     }
 
+    /// Intersect this cylinder with a plane at z, parallel to the xy-plane. Return the point on the
+    /// resulting ellipse parametrized by angle theta from 0 to 2pi.
+    pub fn intersect_z_plane_parametrized(&self, z: f64, theta: f64) -> Point3<f64> {
+        let ellipse_center = self.intersect_axis_line_z_plane(z);
+        let xy = Vector2::new(theta.cos(), theta.sin());
+        let displacement_2d = self.inv_top_left_matrix() * xy;
+        ellipse_center + Vector3::new(displacement_2d.x, displacement_2d.y, 0.0)
+    }
+
+    /// Intersect this cylinder with a plane at z, parallel to the xy-plane. Return the result as a
+    /// CCurve.
+    pub fn intersect_z_plane(&self, z: f64) -> CCurve {
+        CCurve::plane(self.clone(), z)
+    }
+
+    /// Intersect this cylinder with a plane at z, parallel to the xy-plane. Discretize
+    /// the result as a Polyline.
+    pub fn intersect_z_plane_discrete(&self, z: f64, resolution: usize) -> Polyline {
+        self.intersect_z_plane(z).discretize(resolution)
+    }
+
+    /// Intersect this cylinder with a planes at +z and -z, parallel to the xy-plane. Discretize
+    /// the result into two Polylines.
+    pub fn intersect_z_planes(&self, z: f64, resolution: usize) -> Vec<Polyline> {
+        vec![
+            self.intersect_z_plane_discrete(z, resolution),
+            self.intersect_z_plane_discrete(-z, resolution),
+        ]
+    }
+
     /**
-     * Intersect this Cylinder with the base Cylinder and discretize the resulting curve into
-     * a set of Polylines.
+     * Intersect this Cylinder with the base Cylinder and return the connected components as a set
+     * of CCurves.
      */
-    pub fn intersect_base_cylinder(&self, resolution: usize) -> Vec<Polyline> {
+    pub fn intersect_base_cylinder(&self) -> Vec<CCurve> {
         let solutions = self.get_critical_thetas();
         match solutions {
+            CylinderIntersectionSolutions::Empty => vec![],
             CylinderIntersectionSolutions::All => {
-                let (loop1, loop2) = (0..resolution).map(|i| {
-                    let theta = i as f64 / resolution as f64 * f64::consts::TAU;
-                    self.intersect_z_line_theta(theta)
-                }).unzip();
                 vec![
-                    Polyline { points: loop1 },
-                    Polyline { points: loop2 },
+                    CCurve::wrapped_loop(self.clone(), false),
+                    CCurve::wrapped_loop(self.clone(), true),
                 ]
             },
-            CylinderIntersectionSolutions::Empty => vec![],
-            CylinderIntersectionSolutions::OneInterval(interval) =>
+            CylinderIntersectionSolutions::OneInterval(interval) => {
                 vec![
-                    Polyline {
-                        points: unzip_circle(
-                            linspace(interval.start, interval.end, resolution).into_iter().map(|theta| {
-                                self.intersect_z_line_theta(theta)
-                            }).collect::<Vec<_>>()
-                        )
-                    }
-                ],
-            CylinderIntersectionSolutions::TwoIntervals(interval1, interval2) =>
+                    CCurve::side_loop(self.clone(), interval.start, interval.end),
+                ]
+            },
+            CylinderIntersectionSolutions::TwoIntervals(interval1, interval2) => {
                 vec![
-                    Polyline {
-                        points: unzip_circle(
-                            linspace(interval1.start, interval1.end, resolution).into_iter().map(|theta| {
-                                self.intersect_z_line_theta(theta)
-                            }).collect::<Vec<_>>()
-                        )
-                    },
-                    Polyline {
-                        points: unzip_circle(
-                            linspace(interval2.start, interval2.end, resolution).into_iter().map(|theta| {
-                                self.intersect_z_line_theta(theta)
-                            }).collect::<Vec<_>>()
-                        )
-                    }
-                ],
+                    CCurve::side_loop(self.clone(), interval1.start, interval2.end),
+                    CCurve::side_loop(self.clone(), interval1.start, interval2.end),
+                ]
+            },
         }
     }
 
     /**
-     * Intersect this Cylinder with another Cylinder and discretize the resulting curve into
-     * a set of Polylines. 
+     * Intersect this Cylinder with another Cylinder.
      */
-    pub fn intersect_cylinder(&self, other: &Cylinder, resolution: usize) -> Vec<Polyline> {
+    pub fn intersect_cylinder(&self, other: &Cylinder) -> Vec<CCurve> {
         // Let D(M_1) be self and let D(M_2) be other.
         // Note that D(M) = M^-1 D(I), so:
         //
@@ -300,32 +311,20 @@ impl Cylinder {
         let transformed_cylinder = Cylinder::from_matrix_unchecked(
             self.matrix() * other.inv_matrix()
         );
-        let untransformed_points = transformed_cylinder.intersect_base_cylinder(resolution);
-        untransformed_points.into_iter().map(|x|
-            x.transform(&transform)
-        ).collect::<_>()
+
+        transformed_cylinder.intersect_base_cylinder().into_iter().map(|ccurve| {
+            ccurve.transform(&transform)
+        }).collect::<Vec<_>>()
     }
 
-    /// Intersect this cylinder with a plane at z, parallel to the xy-plane. Discretize
-    /// the result as a Polyline.
-    pub fn intersect_z_plane(&self, z: f64, resolution: usize) -> Polyline {
-        let ellipse_center = self.intersect_axis_line_z_plane(z);
-        let points = (0..resolution).map(|i| {
-            let theta = i as f64 / resolution as f64 * f64::consts::TAU;
-            let xy = Vector2::new(theta.cos(), theta.sin());
-            let displacement_2d = self.inv_top_left_matrix() * xy;
-            ellipse_center + Vector3::new(displacement_2d.x, displacement_2d.y, 0.0)
-        }).collect::<_>();
-        Polyline { points }
-    }
-
-    /// Intersect this cylinder with a planes at +z and -z, parallel to the xy-plane. Discretize
-    /// the result into two Polylines.
-    pub fn intersect_z_planes(&self, z: f64, resolution: usize) -> Vec<Polyline> {
-        vec![
-            self.intersect_z_plane(z, resolution),
-            self.intersect_z_plane(-z, resolution),
-        ]
+    /**
+     * Intersect this Cylinder with another Cylinder and discretize the resulting curve into
+     * a set of Polylines. 
+     */
+    pub fn intersect_cylinder_discrete(&self, other: &Cylinder, resolution: usize) -> Vec<Polyline> {
+        self.intersect_cylinder(other).iter().map(|ccurve| {
+            ccurve.discretize(resolution)
+        }).collect::<Vec<_>>()
     }
 }
 
@@ -448,10 +447,37 @@ mod test {
     }
 
     #[test]
+    fn test_intersect_base_cylinder() {
+        let cylinder = example_cylinder();
+        let curves = cylinder.intersect_base_cylinder();
+        for curve in curves {
+            let point = curve.at(0.25);
+            assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
+            assert_abs_diff_eq!(point.x.hypot(point.y), 1.0, epsilon = 1e-10);
+        }
+    }
+
+    #[test]
     fn test_intersect_cylinder() {
         let cylinder = example_cylinder();
         let cylinder2 = example_cylinder_2();
-        let curves = cylinder.intersect_cylinder(&cylinder2, 32);
+        let curves = cylinder.intersect_cylinder(&cylinder2);
+        for curve in curves {
+            let n = 30;
+            for i in 0..n {
+                let t = i as f64 / n as f64;
+                let point = curve.at(t);
+                assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
+                assert_abs_diff_eq!(cylinder2.scalar_field(&point), 0.0, epsilon = 1e-10);
+            }
+        }
+    }
+
+    #[test]
+    fn test_intersect_cylinder_discrete() {
+        let cylinder = example_cylinder();
+        let cylinder2 = example_cylinder_2();
+        let curves = cylinder.intersect_cylinder_discrete(&cylinder2, 32);
         for curve in curves {
             for point in curve.points {
                 assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
@@ -464,7 +490,7 @@ mod test {
     fn test_intersect_z_plane() {
         let cylinder = example_cylinder();
         let z = 0.3;
-        let curve = cylinder.intersect_z_plane(0.3, 32);
+        let curve = cylinder.intersect_z_plane_discrete(0.3, 32);
         for point in curve.points {
             assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
             assert_abs_diff_eq!(point.z, z, epsilon = 1e-10);

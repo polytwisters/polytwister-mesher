@@ -297,7 +297,7 @@ impl StripSection {
                 }
             } else {
                 // Neither are planes.
-                self.pipe_section_1.as_cylinder().intersect_cylinder(
+                self.pipe_section_1.as_cylinder().intersect_cylinder_discrete(
                     &self.pipe_section_2.as_cylinder(), config.linear_segments
                 )
             }
