@@ -262,21 +262,6 @@ impl Cylinder {
         ]
     }
 
-    /// Intersect this cylinder with a plane at z, parallel to the xy-plane. Discretize
-    /// the result as a Polyline.
-    pub fn intersect_z_plane_discrete(&self, z: f64, resolution: usize) -> Polyline {
-        self.intersect_z_plane(z).discretize(resolution)
-    }
-
-    /// Intersect this cylinder with a planes at +z and -z, parallel to the xy-plane. Discretize
-    /// the result into two Polylines.
-    pub fn intersect_z_planes_discrete(&self, z: f64, resolution: usize) -> Vec<Polyline> {
-        vec![
-            self.intersect_z_plane_discrete(z, resolution),
-            self.intersect_z_plane_discrete(-z, resolution),
-        ]
-    }
-
     /**
      * Intersect this Cylinder with the base Cylinder and return the connected components as a set
      * of CCurves.
@@ -323,16 +308,6 @@ impl Cylinder {
 
         transformed_cylinder.intersect_base_cylinder().into_iter().map(|ccurve| {
             ccurve.transform(&transform)
-        }).collect::<Vec<_>>()
-    }
-
-    /**
-     * Intersect this Cylinder with another Cylinder and discretize the resulting curve into
-     * a set of Polylines. 
-     */
-    pub fn intersect_cylinder_discrete(&self, other: &Cylinder, resolution: usize) -> Vec<Polyline> {
-        self.intersect_cylinder(other).iter().map(|ccurve| {
-            ccurve.discretize(resolution)
         }).collect::<Vec<_>>()
     }
 }
@@ -484,24 +459,12 @@ mod test {
     }
 
     #[test]
-    fn test_intersect_cylinder_discrete() {
-        let cylinder = example_cylinder();
-        let cylinder2 = example_cylinder_2();
-        let curves = cylinder.intersect_cylinder_discrete(&cylinder2, 32);
-        for curve in curves {
-            for point in curve.points {
-                assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
-                assert_abs_diff_eq!(cylinder2.scalar_field(&point), 0.0, epsilon = 1e-10);
-            }
-        }
-    }
-
-    #[test]
     fn test_intersect_z_plane() {
         let cylinder = example_cylinder();
         let z = 0.3;
-        let curve = cylinder.intersect_z_plane_discrete(0.3, 32);
-        for point in curve.points {
+        let curve = cylinder.intersect_z_plane(0.3);
+        for t in [0.0, 0.5, 0.7] {
+            let point = curve.at(t);
             assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
             assert_abs_diff_eq!(point.z, z, epsilon = 1e-10);
         }
