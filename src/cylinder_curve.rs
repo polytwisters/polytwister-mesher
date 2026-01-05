@@ -12,6 +12,11 @@ enum CCurveKind {
 }
 
 
+/// A CCurve is a closed curve which is one connected component of the intersection of two pipe
+/// sections.
+/// 
+/// The intersection of two pipe sections is (assuming pipes in general position) either empty or
+/// one or two closed curves.
 pub struct CCurve {
     kind: CCurveKind,
     cylinder: Cylinder,

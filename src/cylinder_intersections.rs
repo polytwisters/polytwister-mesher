@@ -253,6 +253,15 @@ impl Cylinder {
         CCurve::plane(self.clone(), z)
     }
 
+    /// Intersect this cylinder with a planes at +z and -z, parallel to the xy-plane. Return the
+    /// result as two CCurves.
+    pub fn intersect_z_planes(&self, z: f64) -> Vec<CCurve> {
+        vec![
+            self.intersect_z_plane(z),
+            self.intersect_z_plane(-z),
+        ]
+    }
+
     /// Intersect this cylinder with a plane at z, parallel to the xy-plane. Discretize
     /// the result as a Polyline.
     pub fn intersect_z_plane_discrete(&self, z: f64, resolution: usize) -> Polyline {
@@ -261,7 +270,7 @@ impl Cylinder {
 
     /// Intersect this cylinder with a planes at +z and -z, parallel to the xy-plane. Discretize
     /// the result into two Polylines.
-    pub fn intersect_z_planes(&self, z: f64, resolution: usize) -> Vec<Polyline> {
+    pub fn intersect_z_planes_discrete(&self, z: f64, resolution: usize) -> Vec<Polyline> {
         vec![
             self.intersect_z_plane_discrete(z, resolution),
             self.intersect_z_plane_discrete(-z, resolution),
@@ -327,6 +336,7 @@ impl Cylinder {
         }).collect::<Vec<_>>()
     }
 }
+
 
 #[cfg(test)]
 mod test {
