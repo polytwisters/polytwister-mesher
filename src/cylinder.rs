@@ -418,7 +418,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_basis() {
         let cylinder = example_cylinder();
         let (_, d) = cylinder.axis_line();
@@ -429,7 +428,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_surface_coords() {
         let cylinder = example_cylinder();
         let u = 0.75;

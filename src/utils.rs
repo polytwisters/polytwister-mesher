@@ -76,7 +76,7 @@ impl Ellipse {
         let t = if dot.abs() <= f64::EPSILON {
             0.0
         } else {
-            ((r1.norm_squared() - r2.norm_squared()) / (2.0 * dot)).acos() / 2.0
+            (2.0 * dot / (r1.norm_squared() - r2.norm_squared())).atan() / 2.0
         };
         let t2 = t + f64::consts::FRAC_PI_2;
         let v1 = r1 * t.cos() + r2 * t.sin();
@@ -94,6 +94,7 @@ mod tests {
     use approx::*;
     use super::*;
 
+    /// Construct an ellipse from known vertices. Ellipse::vertices() should return them.
     #[test]
     fn test_ellipse_vertices() {
         let v1 = Vector2::new(1.0, 1.3);
@@ -104,7 +105,20 @@ mod tests {
         );
         let matrix = inv_matrix.try_inverse().unwrap();
         let ellipse = Ellipse { matrix };
+        let (w1, w2) = ellipse.vertices();
+        assert_abs_diff_eq!(v1, w1, epsilon = 1e-5);
+        assert_abs_diff_eq!(v2, w2, epsilon = 1e-5);
+    }
+
+    #[test]
+    fn test_ellipse_vertices_orthogonal() {
+        let matrix = Matrix2::new(
+            2.0, 3.0,
+            6.0, 1.0,
+        );
+        let ellipse = Ellipse { matrix };
         let (v1, v2) = ellipse.vertices();
+        assert_abs_diff_eq!(v1.dot(&v2), 0.0, epsilon = 1e-5);
         assert_abs_diff_eq!(ellipse.scalar_field(&v1), 0.0, epsilon = 1e-5);
         assert_abs_diff_eq!(ellipse.scalar_field(&v2), 0.0, epsilon = 1e-5);
     }
