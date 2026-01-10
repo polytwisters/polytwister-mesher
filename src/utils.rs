@@ -72,11 +72,11 @@ impl Ellipse {
         let r2 = Vector2::new(m[(0, 1)], m[(1, 1)]);
         // Formula for the vertices of an ellipse.
         // https://en.wikipedia.org/wiki/Ellipse#General_ellipse_2
-        let dot = r1.dot(&r2);
-        let t = if dot.abs() <= f64::EPSILON {
+        let denom = r1.norm_squared() - r2.norm_squared();
+        let t = if denom.abs() <= f64::EPSILON {
             0.0
         } else {
-            (2.0 * dot / (r1.norm_squared() - r2.norm_squared())).atan() / 2.0
+            (2.0 * r1.dot(&r2) / denom).atan() / 2.0
         };
         let t2 = t + f64::consts::FRAC_PI_2;
         let v1 = r1 * t.cos() + r2 * t.sin();
