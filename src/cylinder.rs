@@ -232,12 +232,14 @@ impl Cylinder {
             )
         };
         let (major_2d, minor_2d) = ellipse.vertices();
-        let major_3d = Vector3::new(major_2d.x, major_2d.y, 0.0);
-        let minor_3d = Vector3::new(minor_2d.x, minor_2d.y, 0.0);
-        (
-            rotation * major_3d,
-            rotation * minor_3d,
-        )
+        let major = Vector3::new(major_2d.x, major_2d.y, 0.0);
+        let minor = Vector3::new(minor_2d.x, minor_2d.y, 0.0);
+        let (major, minor) = (rotation * major, rotation * minor);
+        if major.cross(&minor).dot(&direction) > 0.0 {
+            (major, -minor)
+        } else {
+            (major, minor)
+        }
     }
 
     /**
@@ -424,6 +426,7 @@ mod test {
         assert_abs_diff_eq!(d.dot(&da), 0.0);
         assert_abs_diff_eq!(d.dot(&db), 0.0);
         assert_abs_diff_eq!(da.dot(&db), 0.0);
+        assert!(da.cross(&db).dot(&d) < 0.0);
     }
 
     #[test]

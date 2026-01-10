@@ -63,14 +63,19 @@ impl Ellipse {
         self.matrix.try_inverse().unwrap()
     }
 
-    /// Return two orthogonal vectors which are the parallel to the major and minor axes of the
-    /// ellipse. If the ellipse is a circle and has no major or minor axes, any two orthogonal
-    /// vectors on the circle are returned.
+    /// Return two of the vertices of the ellipse, one along the major axis and one along the minor
+    /// axis.
+    /// 
+    /// The vertices of an ellipse are the furthest and closest points from its center. Only two of
+    /// the four vertices are returned. If the ellipse is a circle, the vertices are not defined,
+    /// and this function returns any two points at 90-degree angles from each other.
+    /// 
+    /// The handedness convention is chosen so that the cross product v1 x v2 always points in the
+    /// positive z direction.
     pub fn vertices(&self) -> (Vector2<f64>, Vector2<f64>) {
         let m = self.inv_matrix();
         let r1 = Vector2::new(m[(0, 0)], m[(1, 0)]);
         let r2 = Vector2::new(m[(0, 1)], m[(1, 1)]);
-        // Formula for the vertices of an ellipse.
         // https://en.wikipedia.org/wiki/Ellipse#General_ellipse_2
         let denom = r1.norm_squared() - r2.norm_squared();
         let t = if denom.abs() <= f64::EPSILON {
@@ -81,11 +86,26 @@ impl Ellipse {
         let t2 = t + f64::consts::FRAC_PI_2;
         let v1 = r1 * t.cos() + r2 * t.sin();
         let v2 = r1 * t2.cos() + r2 * t2.sin();
-        if v1.norm_squared() > v2.norm_squared() {
+
+        // Place the major axis first.
+        let (major, minor) = if v1.norm_squared() > v2.norm_squared() {
             (v1, v2)
         } else {
             (v2, v1)
-        }
+        };
+
+        // To ensure correct handedness we compute the cross product. Its x- and y-coordinates are 0
+        // because the two input vectors are orthogonal, and we only need its z-coordinate, which is
+        // the determinant of the 2x2 matrix [major minor].
+        let cross = major.x * minor.y - minor.x * major.y;
+        let (major, minor) = if cross > 0.0 {
+            (major, minor)
+        } else {
+            // To get a positive z-coordinate, we sign flip one of the vectors. Arbitrarily chose
+            // the minor one.
+            (major, -minor)
+        };
+        (major, minor)
     }
 }
 
