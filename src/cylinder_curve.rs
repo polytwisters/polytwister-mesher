@@ -90,6 +90,14 @@ impl CCurve {
 
     pub fn to_t(&self, p: &Point3<f64>) {
         let p2 = self.transform.inverse_transform_point(p);
+        let untransformed_point = match self.kind {
+            CCurveKind::Plane(z) => {
+            },
+            CCurveKind::WrappedLoop(branch) => {
+            }
+            CCurveKind::SideLoop(theta1, theta2) => {
+            },
+        };
     }
 
     pub fn discretize(&self, resolution: usize) -> Polyline {

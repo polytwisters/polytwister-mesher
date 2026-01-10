@@ -3,7 +3,7 @@ use core::f64;
 
 use na::{Affine3, Matrix2, Matrix3, Matrix4, Rotation3, Vector2, Vector3, Point3};
 use crate::pipe_section::PipeSection;
-use crate::utils::{squared};
+use crate::utils::{Ellipse, squared};
 use crate::ellipse_spacing::{warp_elliptic_angle, ellipse_circumference};
 use crate::mesh::{Face, Mesh, Vertex};
 use crate::config::{CylinderMeshConfig};
@@ -222,17 +222,23 @@ impl Cylinder {
         let (_, direction) = self.axis_line();
         // 3D rotation turning the axial line into the z-axis.
         let rotation = Rotation3::rotation_between(&direction, &Vector3::z()).unwrap_or(Rotation3::identity());
+        let inv_rotation = rotation.inverse();
         // Rotation to the base cylinder. Translation is ignored.
         let t: Matrix3<f64> = rotation.matrix() * self.top_left_matrix_3();
-
-        let da = Vector3::x();
-        let db = Vector3::y();
-
-        if db.norm_squared() > da.norm_squared() {
-            (-db, da)
-        } else {
-            (da, db)
-        }
+        // The top left 2x2 of the matrix gives the coefficient of an ellipse.
+        let ellipse = Ellipse {
+            matrix: Matrix2::new(
+                t[(0, 0)], t[(0, 1)],
+                t[(1, 0)], t[(1, 1)],
+            )
+        };
+        let (major_2d, minor_2d) = ellipse.vertices();
+        let major_3d = Vector3::new(major_2d.x, major_2d.y, 0.0);
+        let minor_3d = Vector3::new(major_2d.x, major_2d.y, 0.0);
+        (
+            inv_rotation * major_3d,
+            inv_rotation * minor_3d,
+        )
     }
 
     /**

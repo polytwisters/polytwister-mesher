@@ -1,4 +1,4 @@
-use std::f64;
+use core::f64;
 use na::Matrix2;
 use nalgebra::{Point2, Vector2};
 
@@ -53,20 +53,39 @@ pub struct Ellipse {
 
 impl Ellipse {
     /// Return 0.0 if the point p is on the ellipse, negative if inside, and positive if outside.
-    fn scalar_field(&self, p: Vector2<f64>) -> f64 {
+    fn scalar_field(&self, p: &Vector2<f64>) -> f64 {
         (self.matrix * p).norm_squared() - 1.0
     }
 
+    /// Inverse of 2x2 matrix in the implicit equation. Its columns are vectors parallel to two
+    /// conjugate diameters. They are not guaranteed orthogonal.
     fn inv_matrix(&self) -> Matrix2<f64> {
         self.matrix.try_inverse().unwrap()
     }
 
-    fn vertices(&self) -> (Vector2<f64>, Vector2<f64>) {
+    /// Return two orthogonal vectors which are the parallel to the major and minor axes of the
+    /// ellipse. If the ellipse is a circle and has no major or minor axes, any two orthogonal
+    /// vectors on the circle are returned.
+    pub fn vertices(&self) -> (Vector2<f64>, Vector2<f64>) {
         let m = self.inv_matrix();
-        (
-            Vector2::new(m[(0, 0)], m[(0, 1)]),
-            Vector2::new(m[(1, 0)], m[(1, 1)]),
-        )
+        let r1 = Vector2::new(m[(0, 0)], m[(1, 0)]);
+        let r2 = Vector2::new(m[(0, 1)], m[(1, 1)]);
+        // Formula for the vertices of an ellipse.
+        // https://en.wikipedia.org/wiki/Ellipse#General_ellipse_2
+        let dot = r1.dot(&r2);
+        let t = if dot.abs() <= f64::EPSILON {
+            0.0
+        } else {
+            ((r1.norm_squared() - r2.norm_squared()) / (2.0 * dot)).acos() / 2.0
+        };
+        let t2 = t + f64::consts::FRAC_PI_2;
+        let v1 = r1 * t.cos() + r2 * t.sin();
+        let v2 = r1 * t2.cos() + r2 * t2.sin();
+        if v1.norm_squared() > v2.norm_squared() {
+            (v1, v2)
+        } else {
+            (v2, v1)
+        }
     }
 }
 
@@ -76,10 +95,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_ellipse() {
-        let ellipse = Ellipse { matrix: Matrix2::new(1.0, 0.0, 0.0, 1.0) };
+    fn test_ellipse_vertices() {
+        let v1 = Vector2::new(1.0, 1.3);
+        let v2 = Vector2::new(-v1.y, v1.x) * 0.6;
+        let inv_matrix = Matrix2::new(
+            v1.x, v2.x,
+            v1.y, v2.y,
+        );
+        let matrix = inv_matrix.try_inverse().unwrap();
+        let ellipse = Ellipse { matrix };
         let (v1, v2) = ellipse.vertices();
-        assert_abs_diff_eq!(v1, Vector2::new(1.0, 0.0));
-        assert_abs_diff_eq!(v2, Vector2::new(0.0, 1.0));
+        assert_abs_diff_eq!(ellipse.scalar_field(&v1), 0.0, epsilon = 1e-5);
+        assert_abs_diff_eq!(ellipse.scalar_field(&v2), 0.0, epsilon = 1e-5);
     }
 }
