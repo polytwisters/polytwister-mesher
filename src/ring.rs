@@ -3,6 +3,7 @@ use nalgebra::{Point2, Point3, Vector4};
 use crate::{mesh::Mesh, utils::angle};
 use crate::config::{RingMeshConfig};
 
+#[derive(Clone, Copy, Debug)]
 pub struct RingSection {
     pub a: f64,
     pub b: f64,

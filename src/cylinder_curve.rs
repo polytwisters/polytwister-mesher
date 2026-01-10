@@ -1,6 +1,6 @@
 use core::f64;
 
-use crate::{cylinder::Cylinder, polyline::Polyline};
+use crate::{cylinder::Cylinder, pipe_section::{self, PipeSection}, polyline::Polyline};
 use nalgebra::{Affine3, Point3};
 use crate::utils::lerp;
 
@@ -86,6 +86,10 @@ impl CCurve {
             },
         };
         self.transform.transform_point(&untransformed_point)
+    }
+
+    pub fn to_t(&self, p: &Point3<f64>) {
+        let p2 = self.transform.inverse_transform_point(p);
     }
 
     pub fn discretize(&self, resolution: usize) -> Polyline {

@@ -162,6 +162,7 @@ impl Polytwister {
 
     pub fn strips_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh> {
         let pipe_sections = self.pipe_cross_sections(w);
+        let ring_sections = self.ring_cross_sections(w);
         let orthogonal_pipe_sections = self.orthogonal_pipe_cross_sections(w);
 
         self.polyhedron.edges.iter().enumerate().map(|(edge_index, edge)| {
@@ -171,9 +172,16 @@ impl Polytwister {
             }
             let pipe_section_1 = pipe_sections[adjacent_face_indices[0]];
             let pipe_section_2 = pipe_sections[adjacent_face_indices[1]];
+            let ring_section_1 = ring_sections[edge.vertex1];
+            let ring_section_2 = ring_sections[edge.vertex2];
             let orthogonal_pipe_section = orthogonal_pipe_sections[adjacent_face_indices[0]];
             let torus_section = StripSection::new(
-                &pipe_section_1, &pipe_section_2, &orthogonal_pipe_section, self.bloated
+                &pipe_section_1,
+                &pipe_section_2,
+                &orthogonal_pipe_section,
+                &ring_section_1,
+                &ring_section_2,
+                self.bloated
             );
             torus_section.as_mesh(&config.strips)
         }).collect::<Vec<_>>()

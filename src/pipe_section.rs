@@ -1,13 +1,14 @@
 extern crate nalgebra as na;
 use core::f64;
 
-use na::{Point3, Vector3, Vector4};
+use na::{Complex, Point3, Vector3, Vector4};
 use crate::cylinder::{Cylinder};
 use crate::config::{CylinderMeshConfig, TorusMeshConfig};
 use crate::cylinder_curve::CCurve;
 use crate::mesh::{Mesh};
-use crate::pipe_section;
+use crate::{pipe_section, ring};
 use crate::polytwister::{FillingRegion, RegionMode};
+use crate::ring::RingSection;
 use crate::utils::{squared};
 use crate::marching_squares::{Isosurface, Grid, GridAxis, meshify};
 
@@ -287,6 +288,8 @@ pub struct StripSection {
     pub pipe_section_1: PipeSection,
     pub pipe_section_2: PipeSection,
     pub orthogonal_pipe_section: PipeSection,
+    pub ring_section_1: RingSection,
+    pub ring_section_2: RingSection,
     pub bloated: bool,
 }
 
@@ -295,12 +298,16 @@ impl StripSection {
         pipe_section_1: &PipeSection,
         pipe_section_2: &PipeSection,
         orthogonal_pipe_section: &PipeSection,
+        ring_section_1: &RingSection,
+        ring_section_2: &RingSection,
         bloated: bool,
     ) -> Self {
         Self {
             pipe_section_1: pipe_section_1.clone(),
             pipe_section_2: pipe_section_2.clone(),
             orthogonal_pipe_section: orthogonal_pipe_section.clone(),
+            ring_section_1: ring_section_1.clone(),
+            ring_section_2: ring_section_2.clone(),
             bloated,
         }
     }

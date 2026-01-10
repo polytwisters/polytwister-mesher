@@ -1,5 +1,6 @@
 use std::f64;
-use nalgebra::{Point2};
+use na::Matrix2;
+use nalgebra::{Point2, Vector2};
 
 pub fn squared(x: f64) -> f64 {
     x * x
@@ -42,4 +43,43 @@ pub fn unzip_circle<T>(pairs: Vec<(T, T)>) -> Vec<T> {
     tmp2.pop();
     tmp1.append(&mut tmp2);
     tmp1
+}
+
+/// Ellipse in 2D space, centered on the origin, given by implicit equation:
+/// (m11 x + m12 y)^2 + (m21 x + m22 y)^2 = 1.
+pub struct Ellipse {
+    pub matrix: Matrix2<f64>
+}
+
+impl Ellipse {
+    /// Return 0.0 if the point p is on the ellipse, negative if inside, and positive if outside.
+    fn scalar_field(&self, p: Vector2<f64>) -> f64 {
+        (self.matrix * p).norm_squared() - 1.0
+    }
+
+    fn inv_matrix(&self) -> Matrix2<f64> {
+        self.matrix.try_inverse().unwrap()
+    }
+
+    fn vertices(&self) -> (Vector2<f64>, Vector2<f64>) {
+        let m = self.inv_matrix();
+        (
+            Vector2::new(m[(0, 0)], m[(0, 1)]),
+            Vector2::new(m[(1, 0)], m[(1, 1)]),
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use approx::*;
+    use super::*;
+
+    #[test]
+    fn test_ellipse() {
+        let ellipse = Ellipse { matrix: Matrix2::new(1.0, 0.0, 0.0, 1.0) };
+        let (v1, v2) = ellipse.vertices();
+        assert_abs_diff_eq!(v1, Vector2::new(1.0, 0.0));
+        assert_abs_diff_eq!(v2, Vector2::new(0.0, 1.0));
+    }
 }

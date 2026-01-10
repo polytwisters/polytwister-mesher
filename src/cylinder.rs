@@ -1,4 +1,6 @@
 extern crate nalgebra as na;
+use core::f64;
+
 use na::{Affine3, Matrix2, Matrix3, Matrix4, Rotation3, Vector2, Vector3, Point3};
 use crate::pipe_section::PipeSection;
 use crate::utils::{squared};
@@ -190,6 +192,19 @@ impl Cylinder {
     pub fn transformation_to_base_cylinder(&self) -> Affine3<f64> {
         Affine3::from_matrix_unchecked(self.matrix())
     }
+    /**
+     * The inverse of the top left 3x3 entries of M, defined in Cylinder::matrix().
+     */
+    pub fn top_left_matrix_3(&self) -> Matrix3<f64> {
+        let m = self.matrix();
+        // Sorry about repetitive code -- I can NOT figure out how to take a static slice of a
+        // Matrix4.
+        Matrix3::new(
+            m[(0, 0)], m[(0, 1)], m[(0, 2)],
+            m[(1, 0)], m[(1, 1)], m[(1, 2)],
+            m[(2, 0)], m[(2, 1)], m[(2, 2)],
+        )
+    }
 
     /**
      * The intersection of the cylinder with a plane orthogonal to the cylinder's axis of symmetry
@@ -203,19 +218,16 @@ impl Cylinder {
      * vectors whose lengths are equal to the radius of the circle, and which are orthogonal to each
      * other and to the axis.
      */
-    fn ellipse_vertex_displacements(&self) -> (Vector3<f64>, Vector3<f64>) {
+    pub fn ellipse_vertex_displacements(&self) -> (Vector3<f64>, Vector3<f64>) {
         let (_, direction) = self.axis_line();
-        let z = Vector3::z();
-        // R rotates the cylinder's axis of symmetry to (0, 0, 1).
-        let r = Rotation3::rotation_between(&direction, &z).unwrap_or(Rotation3::identity());
-        let r_inv = r.inverse();
-        let project_xy: Matrix3<f64> = Matrix3::from_diagonal(&Vector3::new(1.0, 1.0, 0.0));
-        let x = Vector3::x();
-        let y = Vector3::y();
-        // We specifically use "transform_vector" and not "transform_point" and are deliberately
-        // ignoring the translation part of the affine transformation.
-        let da = r_inv * project_xy * r * self.transformation_from_base_cylinder().transform_vector(&x);
-        let db = r_inv * project_xy * r * self.transformation_from_base_cylinder().transform_vector(&y);
+        // 3D rotation turning the axial line into the z-axis.
+        let rotation = Rotation3::rotation_between(&direction, &Vector3::z()).unwrap_or(Rotation3::identity());
+        // Rotation to the base cylinder. Translation is ignored.
+        let t: Matrix3<f64> = rotation.matrix() * self.top_left_matrix_3();
+
+        let da = Vector3::x();
+        let db = Vector3::y();
+
         if db.norm_squared() > da.norm_squared() {
             (-db, da)
         } else {
@@ -232,18 +244,30 @@ impl Cylinder {
         (start + da, start + db)
     }
 
-    /**
-     * Convert 2D surface coordinates (u, theta) on the cylinder to points in 3D space. Changing u
-     * by a factor of du moves the point parallel to the cylinder's axis by a distance of du, and
-     * the range of u is the entire real line. Changing theta moves the point in an elliptical loop
-     * orthogonal to the cylinder's axis, ranging from 0 to 2pi.
-     */
+    /// Convert 2D surface coordinates (u, theta) on the cylinder to points in 3D space. Changing u
+    /// by a factor of du moves the point parallel to the cylinder's axis by a distance of du, and
+    /// the range of u is the entire real line. Changing theta moves the point in an elliptical loop
+    /// orthogonal to the cylinder's axis, ranging from 0 to 2pi.
     pub fn surface_coords_to_cartesian(&self, u: f64, theta: f64) -> Point3<f64> {
         let (start, direction) = self.axis_line();
         let (da, db) = self.ellipse_vertex_displacements();
         let cx = theta.cos();
         let cy = theta.sin();
         start + u * direction + cx * da + cy * db
+    }
+
+    /// Convert Cartesian coordinates to cylindrical coordinates (u, theta, r). If r = 1 then this
+    /// is the inverse of Cylinder::surface_coords_to_cartesian.
+    pub fn cartesian_to_cylindrical(&self, point: &Point3<f64>) -> (f64, f64, f64) {
+        let (start, direction_normalized) = self.axis_line();
+        let (da, db) = self.ellipse_vertex_displacements();
+        let tmp = point - start;
+        let u = tmp.dot(&direction_normalized);
+        let cos_theta = tmp.dot(&da) / da.norm_squared();
+        let sin_theta = tmp.dot(&db) / db.norm_squared();
+        let r = cos_theta.hypot(sin_theta);
+        let theta = sin_theta.atan2(cos_theta).rem_euclid(f64::consts::TAU);
+        (u, theta, r)
     }
 
 
@@ -385,5 +409,29 @@ mod test {
             cylinder.matrix() * cylinder.inv_matrix(),
             Matrix4::identity()
         )
+    }
+
+    #[test]
+    #[ignore]
+    fn test_basis() {
+        let cylinder = example_cylinder();
+        let (_, d) = cylinder.axis_line();
+        let (da, db) = cylinder.ellipse_vertex_displacements();
+        assert_abs_diff_eq!(d.dot(&da), 0.0);
+        assert_abs_diff_eq!(d.dot(&db), 0.0);
+        assert_abs_diff_eq!(da.dot(&db), 0.0);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_surface_coords() {
+        let cylinder = example_cylinder();
+        let u = 0.75;
+        let theta = 3.345;
+        let point = cylinder.surface_coords_to_cartesian(u, theta);
+        let (u_out, theta_out, r_out) = cylinder.cartesian_to_cylindrical(&point);
+        assert_abs_diff_eq!(u, u_out);
+        assert_abs_diff_eq!(r_out, 1.0);
+        assert_abs_diff_eq!(theta, theta_out);
     }
 }
