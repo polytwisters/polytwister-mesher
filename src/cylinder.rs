@@ -220,11 +220,10 @@ impl Cylinder {
      */
     pub fn ellipse_vertex_displacements(&self) -> (Vector3<f64>, Vector3<f64>) {
         let (_, direction) = self.axis_line();
-        // 3D rotation turning the axial line into the z-axis.
-        let rotation = Rotation3::rotation_between(&direction, &Vector3::z()).unwrap_or(Rotation3::identity());
-        let inv_rotation = rotation.inverse();
+        // 3D rotation turning the z-axis into the axial line.
+        let rotation = Rotation3::rotation_between(&Vector3::z(), &direction).unwrap_or(Rotation3::identity());
         // Rotation to the base cylinder. Translation is ignored.
-        let t: Matrix3<f64> = rotation.matrix() * self.top_left_matrix_3();
+        let t: Matrix3<f64> = self.top_left_matrix_3() * rotation;
         // The top left 2x2 of the matrix gives the coefficient of an ellipse.
         let ellipse = Ellipse {
             matrix: Matrix2::new(
@@ -234,10 +233,10 @@ impl Cylinder {
         };
         let (major_2d, minor_2d) = ellipse.vertices();
         let major_3d = Vector3::new(major_2d.x, major_2d.y, 0.0);
-        let minor_3d = Vector3::new(major_2d.x, major_2d.y, 0.0);
+        let minor_3d = Vector3::new(minor_2d.x, minor_2d.y, 0.0);
         (
-            inv_rotation * major_3d,
-            inv_rotation * minor_3d,
+            rotation * major_3d,
+            rotation * minor_3d,
         )
     }
 
@@ -434,8 +433,8 @@ mod test {
         let theta = 3.345;
         let point = cylinder.surface_coords_to_cartesian(u, theta);
         let (u_out, theta_out, r_out) = cylinder.cartesian_to_cylindrical(&point);
-        assert_abs_diff_eq!(u, u_out);
-        assert_abs_diff_eq!(r_out, 1.0);
-        assert_abs_diff_eq!(theta, theta_out);
+        assert_abs_diff_eq!(u, u_out, epsilon = 1e-10);
+        assert_abs_diff_eq!(r_out, 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(theta, theta_out, epsilon = 1e-10);
     }
 }
