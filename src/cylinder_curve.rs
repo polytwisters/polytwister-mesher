@@ -15,8 +15,10 @@ enum CCurveKind {
 /// A CCurve is a closed curve which is one connected component of the intersection of two pipe
 /// sections.
 /// 
-/// The intersection of two pipe sections is (assuming pipes in general position) either empty or
-/// one or two closed curves.
+/// The curve is encoded as follows. Let C = {(x, y, z) : x^2 + y^2 = 1} be a "base cylinder." Given
+/// a second cylinder B and an affine transformation A, the intersection is A*intersect(B, C). 
+/// This intersection is zero, or one, or two closed curves. A CCurve is one connected component of
+/// that intersection.
 pub struct CCurve {
     kind: CCurveKind,
     cylinder: Cylinder,
@@ -88,10 +90,12 @@ impl CCurve {
         self.transform.transform_point(&untransformed_point)
     }
 
+    /// Given a point p in 3D space, find a value of t so that curve.at(t) is close to p.
     pub fn to_t(&self, p: &Point3<f64>) {
         let p2 = self.transform.inverse_transform_point(p);
         let untransformed_point = match self.kind {
             CCurveKind::Plane(z) => {
+                
             },
             CCurveKind::WrappedLoop(branch) => {
             }
