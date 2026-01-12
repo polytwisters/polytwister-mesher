@@ -6,6 +6,8 @@ use std::io::{Write};
 use std::path::PathBuf;
 use std::fs::{File};
 
+use log::{info};
+
 use na::{Point, Point3, Transform3, Vector3};
 use crate::pipe_section::{PipeSection};
 
@@ -34,6 +36,50 @@ pub struct Face {
 pub struct Mesh {
     pub vertices: Vec<Vertex>,
     pub faces: Vec<Face>,
+}
+
+
+#[derive(Clone, Copy, Debug)]
+pub struct Color {
+    pub red: u8,
+    pub green: u8,
+    pub blue: u8,
+}
+
+/// A collection of meshes with an RGB color assigned to each one.
+pub struct ColoredMesh {
+    pub meshes: Vec<(Mesh, Color)>
+}
+
+/// Common methods between Mesh and ColoredMesh.
+pub trait MeshLike {
+    fn num_faces(&self) -> usize;
+    fn num_vertices(&self) -> usize;
+    fn write_ply<W: Write>(&self, buffer: &mut W) -> std::io::Result<()>;
+
+    fn write_ply_file(&self, path: &PathBuf) -> std::io::Result<()> {
+        let mut buffer = File::create(path)?;
+        self.write_ply(&mut buffer)?;
+        Ok(())
+    }
+
+    fn write_ply_file_and_log(&self, path: &PathBuf, name: &str) -> std::io::Result<()> {
+        self.write_ply_file(path)?;
+        let path_str = path.to_str().unwrap_or("???");
+        let summary = self.summary();
+        info!("{name} ({summary}) written to '{path_str}'.");
+        Ok(())
+    }
+
+    fn summary(&self) -> String {
+        let num_faces = self.num_faces();
+        if num_faces == 0 {
+            format!("empty")
+        } else {
+            let s = if num_faces == 1 { "" } else { "s" };
+            format!("{num_faces} face{s}")
+        }
+    }
 }
 
 
@@ -255,14 +301,6 @@ impl Mesh {
         Mesh::from_partial(&vertices, &faces)
     }
 
-    pub fn num_vertices(&self) -> usize {
-        self.vertices.len()
-    }
-
-    pub fn num_faces(&self) -> usize {
-        self.faces.len()
-    }
-
     fn offset_indices(faces: Vec<Face>, offset: usize) -> Vec<Face> {
         faces.into_iter().map(|face| {
             Face {
@@ -312,8 +350,18 @@ impl Mesh {
         }
         Ok(())
     }
+}
 
-    pub fn write_ply<W: Write>(&self, buffer: &mut W) -> std::io::Result<()> {
+impl MeshLike for Mesh {
+    fn num_faces(&self) -> usize {
+        self.faces.len()
+    }
+
+    fn num_vertices(&self) -> usize {
+        self.vertices.len()
+    }
+
+    fn write_ply<W: Write>(&self, buffer: &mut W) -> std::io::Result<()> {
         write!(buffer, "ply\n")?;
         write!(buffer, "format binary_little_endian 1.0\n")?;
         write!(buffer, "element vertex {}\n", self.vertices.len())?;
@@ -343,31 +391,20 @@ impl Mesh {
         }
         Ok(())
     }
+}
 
-    pub fn write_ply_file(&self, path: &PathBuf) -> std::io::Result<()> {
-        let mut buffer = File::create(path)?;
-        self.write_ply(&mut buffer)?;
-        Ok(())
+impl MeshLike for ColoredMesh {
+    fn num_faces(&self) -> usize {
+        self.meshes.iter().map(|(m, _)| m.num_faces()).sum()
     }
-}
 
+    fn num_vertices(&self) -> usize {
+        self.meshes.iter().map(|(m, _)| m.num_vertices()).sum()
+    }
 
-#[derive(Clone, Copy, Debug)]
-pub struct Color {
-    pub red: u8,
-    pub green: u8,
-    pub blue: u8,
-}
-
-/// A collection of meshes with an RGB color assigned to each one.
-pub struct ColoredMesh {
-    pub meshes: Vec<(Mesh, Color)>
-}
-
-impl ColoredMesh {
-    pub fn write_ply<W: Write>(&self, buffer: &mut W) -> std::io::Result<()> {
-        let num_vertices: usize = self.meshes.iter().map(|(mesh, _)| mesh.vertices.len()).sum();
-        let num_faces: usize = self.meshes.iter().map(|(mesh, _)| mesh.faces.len()).sum();
+    fn write_ply<W: Write>(&self, buffer: &mut W) -> std::io::Result<()> {
+        let num_vertices: usize = self.num_vertices();
+        let num_faces: usize = self.num_faces();
 
         write!(buffer, "ply\n")?;
         write!(buffer, "format binary_little_endian 1.0\n")?;
@@ -408,12 +445,6 @@ impl ColoredMesh {
             }
             offset += mesh.vertices.len();
         }
-        Ok(())
-    }
-
-    pub fn write_ply_file(&self, path: &PathBuf) -> std::io::Result<()> {
-        let mut buffer = File::create(path)?;
-        self.write_ply(&mut buffer)?;
         Ok(())
     }
 }
