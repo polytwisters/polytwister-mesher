@@ -480,6 +480,7 @@ mod test {
 
     use na::Point2;
 
+    use crate::mesh::MeshLike;
     use super::*;
 
     struct ExampleIsosurface;
