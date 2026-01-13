@@ -91,17 +91,21 @@ impl CCurve {
     }
 
     /// Given a point p in 3D space, find a value of t so that curve.at(t) is close to p.
-    pub fn to_t(&self, p: &Point3<f64>) {
+    pub fn to_t(&self, p: &Point3<f64>) -> f64 {
         let p2 = self.transform.inverse_transform_point(p);
-        let untransformed_point = match self.kind {
+        let (u, theta, r) = self.cylinder.cartesian_to_cylindrical(&p2);
+        let theta2 = match self.kind {
             CCurveKind::Plane(z) => {
-                
+                theta
             },
             CCurveKind::WrappedLoop(branch) => {
+                theta
             }
             CCurveKind::SideLoop(theta1, theta2) => {
+                theta
             },
         };
+        theta2 / f64::consts::TAU
     }
 
     pub fn discretize(&self, resolution: usize) -> Polyline {
@@ -111,4 +115,26 @@ impl CCurve {
         }).collect::<Vec<_>>();
         Polyline { points }
     }
+}
+
+#[cfg(test)]
+mod test {
+    use approx::*;
+    use super::*;
+
+    fn example_c_curve() -> CCurve {
+        CCurve {
+            kind: CCurveKind::Plane(1.0),
+            cylinder: Cylinder::base(),
+            transform: Affine3::identity()
+        }
+    }
+
+    #[test]
+    fn test_to_t() {
+        let curve = example_c_curve();
+        let t = 0.34;
+        assert_abs_diff_eq!(curve.to_t(&curve.at(t)), t);
+    }
+
 }
