@@ -1,7 +1,7 @@
 use core::f64;
 use std::io::Empty;
 
-use crate::{cylinder::Cylinder, pipe_section::{self, PipeSection}, polyline::Polyline, utils::linspace};
+use crate::{cylinder::Cylinder, pipe_section::{self, PipeSection}, polyline::Polyline, utils::{angle_vector, linspace}};
 use crate::cylinder_curve::{CCurve};
 use na::{Matrix2, Point2, Point3, Vector2, Vector3, Affine3, Matrix4};
 use crate::utils::{squared, sort2, sort4, angle, unzip_circle};
@@ -245,6 +245,14 @@ impl Cylinder {
         let xy = Vector2::new(theta.cos(), theta.sin());
         let displacement_2d = self.inv_top_left_matrix() * xy;
         ellipse_center + Vector3::new(displacement_2d.x, displacement_2d.y, 0.0)
+    }
+
+    /// Inverse of intersect_z_plane_parametrized, returning the "theta" value.
+    pub fn z_plane_ellipse_theta(&self, z: f64, p: &Point2<f64>) -> f64 {
+        let ellipse_center = self.intersect_axis_line_z_plane(z).xy();
+        let displacement_2d = p - ellipse_center;
+        let xy = self.top_left_matrix() * displacement_2d;
+        angle_vector(&xy)
     }
 
     /// Intersect this cylinder with a plane at z, parallel to the xy-plane. Return the result as a

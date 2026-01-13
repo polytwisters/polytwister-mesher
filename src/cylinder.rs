@@ -138,15 +138,22 @@ impl Cylinder {
     }
 
     /**
-     * The inverse of the top left 2x2 entries of M, defined in Cylinder::matrix(). Reused in
-     * several places.
+     * Top left 2x2 entries of M.
      */
-    pub fn inv_top_left_matrix(&self) -> Matrix2<f64> {
+    pub fn top_left_matrix(&self) -> Matrix2<f64> {
         let m = self.matrix();
         Matrix2::new(
             m[(0, 0)], m[(0, 1)],
             m[(1, 0)], m[(1, 1)],
-        ).try_inverse().unwrap()
+        )
+    }
+
+    /**
+     * The inverse of the top left 2x2 entries of M, defined in Cylinder::matrix(). Reused in
+     * several places.
+     */
+    pub fn inv_top_left_matrix(&self) -> Matrix2<f64> {
+        self.top_left_matrix().try_inverse().unwrap()
     }
 
     /**

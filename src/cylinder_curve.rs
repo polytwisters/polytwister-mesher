@@ -21,6 +21,8 @@ enum CCurveKind {
 /// a second cylinder B and an affine transformation A, the intersection is A*intersect(B, C). 
 /// This intersection is zero, or one, or two closed curves. A CCurve is one connected component of
 /// that intersection.
+/// 
+/// Alternatively the 
 #[derive(Clone, Copy, Debug)]
 pub struct CCurve {
     kind: CCurveKind,
@@ -105,7 +107,7 @@ impl CCurve {
         let (_, z1, z2) = self.cylinder.intersect_z_line_core(&Point2::new(x, y));
         match self.kind {
             CCurveKind::Plane(z) => {
-                theta / f64::consts::TAU
+                self.cylinder.z_plane_ellipse_theta(z, &p2.xy()) / f64::consts::TAU
             },
             CCurveKind::WrappedLoop(branch) => {
                 theta / f64::consts::TAU
@@ -160,7 +162,7 @@ mod test {
 
     #[test]
     fn test_to_t_plane() {
-        let curve = Cylinder::base().intersect_z_plane(1.0);
+        let curve = example_cylinder().intersect_z_plane(2.0);
         let t = 0.34;
         assert_abs_diff_eq!(curve.to_t(&curve.at(t)), t);
     }

@@ -10,6 +10,10 @@ pub fn angle(point: &Point2<f64>) -> f64 {
     f64::atan2(point.y, point.x).rem_euclid(f64::consts::TAU)
 }
 
+pub fn angle_vector(v: &Vector2<f64>) -> f64 {
+    f64::atan2(v.y, v.x).rem_euclid(f64::consts::TAU)
+}
+
 pub fn sort2(x: (f64, f64)) -> (f64, f64) {
     let (x1, x2) = x;
     if x1 < x2 { (x1, x2) } else { (x2, x1) }
