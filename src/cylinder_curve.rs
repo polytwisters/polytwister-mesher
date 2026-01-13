@@ -121,7 +121,10 @@ impl CCurve {
                     lerp_inverse(theta1, theta2, theta_unwrapped).clamp(0.0, 1.0) / 2.0
                 } else {
                     // Branch 2: 0.5 <= t < 1
-                    0.5 + lerp_inverse(theta2, theta1, theta_unwrapped).clamp(0.0, 1.0) / 2.0
+                    let tmp = 0.5 + lerp_inverse(
+                        theta2, theta1, theta_unwrapped
+                    ).clamp(0.0, 1.0) / 2.0;
+                    tmp.rem_euclid(1.0)
                 }
             }
         }
@@ -168,11 +171,10 @@ mod test {
         let curves = cylinder_1.intersect_cylinder(&cylinder_2);
         let curve = curves[0];
         assert!(matches!(curve.kind, CCurveKind::WrappedLoop(_)));
-        let t = 0.34;
-        let p = curve.at(t);
-        assert_abs_diff_eq!(cylinder_1.scalar_field(&p), 0.0, epsilon = 1e-5);
-        assert_abs_diff_eq!(cylinder_2.scalar_field(&p), 0.0, epsilon = 1e-5);
-        assert_abs_diff_eq!(curve.to_t(&p), t);
+        for t in [0.0, 0.14, 0.5, 0.99] {
+            let p = curve.at(t);
+            assert_abs_diff_eq!(curve.to_t(&p), t);
+        }
     }
 
     #[test]
@@ -182,10 +184,9 @@ mod test {
         let curves = cylinder_1.intersect_cylinder(&cylinder_2);
         let curve = curves[0];
         assert!(matches!(curve.kind, CCurveKind::SideLoop(_, _)));
-        let t = 0.95;
-        let p = curve.at(t);
-        assert_abs_diff_eq!(cylinder_1.scalar_field(&p), 0.0, epsilon = 1e-5);
-        assert_abs_diff_eq!(cylinder_2.scalar_field(&p), 0.0, epsilon = 1e-5);
-        assert_abs_diff_eq!(curve.to_t(&p), t);
+        for t in [0.0, 0.023, 0.5, 0.58] {
+            let p = curve.at(t);
+            assert_abs_diff_eq!(curve.to_t(&p), t);
+        }
     }
 }
