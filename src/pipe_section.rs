@@ -324,16 +324,13 @@ impl StripSection {
                 let p2 = if ccurve.contains(&p2a) { p2a } else { p2b };
                 let mut t1 = ccurve.to_t(&p1);
                 let mut t2 = ccurve.to_t(&p2);
-                if t1 >= t2 {
-                    t2 = t2 + 1.0;
-                }
                 let t3 = (t1 + t2) / 2.0;
-                let swap = self.orthogonal_pipe_section.contains(&ccurve.at(t3)) == self.bloated;
+                let swap = !self.orthogonal_pipe_section.contains(&ccurve.at(t3)) == self.bloated;
                 if swap {
                     (t1, t2) = (t2, t1);
                 }
                 if t1 >= t2 {
-                    t2 = t2 + 1.0;
+                    (t1, t2) = (t2, t1 + 1.0);
                 }
                 let polyline = ccurve.discretize(t1, t2, config.linear_segments);
                 polyline.as_mesh(config.thickness, config.radial_segments)
