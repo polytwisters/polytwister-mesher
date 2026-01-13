@@ -124,6 +124,7 @@ impl CCurve {
                     let tmp = 0.5 + lerp_inverse(
                         theta2, theta1, theta_unwrapped
                     ).clamp(0.0, 1.0) / 2.0;
+                    // Make sure 1.0 is wrapped back to 0.0.
                     tmp.rem_euclid(1.0)
                 }
             }
