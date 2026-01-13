@@ -6,6 +6,7 @@ use crate::cylinder::{Cylinder};
 use crate::config::{CylinderMeshConfig, TorusMeshConfig};
 use crate::cylinder_curve::CCurve;
 use crate::mesh::{Mesh};
+use crate::polyline::Polyline;
 use crate::{pipe_section, ring};
 use crate::polytwister::{FillingRegion, RegionMode};
 use crate::ring::RingSection;
@@ -315,17 +316,31 @@ impl StripSection {
     pub fn as_mesh(&self, config: &TorusMeshConfig) -> Mesh {
         let ccurves = self.pipe_section_1.intersect(&self.pipe_section_2);
 
-        let meshes = ccurves.iter().map(|ccurve|
-            ccurve
-                .discretize(config.linear_segments)
-                .as_mesh_partial(|p| {
-                    if self.bloated {
-                        !self.orthogonal_pipe_section.contains(&p)
-                    } else {
-                        self.orthogonal_pipe_section.contains(&p)
-                    }
-                }, config.thickness, config.radial_segments)
-        ).collect::<_>();
+        let meshes = ccurves.iter().map(|ccurve| {
+            let points_1 = self.ring_section_1.as_points();
+            let points_2 = self.ring_section_2.as_points();
+            if let (Some((p1a, p1b)), Some((p2a, p2b))) = (points_1, points_2) {
+                let p1 = if ccurve.contains(&p1a) { p1a } else { p1b };
+                let p2 = if ccurve.contains(&p2a) { p2a } else { p2b };
+                let mut t1 = ccurve.to_t(&p1);
+                let mut t2 = ccurve.to_t(&p2);
+                if t1 >= t2 {
+                    t2 = t2 + 1.0;
+                }
+                let t3 = (t1 + t2) / 2.0;
+                let swap = self.orthogonal_pipe_section.contains(&ccurve.at(t3)) == self.bloated;
+                if swap {
+                    (t1, t2) = (t2, t1);
+                }
+                if t1 >= t2 {
+                    t2 = t2 + 1.0;
+                }
+                let polyline = ccurve.discretize(t1, t2, config.linear_segments);
+                polyline.as_mesh(config.thickness, config.radial_segments)
+            } else {
+                Mesh::empty()
+            }
+        }).collect::<_>();
         Mesh::merge(meshes)
     }
 }

@@ -5,23 +5,15 @@ use core::num;
 use std::f64;
 
 /**
- * A polyline forming a closed loop in 3D space.
+ * A polyline in 3D space.
  */
 pub struct Polyline {
     pub points: Vec<Point3<f64>>
 }
 
 impl Polyline {
-    fn point(&self, index: isize) -> Point3<f64> {
-        self.points[index.rem_euclid(self.points.len() as isize) as usize]
-    }
-
-    /**
-     * Produce a mesh visualizing this polyline as a thick tube.
-     */
-    pub fn as_mesh_partial<F: Fn(&Point3<f64>) -> bool>(
+    pub fn as_mesh(
         &self,
-        predicate: F,
         thickness: f64,
         radial_segments: usize,
     ) -> Mesh {
@@ -33,9 +25,10 @@ impl Polyline {
         }
 
         let mut vertices = vec![];
-        for (point_index, point) in self.points.iter().enumerate() {
-            let prev = self.point(point_index as isize - 1);
-            let next = self.point(point_index as isize + 1);
+        for i in 1..(self.points.len() - 1) {
+            let prev = self.points[i - 1];
+            let point = self.points[i];
+            let next = self.points[i + 1];
             let v_next = (next - point).normalize();
             let v_prev = (point - prev).normalize();
             let x = v_next.cross(&v_prev).normalize();
@@ -47,7 +40,7 @@ impl Polyline {
                 let normal = x * cos + y * sin;
                 let mesh_point = point + normal * thickness;
                 let vertex = Vertex::new(mesh_point, normal);
-                vertices.push(if predicate(point) { Some(vertex) } else { None });
+                vertices.push(vertex);
             }
         }
 
@@ -76,7 +69,7 @@ impl Polyline {
             }
         }
 
-        Mesh::from_partial(&vertices, &faces)
+        Mesh { vertices, faces }
     }
 
     pub fn transform(self, transform: &Affine3<f64>) -> Polyline {

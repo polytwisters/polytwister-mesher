@@ -22,7 +22,7 @@ enum CCurveKind {
 /// This intersection is zero, or one, or two closed curves. A CCurve is one connected component of
 /// that intersection.
 /// 
-/// Alternatively the 
+/// Alternatively the curve is the intersection with a plane with a given z-coordinate.
 #[derive(Clone, Copy, Debug)]
 pub struct CCurve {
     kind: CCurveKind,
@@ -68,33 +68,71 @@ impl CCurve {
 
     /// Find the point on the curve parametrized by t, ranging form 0 to 1.
     pub fn at(&self, t: f64) -> Point3<f64> {
+        let t2 = t.rem_euclid(1.0);
         let untransformed_point = match self.kind {
             CCurveKind::Plane(z) => {
-                let theta = t * f64::consts::TAU;
+                let theta = t2 * f64::consts::TAU;
                 self.cylinder.intersect_z_plane_parametrized(z, theta)
             },
             CCurveKind::WrappedLoop(branch) => {
-                let theta = t * f64::consts::TAU;
+                let theta = t2 * f64::consts::TAU;
                 let (p1, p2) = self.cylinder.intersect_z_line_theta(theta);
                 if branch { p1 } else { p2 }
             }
             CCurveKind::SideLoop(theta1, theta2) => {
-                if t < 0.5 {
+                if t2 < 0.5 {
                     // Map [0, 1] -> [0, 0.5].
-                    let t2 = t * 2.0;
-                    let theta = lerp(theta1, theta2, t2);
+                    let t3 = t2 * 2.0;
+                    let theta = lerp(theta1, theta2, t3);
                     let (p1, _) = self.cylinder.intersect_z_line_theta(theta);
                     p1
                 } else {
                     // Map [0.5, 1] -> [1, 0].
-                    let t2 = (1.0 - t) * 2.0;
-                    let theta = lerp(theta1, theta2, t2);
+                    let t3 = (1.0 - t2) * 2.0;
+                    let theta = lerp(theta1, theta2, t3);
                     let (_, p2) = self.cylinder.intersect_z_line_theta(theta);
                     p2
                 }
             },
         };
         self.transform.transform_point(&untransformed_point)
+    }
+
+    /// Return true if the given 3D point is on the curve.
+    pub fn contains(&self, p: &Point3<f64>) -> bool {
+        let tolerance = 1e-10;
+        let p2 = self.transform.inverse_transform_point(p);
+        let x = p2.x;
+        let y = p2.y;
+        let z = p2.z;
+        let theta = y.atan2(x).rem_euclid(f64::consts::TAU);
+        let (_, z1, z2) = self.cylinder.intersect_z_line_core(&Point2::new(x, y));
+        match self.kind {
+            CCurveKind::Plane(z) => {
+                self.cylinder.scalar_field(&p2).abs() < tolerance
+            },
+            CCurveKind::WrappedLoop(branch) => {
+                (x.hypot(y) - 1.0).abs() < tolerance && if branch {
+                    (z - z1).abs() < tolerance
+                } else {
+                    (z - z2).abs() < tolerance
+                }
+            }
+            CCurveKind::SideLoop(theta1, theta2) => {
+                let unwrapped_theta = if theta <= theta1 - tolerance {
+                    theta + f64::consts::TAU
+                } else {
+                    theta
+                };
+
+                (x.hypot(y) - 1.0).abs() < tolerance
+                && theta1 - tolerance <= unwrapped_theta && unwrapped_theta <= theta2 + tolerance
+                && (
+                    (z - z1).abs() < tolerance
+                    || (z - z2).abs() < tolerance
+                )
+            }
+        }
     }
 
     /// Given a point p in 3D space, find a value of t so that curve.at(t) is close to p.
@@ -133,9 +171,9 @@ impl CCurve {
         }
     }
 
-    pub fn discretize(&self, resolution: usize) -> Polyline {
+    pub fn discretize(&self, t1: f64, t2: f64, resolution: usize) -> Polyline {
         let points = (0..resolution).map(|i| {
-            let t = i as f64 / resolution as f64;
+            let t = lerp(t1, t2, i as f64 / resolution as f64);
             self.at(t)
         }).collect::<Vec<_>>();
         Polyline { points }
@@ -164,7 +202,9 @@ mod test {
     fn test_to_t_plane() {
         let curve = example_cylinder().intersect_z_plane(2.0);
         let t = 0.34;
-        assert_abs_diff_eq!(curve.to_t(&curve.at(t)), t);
+        let p = curve.at(t);
+        assert!(curve.contains(&p));
+        assert_abs_diff_eq!(curve.to_t(&p), t);
     }
 
     #[test]
@@ -176,6 +216,7 @@ mod test {
         assert!(matches!(curve.kind, CCurveKind::WrappedLoop(_)));
         for t in [0.0, 0.14, 0.5, 0.99] {
             let p = curve.at(t);
+            assert!(curve.contains(&p));
             assert_abs_diff_eq!(curve.to_t(&p), t);
         }
     }
@@ -189,6 +230,7 @@ mod test {
         assert!(matches!(curve.kind, CCurveKind::SideLoop(_, _)));
         for t in [0.0, 0.023, 0.5, 0.58] {
             let p = curve.at(t);
+            assert!(curve.contains(&p));
             assert_abs_diff_eq!(curve.to_t(&p), t);
         }
     }
