@@ -1,5 +1,5 @@
 use nalgebra as na;
-use na::{Affine3, Point3};
+use na::{Affine3, Point3, Vector3};
 use crate::mesh::{self, Face, Mesh, Vertex};
 use core::num;
 use std::f64;
@@ -12,6 +12,18 @@ pub struct Polyline {
 }
 
 impl Polyline {
+    fn plane(&self, i: usize) -> (Vector3<f64>, Vector3<f64>) {
+        let i = i.clamp(1, self.points.len() - 2);
+        let prev = self.points[i - 1];
+        let point = self.points[i];
+        let next = self.points[i + 1];
+        let v_next = (next - point).normalize();
+        let v_prev = (point - prev).normalize();
+        let x = v_next.cross(&v_prev).normalize();
+        let y = x.cross(&v_next).normalize();
+        (x, y)
+    }
+
     pub fn as_mesh(
         &self,
         thickness: f64,
@@ -25,14 +37,9 @@ impl Polyline {
         }
 
         let mut vertices = vec![];
-        for i in 1..(self.points.len() - 1) {
-            let prev = self.points[i - 1];
+        for i in 0..num_points {
             let point = self.points[i];
-            let next = self.points[i + 1];
-            let v_next = (next - point).normalize();
-            let v_prev = (point - prev).normalize();
-            let x = v_next.cross(&v_prev).normalize();
-            let y = x.cross(&v_next).normalize();
+            let (x, y) = self.plane(i);
             for radial_index in 0..radial_segments {
                 let angle = radial_index as f64 / radial_segments as f64 * f64::consts::TAU;
                 let cos = angle.cos();
@@ -46,12 +53,12 @@ impl Polyline {
 
         let mut faces: Vec<Face> = vec![];
 
-        for i in 0..num_points {
+        for i in 0..num_points - 1 {
             for j in 0..radial_segments {
                 let v1 = i * radial_segments + j;
                 let v2 = i * radial_segments + (j + 1) % radial_segments;
-                let v3 = (i + 1) % num_points * radial_segments + j;
-                let v4 = (i + 1) % num_points * radial_segments + (j + 1) % radial_segments;
+                let v3 = (i + 1) * radial_segments + j;
+                let v4 = (i + 1) * radial_segments + (j + 1) % radial_segments;
 
                 // v1 -- v2
                 // | ,--' |
