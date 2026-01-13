@@ -25,6 +25,10 @@ pub fn lerp(x1: f64, x2: f64, t: f64) -> f64 {
     x1 + (x2 - x1) * t
 }
 
+pub fn lerp_inverse(x1: f64, x2: f64, x: f64) -> f64 {
+    (x - x1) / (x2 - x1)
+}
+
 /**
  * Return a linearly spaced series of n values in the closed interval [start, end]. Both endpoints
  * are inclusive.
