@@ -12,6 +12,9 @@ extern crate nalgebra as na;
 use na::{Point3, Vector4};
 use clap::{Parser, Subcommand, ValueEnum};
 
+use env_logger::Env;
+use log::{warn, info};
+
 mod cylinder_intersections;
 mod pipe_section;
 mod cylinder;
@@ -27,7 +30,7 @@ mod marching_squares;
 use crate::config::Config;
 use crate::polytwister::Polytwister;
 use crate::utils::linspace;
-use crate::mesh::Mesh;
+use crate::mesh::{Mesh, MeshLike};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -120,6 +123,10 @@ enum Commands {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let env = Env::default()
+        .filter_or("LOG_LEVEL", "info");
+    env_logger::Builder::from_env(env).format_timestamp(None).init();
+
     let args = Args::parse();
 
     let config: Config = if let Some(config_path) = args.config {
@@ -143,27 +150,27 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut any_output = false;
             let mesh = polytwister.as_meshes(*w, &config);
             if let Some(path) = merged_path {
-                mesh.as_colored_mesh().write_ply_file(path);
+                mesh.as_colored_mesh().write_ply_file_and_log(path, "Merged colored mesh");
                 any_output = true;
             }
             if let Some(path) = rings_path {
-                Mesh::merge(mesh.ring_meshes).write_ply_file(path);
+                Mesh::merge(mesh.ring_meshes).write_ply_file_and_log(path, "Ring mesh");
                 any_output = true;
             }
             if let Some(path) = strips_path {
-                Mesh::merge(mesh.strip_meshes).write_ply_file(path);
+                Mesh::merge(mesh.strip_meshes).write_ply_file_and_log(path, "Strip mesh");
                 any_output = true;
             }
             if let Some(path) = twisters_path_1 {
-                Mesh::merge(mesh.twister_meshes_orbit_1).write_ply_file(path);
+                Mesh::merge(mesh.twister_meshes_orbit_1).write_ply_file_and_log(path, "Twister orbit 1 mesh");
                 any_output = true;
             }
             if let Some(path) = twisters_path_2 {
-                Mesh::merge(mesh.twister_meshes_orbit_2).write_ply_file(path);
+                Mesh::merge(mesh.twister_meshes_orbit_2).write_ply_file_and_log(path, "Twister orbit 2 mesh");
                 any_output = true;
             }
             if !any_output {
-                eprintln!("Warning: no output mesh files provided. Try using --merged, --rings, --strips, --twisters-1, or --twisters-2.");
+                warn!("No output mesh files provided. Try using --merged, --rings, --strips, --twisters-1, or --twisters-2.");
             }
 
             Ok(())
@@ -179,7 +186,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             std::fs::create_dir(output_dir)?;
 
             for (i, w) in linspace(-1.0, 1.0, *frames).into_iter().enumerate() {
-                eprintln!("frame {i}, w = {w}");
+                let tmp = *frames;
+                info!("Frame {i}/{tmp}, w = {w}");
                 let prefix = format!("section_{i:04}");
                 let mesh = polytwister.as_meshes(w, &config);
                 mesh.write_plys(output_dir, &prefix);

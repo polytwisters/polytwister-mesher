@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 
+use log;
 use serde::Deserialize;
 use na::{Point3, Vector4};
 use crate::config::{Config, CylinderMeshConfig, RingMeshConfig, TorusMeshConfig};
 use crate::cylinder::{Cylinder};
 use crate::pipe_section::{PipeSection, StripSection, TwisterSection};
-use crate::mesh::{Color, Mesh, ColoredMesh};
+use crate::mesh::{Color, Mesh, ColoredMesh, MeshLike};
 use crate::polyline::Polyline;
 use crate::ring::{self, RingSection};
 
@@ -212,10 +213,10 @@ impl PolytwisterMeshes {
         let twister_mesh_orbit_1 = Mesh::merge(self.twister_meshes_orbit_1.clone());
         let twister_mesh_orbit_2 = Mesh::merge(self.twister_meshes_orbit_2.clone());
 
-        ring_mesh.write_ply_file(&dir.join(format!("{prefix}_rings.ply")));
-        strip_mesh.write_ply_file(&dir.join(format!("{prefix}_strips.ply")));
-        twister_mesh_orbit_1.write_ply_file(&dir.join(format!("{prefix}_twisters_1.ply")));
-        twister_mesh_orbit_2.write_ply_file(&dir.join(format!("{prefix}_twisters_2.ply")));
+        ring_mesh.write_ply_file_and_log(&dir.join(format!("{prefix}_rings.ply")), "Ring mesh")?;
+        strip_mesh.write_ply_file_and_log(&dir.join(format!("{prefix}_strips.ply")), "Strip mesh")?;
+        twister_mesh_orbit_1.write_ply_file_and_log(&dir.join(format!("{prefix}_twisters_1.ply")), "Twister orbit 1 mesh")?;
+        twister_mesh_orbit_2.write_ply_file_and_log(&dir.join(format!("{prefix}_twisters_2.ply")), "Twister orbit 2 mesh")?;
 
         Ok(())
     }
