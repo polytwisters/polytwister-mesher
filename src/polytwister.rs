@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use clap::Error;
 use log;
 use serde::Deserialize;
 use na::{Point3, Vector4};
@@ -10,7 +11,29 @@ use crate::mesh::{Color, Mesh, ColoredMesh, MeshLike};
 use crate::polyline::Polyline;
 use crate::ring::{self, RingSection};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
+#[serde(rename_all="camelCase")]
+pub struct PolytwisterDatabase {
+    polytwisters: Vec<PolytwisterWithDef>
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(rename_all="camelCase")]
+pub struct PolytwisterDef {
+    name: String,
+    acronym: String,
+    index: Option<u16>,
+    symbol_string: String,
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(rename_all="camelCase")]
+pub struct PolytwisterWithDef {
+    geometry: Polytwister,
+    def: PolytwisterDef,
+}
+
+#[derive(Deserialize, Clone)]
 #[serde(rename_all="camelCase")]
 pub struct PolyhedronFace {
     vertices: Vec<usize>,
@@ -18,14 +41,14 @@ pub struct PolyhedronFace {
     orbit: u8,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(rename_all="camelCase")]
 pub struct PolyhedronEdge {
     vertex1: usize,
     vertex2: usize,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(rename_all="camelCase")]
 pub struct Polyhedron {
     faces: Vec<PolyhedronFace>,
@@ -46,7 +69,7 @@ pub struct FillingRegion {
     pub mode: RegionMode
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(rename_all="camelCase")]
 pub struct Polytwister {
     polyhedron: Polyhedron,
@@ -241,5 +264,25 @@ impl PolytwisterMeshes {
                 (twister_mesh_orbit_2, twister_colors[1]),
             ]
         }
+    }
+}
+
+impl PolytwisterDatabase {
+    /// Given a search string, find a matching polytwister. Matches by full name, acronym, ID,
+    /// and index. Case-insensitive and _ and - may be substituted for spaces.
+    pub fn find(&self, query: &str) -> Result<Polytwister, std::io::Error> {
+        let query = query.to_ascii_lowercase().replace("_", " ").replace("-", " ");
+        for polytwister_with_def in self.polytwisters.iter() {
+            let def = &polytwister_with_def.def;
+            if (
+                def.acronym == query
+                || def.name == query
+                || def.symbol_string == query
+                || if let Some(index) = def.index { index.to_string() == query } else { false }
+            ) {
+                return Ok(polytwister_with_def.geometry.clone());
+            }
+        }
+        Err(std::io::Error::other("Couldn't find polytwister."))
     }
 }
