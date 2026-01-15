@@ -268,10 +268,18 @@ impl PolytwisterMeshes {
 }
 
 impl PolytwisterDatabase {
+    /// Given a search string, find a matching polytwister. Matches by full name, acronym, ID,
+    /// and index. Case-insensitive and _ and - may be substituted for spaces.
     pub fn find(&self, query: &str) -> Result<Polytwister, std::io::Error> {
+        let query = query.to_ascii_lowercase().replace("_", " ").replace("-", " ");
         for polytwister_with_def in self.polytwisters.iter() {
             let def = &polytwister_with_def.def;
-            if def.acronym == query {
+            if (
+                def.acronym == query
+                || def.name == query
+                || def.symbol_string == query
+                || if let Some(index) = def.index { index.to_string() == query } else { false }
+            ) {
                 return Ok(polytwister_with_def.geometry.clone());
             }
         }
