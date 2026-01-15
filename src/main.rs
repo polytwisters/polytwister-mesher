@@ -28,7 +28,7 @@ mod polytwister;
 mod config;
 mod marching_squares;
 use crate::config::Config;
-use crate::polytwister::Polytwister;
+use crate::polytwister::{Polytwister, PolytwisterDatabase};
 use crate::utils::linspace;
 use crate::mesh::{Mesh, MeshLike};
 
@@ -70,6 +70,9 @@ enum Commands {
         /// To get one of these files, use the "export-geometry" script in the Polytwisters JS app.
         input_json: PathBuf,
 
+        /// Name of the polytwister. Use full name, acronym, or ID.
+        polytwister: String,
+
         /// Output directory.
         /// 
         /// The directory will be created. It is an error if the directory already exists.
@@ -92,6 +95,9 @@ enum Commands {
         /// 
         /// To get one of these files, use the "export-geometry" script in the Polytwisters JS app.
         input_json: PathBuf,
+
+        /// Name of the polytwister. Use full name, acronym, or ID.
+        polytwister: String,
 
         /// W coordinate for the cross section.
         #[arg(short, default_value_t = 0.1)]
@@ -139,13 +145,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     match &args.command {
-        Commands::Section { input_json, w, merged_path, rings_path, strips_path, twisters_path_1, twisters_path_2 } => {
+        Commands::Section {
+            input_json,
+            polytwister: polytwister_name,
+            w,
+            merged_path,
+            rings_path,
+            strips_path,
+            twisters_path_1,
+            twisters_path_2
+        } => {
             let config: Config = Default::default();
 
             let mut string = String::new();
             let mut file = File::open(input_json)?;
             file.read_to_string(&mut string)?;
-            let polytwister: Polytwister = serde_json::from_str(&string)?;
+            let polytwister_database: PolytwisterDatabase = serde_json::from_str(&string)?;
+            let polytwister = polytwister_database.find(&polytwister_name)?;
 
             let mut any_output = false;
             let mesh = polytwister.as_meshes(*w, &config);
@@ -175,13 +191,19 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             Ok(())
         },
-        Commands::Animation { input_json, output_dir, frames } => {
+        Commands::Animation {
+            input_json,
+            polytwister: polytwister_name,
+            output_dir,
+            frames,
+        } => {
             let config: Config = Default::default();
 
             let mut string = String::new();
             let mut file = File::open(input_json)?;
             file.read_to_string(&mut string)?;
-            let polytwister: Polytwister = serde_json::from_str(&string)?;
+            let polytwister_database: PolytwisterDatabase = serde_json::from_str(&string)?;
+            let polytwister = polytwister_database.find(&polytwister_name)?;
 
             std::fs::create_dir(output_dir)?;
 
