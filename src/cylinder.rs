@@ -89,7 +89,8 @@ impl Cylinder {
         )
     }
 
-    pub fn contains(&self, point: &Point3<f64>) -> bool {
+    /// Return true if the point is on the boundary or interior of this cylinder.
+    pub fn interior_contains(&self, point: &Point3<f64>) -> bool {
         self.scalar_field(point) <= 0.0
     }
 

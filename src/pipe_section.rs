@@ -56,8 +56,9 @@ impl PipeSection {
         - 1.0
     }
 
-    pub fn contains(&self, point: &Point3<f64>) -> bool {
-        self.scalar_field(point) < 0.0
+    /// Return true if the point is on the boundary or interior of the log.
+    pub fn interior_contains(&self, point: &Point3<f64>) -> bool {
+        self.scalar_field(point) <= 0.0
     }
 
     pub fn as_cylinder(&self) -> Cylinder {
@@ -186,10 +187,10 @@ pub struct TwisterPlanarIsosurface {
 
 impl TwisterFillingInfo {
     pub fn contains_point(&self, point: &Point3<f64>) -> bool {
-        let inner = self.orthogonal_pipe_section.contains(point);
+        let inner = self.orthogonal_pipe_section.interior_contains(point);
         let outer = !inner;
         let order: u32 = self.neighboring_pipe_sections.iter().map(|ps|
-            if ps.contains(point) { 1 } else { 0 }
+            if ps.interior_contains(point) { 1 } else { 0 }
         ).sum();
         self.filling.iter().any(|region| {
             region.order == order
@@ -350,7 +351,7 @@ impl StripSection {
                 ] {
                     let t_test = (a + b) / 2.0;
                     let p_test = ccurve.at(t_test);
-                    let contains = !self.orthogonal_pipe_section.contains(&p_test) == self.bloated;
+                    let contains = !self.orthogonal_pipe_section.interior_contains(&p_test) == self.bloated;
                     print!("{} ", self.orthogonal_pipe_section.scalar_field(&p_test));
                     if contains {
                         let polyline = ccurve.discretize(a, b, config.linear_segments);
@@ -372,7 +373,7 @@ impl StripSection {
                 ] {
                     let t_test = (a + b) / 2.0;
                     let p_test = ccurve.at(t_test);
-                    let contains = !self.orthogonal_pipe_section.contains(&p_test) == self.bloated;
+                    let contains = !self.orthogonal_pipe_section.interior_contains(&p_test) == self.bloated;
                     if contains {
                         dbg!(a, b);
                         let polyline = ccurve.discretize(a, b, config.linear_segments);

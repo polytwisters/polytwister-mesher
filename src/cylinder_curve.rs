@@ -182,7 +182,7 @@ impl CCurve {
         let (mut t1, mut t2) = sort2((self.to_t(&p1), self.to_t(&p2)));
         let t3 = (t1 + t2) / 2.0;
         let p3 = self.at(t3);
-        let strip_contains_p3 = !orthogonal_pipe_section.contains(&p3) == bloated;
+        let strip_contains_p3 = !orthogonal_pipe_section.interior_contains(&p3) == bloated;
         if !strip_contains_p3 {
             // Switch to complementary interval.
             (t1, t2) = (t2, t1 + 1.0);
