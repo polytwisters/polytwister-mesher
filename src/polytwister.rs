@@ -189,7 +189,7 @@ impl Polytwister {
         let ring_sections = self.ring_cross_sections(w);
         let orthogonal_pipe_sections = self.orthogonal_pipe_cross_sections(w);
 
-        self.polyhedron.edges.iter().enumerate().map(|(edge_index, edge)| {
+        self.polyhedron.edges[1..2].iter().enumerate().map(|(edge_index, edge)| {
             let adjacent_face_indices = self.polyhedron.edge_adjacent_face_indices(edge_index);
             if adjacent_face_indices.len() != 2 {
                 panic!("Edge not adjacent to two faces");

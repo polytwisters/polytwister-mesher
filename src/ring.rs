@@ -51,6 +51,13 @@ impl RingSection {
         ))
     }
 
+    pub fn add_points_to_vec(&self, vec: &mut Vec<Point3<f64>>) {
+        if let Some((p1, p2)) = self.as_points() {
+            vec.push(p1);
+            vec.push(p2);
+        }
+    }
+
     pub fn as_mesh(&self, options: &RingMeshConfig) -> Mesh {
         if let Some((center1, center2)) = self.as_points() {
             Mesh::merge(vec![

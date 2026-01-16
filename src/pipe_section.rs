@@ -10,7 +10,7 @@ use crate::polyline::Polyline;
 use crate::{pipe_section, ring};
 use crate::polytwister::{FillingRegion, RegionMode};
 use crate::ring::RingSection;
-use crate::utils::{squared};
+use crate::utils::{sort4, squared};
 use crate::marching_squares::{Isosurface, Grid, GridAxis, meshify};
 
 /**
@@ -294,6 +294,13 @@ pub struct StripSection {
     pub bloated: bool,
 }
 
+enum StripIntervals {
+    None,
+    All,
+    OneInterval((f64, f64)),
+    TwoIntervals((f64, f64), (f64, f64)),
+}
+
 impl StripSection {
     pub fn new(
         pipe_section_1: &PipeSection,
@@ -317,34 +324,67 @@ impl StripSection {
         let ccurves = self.pipe_section_1.intersect(&self.pipe_section_2);
 
         let meshes = ccurves.iter().map(|ccurve| {
-            let points_1 = self.ring_section_1.as_points();
-            let points_2 = self.ring_section_2.as_points();
-            let endpoints = match (points_1, points_2) {
-                (Some((p1_a, p1_b)), Some((p2_a, p2_b))) => {
-                    // Strip section connects a point from one ring section to a point on the other.
-                    let p1 = if ccurve.contains(&p1_a) { p1_a } else { p1_b };
-                    let p2 = if ccurve.contains(&p2_a) { p2_a } else { p2_b };
-                    assert!(ccurve.contains(&p1));
-                    assert!(ccurve.contains(&p2));
-                    Some((p1, p2))
-                },
-                // Strip section connects the two points of a ring section together.
-                (Some((p1, p2)), None) => {
-                    Some((p1, p2))
-                },
-                (None, Some((p1, p2))) => {
-                    Some((p1, p2))
-                },
-                // Ring section is empty.
-                (None, None) => {
+            let mut endpoints = vec![];
+            let points_1 = self.ring_section_1.add_points_to_vec(&mut endpoints);
+            let points_2 = self.ring_section_2.add_points_to_vec(&mut endpoints);
+            dbg!(&self.ring_section_1.as_points());
+            let mut t_values = endpoints.iter().filter_map(|point| {
+                if ccurve.contains(&point) {
+                    Some(ccurve.to_t(&point))
+                } else {
                     None
                 }
-            };
+            }).collect::<Vec<_>>();
+            t_values.sort_by(f64::total_cmp);
+            dbg!(&t_values);
 
-            if let Some((p1, p2)) = endpoints {
-                let (t1, t2) = ccurve.strip_t_interval(&p1, &p2, &self.orthogonal_pipe_section, self.bloated);
-                let polyline = ccurve.discretize(t1, t2, config.linear_segments);
-                polyline.as_mesh(config.thickness, config.radial_segments)
+            if t_values.len() == 4 {
+                let mut t1 = t_values[0];
+                let mut t2 = t_values[1];
+                let mut t3 = t_values[2];
+                let mut t4 = t_values[3];
+                let mut polylines = vec![];
+                for (a, b) in [
+                    (t1, t2),
+                    (t2, t3),
+                    (t3, t4),
+                    (t4, t1 + 1.0),
+                ] {
+                    let t_test = (a + b) / 2.0;
+                    let p_test = ccurve.at(t_test);
+                    let contains = !self.orthogonal_pipe_section.contains(&p_test) == self.bloated;
+                    print!("{} ", self.orthogonal_pipe_section.scalar_field(&p_test));
+                    if contains {
+                        let polyline = ccurve.discretize(a, b, config.linear_segments);
+                        polylines.push(polyline);
+                    }
+                }
+                println!();
+                let meshes = polylines.into_iter().map(|polyline|
+                    polyline.as_mesh(config.thickness, config.radial_segments)
+                ).collect::<_>();
+                Mesh::merge(meshes)
+            } else if t_values.len() != 0 {
+                let mut t1 = t_values[0];
+                let mut t2 = t_values[1];
+                let mut polylines = vec![];
+                for (a, b) in [
+                    (t1, t2),
+                    (t2, t1 + 1.0),
+                ] {
+                    let t_test = (a + b) / 2.0;
+                    let p_test = ccurve.at(t_test);
+                    let contains = !self.orthogonal_pipe_section.contains(&p_test) == self.bloated;
+                    if contains {
+                        dbg!(a, b);
+                        let polyline = ccurve.discretize(a, b, config.linear_segments);
+                        polylines.push(polyline);
+                    }
+                }
+                let meshes = polylines.into_iter().map(|polyline|
+                    polyline.as_mesh(config.thickness, config.radial_segments)
+                ).collect::<_>();
+                Mesh::merge(meshes)
             } else {
                 let polyline = ccurve.discretize(0.0, 1.0, config.linear_segments);
                 polyline.as_mesh(config.thickness, config.radial_segments)
