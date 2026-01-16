@@ -226,6 +226,15 @@ mod test {
     }
 
     #[test]
+    fn test_to_t_plane_2() {
+        let curve = example_cylinder().intersect_z_plane(-2.0);
+        let t = 0.34;
+        let p = curve.at(t);
+        assert!(curve.contains(&p));
+        assert_abs_diff_eq!(curve.to_t(&p), t);
+    }
+
+    #[test]
     fn test_to_t_wrapped_loop() {
         let cylinder_1 = example_cylinder();
         let cylinder_2 = Cylinder::base();
