@@ -319,14 +319,33 @@ impl StripSection {
         let meshes = ccurves.iter().map(|ccurve| {
             let points_1 = self.ring_section_1.as_points();
             let points_2 = self.ring_section_2.as_points();
-            if let (Some((p1a, p1b)), Some((p2a, p2b))) = (points_1, points_2) {
-                let p1 = if ccurve.contains(&p1a) { p1a } else { p1b };
-                let p2 = if ccurve.contains(&p2a) { p2a } else { p2b };
+            let endpoints = match (points_1, points_2) {
+                (Some((p1_a, p1_b)), Some((p2_a, p2_b))) => {
+                    // Strip section connects a point from one ring section to a point on the other.
+                    let p1 = if ccurve.contains(&p1_a) { p1_a } else { p1_b };
+                    let p2 = if ccurve.contains(&p2_a) { p2_a } else { p2_b };
+                    Some((p1, p2))
+                },
+                // Strip section connects the two points of a ring section together.
+                (Some((p1, p2)), None) => {
+                    Some((p1, p2))
+                },
+                (None, Some((p1, p2))) => {
+                    Some((p1, p2))
+                },
+                // Ring section is empty.
+                (None, None) => {
+                    None
+                }
+            };
+
+            if let Some((p1, p2)) = endpoints {
                 let (t1, t2) = ccurve.strip_t_interval(&p1, &p2, &self.orthogonal_pipe_section, self.bloated);
                 let polyline = ccurve.discretize(t1, t2, config.linear_segments);
                 polyline.as_mesh(config.thickness, config.radial_segments)
             } else {
-                Mesh::empty()
+                let polyline = ccurve.discretize(0.0, 1.0, config.linear_segments);
+                polyline.as_mesh(config.thickness, config.radial_segments)
             }
         }).collect::<_>();
         Mesh::merge(meshes)
