@@ -327,7 +327,6 @@ impl StripSection {
             let mut endpoints = vec![];
             let points_1 = self.ring_section_1.add_points_to_vec(&mut endpoints);
             let points_2 = self.ring_section_2.add_points_to_vec(&mut endpoints);
-            dbg!(&self.ring_section_1.as_points());
             let mut t_values = endpoints.iter().filter_map(|point| {
                 if ccurve.contains(&point) {
                     Some(ccurve.to_t(&point))
@@ -336,7 +335,6 @@ impl StripSection {
                 }
             }).collect::<Vec<_>>();
             t_values.sort_by(f64::total_cmp);
-            dbg!(&t_values);
 
             if t_values.len() == 4 {
                 let mut t1 = t_values[0];
