@@ -108,8 +108,9 @@ impl CCurve {
         let theta = y.atan2(x).rem_euclid(f64::consts::TAU);
         let (_, z1, z2) = self.cylinder.intersect_z_line_core(&Point2::new(x, y));
         match self.kind {
-            CCurveKind::Plane(z) => {
+            CCurveKind::Plane(plane_z) => {
                 self.cylinder.scalar_field(&p2).abs() < tolerance
+                && (z - plane_z).abs() < tolerance
             },
             CCurveKind::WrappedLoop(branch) => {
                 (x.hypot(y) - 1.0).abs() < tolerance && if branch {

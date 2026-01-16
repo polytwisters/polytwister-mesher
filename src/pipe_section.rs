@@ -324,6 +324,8 @@ impl StripSection {
                     // Strip section connects a point from one ring section to a point on the other.
                     let p1 = if ccurve.contains(&p1_a) { p1_a } else { p1_b };
                     let p2 = if ccurve.contains(&p2_a) { p2_a } else { p2_b };
+                    assert!(ccurve.contains(&p1));
+                    assert!(ccurve.contains(&p2));
                     Some((p1, p2))
                 },
                 // Strip section connects the two points of a ring section together.
