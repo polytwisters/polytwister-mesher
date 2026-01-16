@@ -4,3 +4,5 @@
 *.ply
 *.pyc
 __pycache__
+
+local_*
