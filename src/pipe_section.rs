@@ -329,10 +329,11 @@ impl StripSection {
     pub fn as_mesh(&self, config: &TorusMeshConfig) -> Mesh {
         let ccurves = self.pipe_section_1.intersect(&self.pipe_section_2);
 
+        let mut endpoints = vec![];
+        let points_1 = self.ring_section_1.add_points_to_vec(&mut endpoints);
+        let points_2 = self.ring_section_2.add_points_to_vec(&mut endpoints);
+
         let meshes = ccurves.iter().map(|ccurve| {
-            let mut endpoints = vec![];
-            let points_1 = self.ring_section_1.add_points_to_vec(&mut endpoints);
-            let points_2 = self.ring_section_2.add_points_to_vec(&mut endpoints);
             let mut t_values = endpoints.iter().filter_map(|point| {
                 if ccurve.contains(&point) {
                     Some(ccurve.to_t(&point))
@@ -357,13 +358,11 @@ impl StripSection {
                     let t_test = (a + b) / 2.0;
                     let p_test = ccurve.at(t_test);
                     let contains = !self.orthogonal_pipe_section.interior_contains(&p_test) == self.bloated;
-                    print!("{} ", self.orthogonal_pipe_section.scalar_field(&p_test));
                     if contains {
                         let polyline = ccurve.discretize(a, b, config.linear_segments);
                         polylines.push(polyline);
                     }
                 }
-                println!();
                 let meshes = polylines.into_iter().map(|polyline|
                     polyline.as_mesh(config.thickness, config.radial_segments)
                 ).collect::<_>();
@@ -380,7 +379,6 @@ impl StripSection {
                     let p_test = ccurve.at(t_test);
                     let contains = !self.orthogonal_pipe_section.interior_contains(&p_test) == self.bloated;
                     if contains {
-                        dbg!(a, b);
                         let polyline = ccurve.discretize(a, b, config.linear_segments);
                         polylines.push(polyline);
                     }
