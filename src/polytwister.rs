@@ -128,6 +128,22 @@ impl Polytwister {
         PipeSection::from_vector4(&self.orthogonal_pipes[index], w)
     }
 
+    pub fn twister_section(&self, index: usize, w: f64) -> TwisterSection {
+        let face_orbit = self.polyhedron.faces[index].orbit;
+        let filling = self.twister_fillings[face_orbit as usize].clone();
+        let pipe_section = self.pipe_section(index, w);
+        let orthogonal_pipe_section = self.orthogonal_pipe_section(index, w);
+        let neighboring_pipe_sections = self.polyhedron.adjacent_face_indices(index)
+            .iter().map(|index_2| self.pipe_section(*index_2, w)
+        ).collect::<Vec<_>>();
+        TwisterSection::new(
+            pipe_section,
+            orthogonal_pipe_section,
+            neighboring_pipe_sections,
+            filling
+        )
+    }
+
     fn pipe_sections(&self, w: f64) -> Vec<PipeSection> {
         (0..self.pipes.len()).map(|i| { self.pipe_section(i, w) }).collect::<Vec<_>>()
     }
@@ -140,28 +156,12 @@ impl Polytwister {
         (0..self.rings.len()).map(|i| { self.ring_section(i, w) }).collect::<Vec<_>>()
     }
 
-    pub fn twister_sections(&self, w: f64, config: &Config) -> Vec<TwisterSection> {
-        let pipe_sections = self.pipe_sections(w);
-
-        let mut twister_sections = vec![];
-        for (pipe_index, pipe_section) in pipe_sections.iter().enumerate() {
-            let face_orbit = self.polyhedron.faces[pipe_index].orbit;
-            let filling = self.twister_fillings[face_orbit as usize].clone();
-            let orthogonal_pipe_section = PipeSection::from_vector4(&self.orthogonal_pipes[pipe_index], w);
-            let neighboring_pipe_sections = self.polyhedron.adjacent_face_indices(pipe_index)
-                .iter().map(|pipe_index_2| pipe_sections[*pipe_index_2]).collect::<Vec<_>>();
-            twister_sections.push(TwisterSection::new(
-                pipe_section.clone(),
-                orthogonal_pipe_section,
-                neighboring_pipe_sections,
-                filling
-            ));
-        }
-        twister_sections
+    pub fn twister_sections(&self, w: f64) -> Vec<TwisterSection> {
+        (0..self.pipes.len()).map(|i| { self.twister_section(i, w) }).collect::<Vec<_>>()
     }
 
     pub fn twister_orbit_as_meshes(&self, w: f64, orbit: u8, config: &Config) -> Vec<Mesh> {
-        let twister_sections = self.twister_sections(w, config);
+        let twister_sections = self.twister_sections(w);
         let mut meshes = vec![];
         for (index, twister_section) in twister_sections.iter().enumerate() {
             if self.polyhedron.faces[index].orbit == orbit {
@@ -226,7 +226,7 @@ impl Polytwister {
             ring_meshes: self.rings_as_meshes(w, config),
             strip_meshes: self.strips_as_meshes(w, config),
             twister_meshes_orbit_1: self.twister_orbit_as_meshes(w, 0, config),
-            twister_meshes_orbit_2:  self.twister_orbit_as_meshes(w, 1, config),
+            twister_meshes_orbit_2: self.twister_orbit_as_meshes(w, 1, config),
         }
     }
 
