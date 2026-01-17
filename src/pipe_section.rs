@@ -252,13 +252,14 @@ impl TwisterSection {
     }
 
     pub fn as_mesh(&self, config: &CylinderMeshConfig) -> Mesh {
-        let extent = 2.0;
-        let segments = 30;
+        let extent = config.half_length;
+        let linear_segments = config.linear_segments;
+        let radial_segments = config.radial_segments;
         if self.pipe_section.is_plane() {
             if let Some(z) = self.pipe_section.plane_z() {
                 let grid = Grid {
-                    u_axis: GridAxis::Linear(segments, -extent, extent),
-                    v_axis: GridAxis::Linear(segments, -extent, extent),
+                    u_axis: GridAxis::Linear(linear_segments, -extent, extent),
+                    v_axis: GridAxis::Linear(linear_segments, -extent, extent),
                 };
                 let plane_1 = TwisterPlanarIsosurface {
                     z: z,
@@ -277,8 +278,8 @@ impl TwisterSection {
             }
         } else {
             let grid = Grid {
-                u_axis: GridAxis::Linear(segments, -extent, extent),
-                v_axis: GridAxis::Circular(segments, f64::consts::TAU),
+                u_axis: GridAxis::Linear(linear_segments, -extent, extent),
+                v_axis: GridAxis::Circular(radial_segments, f64::consts::TAU),
             };
             let surface = TwisterCylindricalIsosurface {
                 pipe_section: self.pipe_section,

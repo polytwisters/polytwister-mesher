@@ -14,8 +14,8 @@ impl Default for CylinderMeshConfig {
     fn default() -> Self {
         CylinderMeshConfig {
             half_length: 5.0,
-            linear_segments: 128 * 3,
-            radial_segments: 128 * 3,
+            linear_segments: 100,
+            radial_segments: 100,
         }
     }
 }
