@@ -7,7 +7,7 @@ use crate::utils::{lerp, lerp_inverse};
 
 
 #[derive(Clone, Copy, Debug)]
-enum CCurveKind {
+pub enum CCurveKind {
     WrappedLoop(bool), // branch
     SideLoop(f64, f64), // theta1, theta2
     Plane(f64), // z
@@ -25,7 +25,7 @@ enum CCurveKind {
 /// Alternatively the curve is the intersection with a plane with a given z-coordinate.
 #[derive(Clone, Copy, Debug)]
 pub struct CCurve {
-    kind: CCurveKind,
+    pub kind: CCurveKind,
     cylinder: Cylinder,
     transform: Affine3<f64>,
 }

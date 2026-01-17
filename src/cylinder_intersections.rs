@@ -291,8 +291,8 @@ impl Cylinder {
             },
             CylinderIntersectionSolutions::TwoIntervals(interval1, interval2) => {
                 vec![
-                    CCurve::side_loop(self.clone(), interval1.start, interval2.end),
-                    CCurve::side_loop(self.clone(), interval1.start, interval2.end),
+                    CCurve::side_loop(self.clone(), interval1.start, interval1.end),
+                    CCurve::side_loop(self.clone(), interval2.start, interval2.end),
                 ]
             },
         }
@@ -326,7 +326,11 @@ mod test {
     use core::f64;
 
     use approx::*;
-    use crate::cylinder;
+    use crate::mesh::MeshLike;
+    use crate::{cylinder, mesh::Mesh};
+    use crate::cylinder_curve::CCurveKind;
+    use crate::config::CylinderMeshConfig;
+    use std::path::PathBuf;
 
     use super::*;
     use na::{Vector2, Point3};
@@ -527,10 +531,41 @@ mod test {
         };
         let curves = cylinder.intersect_base_cylinder();
         for curve in curves {
+            assert!(matches!(curve.kind, CCurveKind::SideLoop(_, _)));
             for t in linspace(0.0, 1.0, 500) {
                 let p = curve.at(t);
                 assert_abs_diff_eq!(cylinder.scalar_field(&p), 0.0, epsilon = 1e-5);
             }
         }
+    }
+
+    #[test]
+    fn test_intersect_bug_2_mesh_out() {
+        let cylinder = Cylinder {
+            m11: 0.96,
+            m12: 1.67,
+            m13: -0.45,
+            m14: 0.16,
+            m21: -1.67,
+            m22: 0.967,
+            m23: 1.67,
+            m24: 0.046,
+        };
+        let config = CylinderMeshConfig {
+            radial_segments: 16,
+            half_length: 3.0,
+            linear_segments: 30,
+        };
+        let mesh = Mesh::merge(vec![
+            cylinder.as_mesh(&config),
+            Cylinder::base().as_mesh(&config),
+            Mesh::merge(
+                cylinder.intersect_base_cylinder().iter().map(|curve|
+                    curve.discretize(0.0, 1.0, 100).as_mesh(0.1, 10)
+                ).collect::<Vec<_>>()
+            )
+        ]);
+        let path = PathBuf::from("./cylinders.ply");
+        mesh.write_ply_file(&path);
     }
 }
