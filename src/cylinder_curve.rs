@@ -289,7 +289,18 @@ mod test {
             m23: 0.0,
             m24: -0.1,
         };
+        // If I uncomment this it passes! What?!
+        /* 
+        let (cylinder_1, cylinder_2) = (
+            Cylinder::from_matrix_unchecked(
+                cylinder_1.inv_matrix() * cylinder_2.matrix()
+            ),
+            Cylinder::base(),
+        );
+        */
+    
         let curves = cylinder_1.intersect_cylinder(&cylinder_2);
+
         for curve in curves {
             for t in linspace(0.0, 1.0, 500) {
                 let p = curve.at(t);
