@@ -326,6 +326,8 @@ mod test {
     use core::f64;
 
     use approx::*;
+    use crate::cylinder;
+
     use super::*;
     use na::{Vector2, Point3};
 
@@ -475,6 +477,60 @@ mod test {
             let point = curve.at(t);
             assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
             assert_abs_diff_eq!(point.z, z, epsilon = 1e-10);
+        }
+    }
+
+    /// Bug found in cylinder intersections.
+    #[test]
+    fn test_intersect_bug() {
+        let cylinder_1 = Cylinder {
+            m11: 0.5,
+            m12: -0.866,
+            m13: 0.517,
+            m14: 0.0,
+            m21: -0.866,
+            m22: -0.5,
+            m23: 0.0,
+            m24: -0.05,
+        };
+        let cylinder_2 = Cylinder {
+            m11: 0.517,
+            m12: 0.0,
+            m13: 1.0,
+            m14: 0.0,
+            m21: 0.0,
+            m22: -0.517,
+            m23: 0.0,
+            m24: -0.1,
+        };
+        let curves = cylinder_1.intersect_cylinder(&cylinder_2);
+        for curve in curves {
+            for t in linspace(0.0, 1.0, 500) {
+                let p = curve.at(t);
+                assert_abs_diff_eq!(cylinder_1.scalar_field(&p), 0.0, epsilon = 1e-5);
+                assert_abs_diff_eq!(cylinder_2.scalar_field(&p), 0.0, epsilon = 1e-5);
+            }
+        }
+    }
+
+    #[test]
+    fn test_intersect_bug_2() {
+        let cylinder = Cylinder {
+            m11: 0.96,
+            m12: 1.67,
+            m13: -0.45,
+            m14: 0.16,
+            m21: -1.67,
+            m22: 0.967,
+            m23: 1.67,
+            m24: 0.046,
+        };
+        let curves = cylinder.intersect_base_cylinder();
+        for curve in curves {
+            for t in linspace(0.0, 1.0, 500) {
+                let p = curve.at(t);
+                assert_abs_diff_eq!(cylinder.scalar_field(&p), 0.0, epsilon = 1e-5);
+            }
         }
     }
 }
