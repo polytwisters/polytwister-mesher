@@ -116,32 +116,32 @@ impl Polyhedron {
 }
 
 impl Polytwister {
-    fn ring_cross_section(&self, index: usize, w: f64) -> RingSection {
+    fn ring_section(&self, index: usize, w: f64) -> RingSection {
         RingSection::from_vector4(&self.rings[index], w)
     }
 
-    fn pipe_cross_section(&self, index: usize, w: f64) -> PipeSection {
+    fn pipe_section(&self, index: usize, w: f64) -> PipeSection {
         PipeSection::from_vector4(&self.pipes[index], w)
     }
 
-    fn orthogonal_pipe_cross_section(&self, index: usize, w: f64) -> PipeSection {
+    fn orthogonal_pipe_section(&self, index: usize, w: f64) -> PipeSection {
         PipeSection::from_vector4(&self.orthogonal_pipes[index], w)
     }
 
-    fn pipe_cross_sections(&self, w: f64) -> Vec<PipeSection> {
-        (0..self.pipes.len()).map(|i| { self.pipe_cross_section(i, w) }).collect::<Vec<_>>()
+    fn pipe_sections(&self, w: f64) -> Vec<PipeSection> {
+        (0..self.pipes.len()).map(|i| { self.pipe_section(i, w) }).collect::<Vec<_>>()
     }
 
-    fn orthogonal_pipe_cross_sections(&self, w: f64) -> Vec<PipeSection> {
-        (0..self.pipes.len()).map(|i| { self.orthogonal_pipe_cross_section(i, w) }).collect::<Vec<_>>()
+    fn orthogonal_pipe_sections(&self, w: f64) -> Vec<PipeSection> {
+        (0..self.pipes.len()).map(|i| { self.orthogonal_pipe_section(i, w) }).collect::<Vec<_>>()
     }
 
-    fn ring_cross_sections(&self, w: f64) -> Vec<RingSection> {
-        (0..self.rings.len()).map(|i| { self.ring_cross_section(i, w) }).collect::<Vec<_>>()
+    fn ring_sections(&self, w: f64) -> Vec<RingSection> {
+        (0..self.rings.len()).map(|i| { self.ring_section(i, w) }).collect::<Vec<_>>()
     }
 
     pub fn twister_sections(&self, w: f64, config: &Config) -> Vec<TwisterSection> {
-        let pipe_sections = self.pipe_cross_sections(w);
+        let pipe_sections = self.pipe_sections(w);
 
         let mut twister_sections = vec![];
         for (pipe_index, pipe_section) in pipe_sections.iter().enumerate() {
@@ -177,7 +177,7 @@ impl Polytwister {
     }
 
     pub fn rings_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh> {
-        let ring_sections = self.ring_cross_sections(w);
+        let ring_sections = self.ring_sections(w);
         let mut meshes = vec![];
         for ring_section in ring_sections {
             let mesh = ring_section.as_mesh(&config.rings);
@@ -190,30 +190,30 @@ impl Polytwister {
         Mesh::merge(self.rings_as_meshes(w, config))
     }
 
-    pub fn strips_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh> {
-        let pipe_sections = self.pipe_cross_sections(w);
-        let ring_sections = self.ring_cross_sections(w);
-        let orthogonal_pipe_sections = self.orthogonal_pipe_cross_sections(w);
+    pub fn strip_section(&self, index: usize, w: f64) -> StripSection {
+        let edge = &self.polyhedron.edges[index];
+        let adjacent_face_indices = self.polyhedron.edge_adjacent_face_indices(index);
+        if adjacent_face_indices.len() != 2 {
+            panic!("Edge not adjacent to two faces");
+        }
+        let pipe_section_1 = self.pipe_section(adjacent_face_indices[0], w);
+        let pipe_section_2 = self.pipe_section(adjacent_face_indices[1], w);
+        let ring_section_1 = self.ring_section(edge.vertex1, w);
+        let ring_section_2 = self.ring_section(edge.vertex2, w);
+        let orthogonal_pipe_section = self.orthogonal_pipe_section(adjacent_face_indices[0], w);
+        StripSection::new(
+            &pipe_section_1,
+            &pipe_section_2,
+            &orthogonal_pipe_section,
+            &ring_section_1,
+            &ring_section_2,
+            self.bloated
+        )
+    }
 
-        self.polyhedron.edges.iter().enumerate().map(|(edge_index, edge)| {
-            let adjacent_face_indices = self.polyhedron.edge_adjacent_face_indices(edge_index);
-            if adjacent_face_indices.len() != 2 {
-                panic!("Edge not adjacent to two faces");
-            }
-            let pipe_section_1 = pipe_sections[adjacent_face_indices[0]];
-            let pipe_section_2 = pipe_sections[adjacent_face_indices[1]];
-            let ring_section_1 = ring_sections[edge.vertex1];
-            let ring_section_2 = ring_sections[edge.vertex2];
-            let orthogonal_pipe_section = orthogonal_pipe_sections[adjacent_face_indices[0]];
-            let torus_section = StripSection::new(
-                &pipe_section_1,
-                &pipe_section_2,
-                &orthogonal_pipe_section,
-                &ring_section_1,
-                &ring_section_2,
-                self.bloated
-            );
-            torus_section.as_mesh(&config.strips)
+    pub fn strips_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh> {
+        (0..self.polyhedron.edges.len()).map(|edge_index| {
+            self.strip_section(edge_index, w).as_mesh(&config.strips)
         }).collect::<Vec<_>>()
     }
 
@@ -311,10 +311,10 @@ mod test {
 
         let w = 0.1;
         for (face_index, face) in polytwister.polyhedron.faces.iter().enumerate() {
-            let pipe_section = polytwister.pipe_cross_section(face_index, w);
+            let pipe_section = polytwister.pipe_section(face_index, w);
             let face = polytwister.polyhedron.faces[face_index].clone();
             for &vertex_index in face.vertices.iter() {
-                let ring_section = polytwister.ring_cross_section(vertex_index, w);
+                let ring_section = polytwister.ring_section(vertex_index, w);
                 if let Some((point_1, point_2)) = ring_section.as_points() {
                     let tolerance = 1e-5;
                     assert!(pipe_section.boundary_contains(&point_1, tolerance));
