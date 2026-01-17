@@ -116,22 +116,28 @@ impl Polyhedron {
 }
 
 impl Polytwister {
+    fn ring_cross_section(&self, index: usize, w: f64) -> RingSection {
+        RingSection::from_vector4(&self.rings[index], w)
+    }
+
+    fn pipe_cross_section(&self, index: usize, w: f64) -> PipeSection {
+        PipeSection::from_vector4(&self.pipes[index], w)
+    }
+
+    fn orthogonal_pipe_cross_section(&self, index: usize, w: f64) -> PipeSection {
+        PipeSection::from_vector4(&self.orthogonal_pipes[index], w)
+    }
+
     fn pipe_cross_sections(&self, w: f64) -> Vec<PipeSection> {
-        self.pipes.iter().map(|pipe: &Vector4<f64>| {
-            PipeSection::from_vector4(&pipe, w)
-        }).collect::<Vec<_>>()
+        (0..self.pipes.len()).map(|i| { self.pipe_cross_section(i, w) }).collect::<Vec<_>>()
     }
 
     fn orthogonal_pipe_cross_sections(&self, w: f64) -> Vec<PipeSection> {
-        self.orthogonal_pipes.iter().map(|pipe: &Vector4<f64>| {
-            PipeSection::from_vector4(&pipe, w)
-        }).collect::<Vec<_>>()
+        (0..self.pipes.len()).map(|i| { self.orthogonal_pipe_cross_section(i, w) }).collect::<Vec<_>>()
     }
 
     fn ring_cross_sections(&self, w: f64) -> Vec<RingSection> {
-        self.rings.iter().map(|ring: &Vector4<f64>| {
-            RingSection::from_vector4(&ring, w)
-        }).collect::<Vec<_>>()
+        (0..self.pipes.len()).map(|i| { self.ring_cross_section(i, w) }).collect::<Vec<_>>()
     }
 
     pub fn twister_sections(&self, w: f64, config: &Config) -> Vec<TwisterSection> {
@@ -284,5 +290,37 @@ impl PolytwisterDatabase {
             }
         }
         Err(std::io::Error::other("Couldn't find polytwister."))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::fs::File;
+    use std::io::Read;
+
+    /// Take a cross section of the cube twister and check that all ring cross sections are on their
+    /// incident pipe cross sections.
+    #[test]
+    fn test_integration() {
+        let mut string = String::new();
+        let mut file = File::open("polytwisters.json").unwrap();
+        file.read_to_string(&mut string).unwrap();
+        let polytwister_database: PolytwisterDatabase = serde_json::from_str(&string).unwrap();
+        let polytwister = polytwister_database.find("cubiter").unwrap();
+
+        let w = 0.1;
+        for (face_index, face) in polytwister.polyhedron.faces.iter().enumerate() {
+            let pipe_section = polytwister.pipe_cross_section(face_index, w);
+            let face = polytwister.polyhedron.faces[face_index].clone();
+            for &vertex_index in face.vertices.iter() {
+                let ring_section = polytwister.ring_cross_section(vertex_index, w);
+                if let Some((point_1, point_2)) = ring_section.as_points() {
+                    let tolerance = 1e-5;
+                    assert!(pipe_section.boundary_contains(&point_1, tolerance));
+                    assert!(pipe_section.boundary_contains(&point_2, tolerance));
+                }
+            }
+        }
     }
 }

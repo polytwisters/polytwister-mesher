@@ -61,6 +61,11 @@ impl PipeSection {
         self.scalar_field(point) <= 0.0
     }
 
+    /// Return true if the point is on the boundary with the given tolerance.
+    pub fn boundary_contains(&self, point: &Point3<f64>, tolerance: f64) -> bool {
+        self.scalar_field(point).abs() <= tolerance
+    }
+
     pub fn as_cylinder(&self) -> Cylinder {
         Cylinder {
             m11: self.a,
