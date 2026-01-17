@@ -389,8 +389,15 @@ impl StripSection {
                 ).collect::<_>();
                 Mesh::merge(meshes)
             } else {
-                let polyline = ccurve.discretize(0.0, 1.0, config.linear_segments);
-                polyline.as_mesh(config.thickness, config.radial_segments)
+                let t_test = 0.25; // doesn't matter
+                let p_test = ccurve.at(t_test);
+                let contains = !self.orthogonal_pipe_section.interior_contains(&p_test) == self.bloated;
+                if contains {
+                    let polyline = ccurve.discretize(0.0, 1.0, config.linear_segments);
+                    polyline.as_mesh(config.thickness, config.radial_segments)
+                } else {
+                    Mesh::empty()
+                }
             }
         }).collect::<_>();
         Mesh::merge(meshes)
