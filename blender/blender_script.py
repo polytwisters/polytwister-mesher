@@ -326,7 +326,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "dir",
-        help="Input dir of Wavefront OBJ files.",
+        help="Input dir of Stanford PLY files.",
     )
     parser.add_argument(
         "-o",
