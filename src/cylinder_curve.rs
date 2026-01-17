@@ -269,52 +269,58 @@ mod test {
     #[test]
     fn test_intersect_2() {
         let w = 0.1;
-        let pipe_section_1 = PipeSection::new(
-            0.5000000000000001,
-            -0.8660254037844386,
-            0.5176380902050415,
-            0.0,
-            w,
-        );
-        let pipe_section_2 = PipeSection::new(
-            0.5176380902050417,
-            -1.759632984364885e-16,
-            0.9999999999999999,
-            0.0,
-            w,
-        );
-        let cylinder_1 = pipe_section_1.as_cylinder();
-        let cylinder_2 = pipe_section_2.as_cylinder();
-
+        let cylinder_1 = Cylinder {
+            m11: 0.5,
+            m12: -0.866,
+            m13: 0.517,
+            m14: 0.0,
+            m21: -0.866,
+            m22: -0.5,
+            m23: 0.0,
+            m24: -0.05,
+        };
+        let cylinder_2 = Cylinder {
+            m11: 0.517,
+            m12: 0.0,
+            m13: 1.0,
+            m14: 0.0,
+            m21: 0.0,
+            m22: -0.517,
+            m23: 0.0,
+            m24: -0.1,
+        };
         let curves = cylinder_1.intersect_cylinder(&cylinder_2);
         for curve in curves {
             for t in linspace(0.0, 1.0, 500) {
                 let p = curve.at(t);
-                assert_abs_diff_eq!(pipe_section_1.scalar_field(&p), 0.0, epsilon = 1e-5);
-                assert_abs_diff_eq!(pipe_section_2.scalar_field(&p), 0.0, epsilon = 1e-5);
+                assert_abs_diff_eq!(cylinder_1.scalar_field(&p), 0.0, epsilon = 1e-5);
+                assert_abs_diff_eq!(cylinder_2.scalar_field(&p), 0.0, epsilon = 1e-5);
             }
         }
     }
 
     #[test]
-    fn test_intersect_3() {
-        let w = 0.1;
-        let pipe_section_1 = PipeSection::new(
-            0.5000000000000001,
-            -0.8660254037844386,
-            0.5176380902050415,
-            0.0,
-            w,
-        );
-        let pipe_section_2 = PipeSection::new(
-            0.5176380902050417,
-            -1.759632984364885e-16,
-            0.9999999999999999,
-            0.0,
-            w,
-        );
-        let cylinder_1 = pipe_section_1.as_cylinder();
-        let cylinder_2 = pipe_section_2.as_cylinder();
+    fn test_intersect_mesh_out() {
+        let cylinder_1 = Cylinder {
+            m11: 0.5,
+            m12: -0.866,
+            m13: 0.517,
+            m14: 0.0,
+            m21: -0.866,
+            m22: -0.5,
+            m23: 0.0,
+            m24: -0.05,
+        };
+        let cylinder_2 = Cylinder {
+            m11: 0.517,
+            m12: 0.0,
+            m13: 1.0,
+            m14: 0.0,
+            m21: 0.0,
+            m22: -0.517,
+            m23: 0.0,
+            m24: -0.1,
+        };
 
         let config = CylinderMeshConfig {
             half_length: 5.0,
