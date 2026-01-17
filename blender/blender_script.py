@@ -96,10 +96,6 @@ def make_material_if_needed(config):
     return material
 
 
-def shade_smooth_by_angle():
-    bpy.ops.object.shade_smooth_by_angle(angle=math.radians(30.0))
-
-
 def rotation_to_point_to_origin(point):
     """Given a location of an object pointing along the X-axis, return a set of
     Euler angles that will rotate that object so it points at the origin."""
@@ -293,7 +289,8 @@ def import_ply(path, frame_number, material_config):
     bpy.ops.wm.ply_import(filepath=str(path))
     bpy.context.object.active_material = make_material_if_needed(material_config)
 
-    shade_smooth_by_angle()
+    bpy.ops.object.shade_smooth()
+    bpy.ops.mesh.customdata_custom_splitnormals_clear()
     do_scale(DEFAULT_SCALE)
 
     # To animate the sections, drivers are added so that the object appears only for its
