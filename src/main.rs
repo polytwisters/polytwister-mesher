@@ -155,8 +155,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             twisters_path_1,
             twisters_path_2
         } => {
-            let config: Config = Default::default();
-
             let mut string = String::new();
             let mut file = File::open(input_json)?;
             file.read_to_string(&mut string)?;
@@ -197,8 +195,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             output_dir,
             frames,
         } => {
-            let config: Config = Default::default();
-
             let mut string = String::new();
             let mut file = File::open(input_json)?;
             file.read_to_string(&mut string)?;
