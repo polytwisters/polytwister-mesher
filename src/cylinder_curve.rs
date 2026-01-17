@@ -207,12 +207,20 @@ impl CCurve {
         (t1, t2)
     }
 
-    pub fn discretize(&self, t1: f64, t2: f64, resolution: usize) -> Polyline {
+    pub fn discretize_segment(&self, t1: f64, t2: f64, resolution: usize) -> Polyline {
         let points = (0..resolution).map(|i| {
             let t = lerp(t1, t2, i as f64 / (resolution as f64 - 1.0));
             self.at(t)
         }).collect::<Vec<_>>();
-        Polyline { points }
+        Polyline { points, closed: false }
+    }
+
+    pub fn discretize_full(&self, resolution: usize) -> Polyline {
+        let points = (0..resolution).map(|i| {
+            let t = i as f64 / resolution as f64;
+            self.at(t)
+        }).collect::<Vec<_>>();
+        Polyline { points, closed: true }
     }
 }
 

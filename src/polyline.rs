@@ -8,15 +8,34 @@ use std::f64;
  * A polyline in 3D space.
  */
 pub struct Polyline {
-    pub points: Vec<Point3<f64>>
+    pub points: Vec<Point3<f64>>,
+    pub closed: bool,
 }
 
 impl Polyline {
+    fn num_points(&self) -> usize {
+        self.points.len()
+    }
+
+    fn point(&self, i: isize) -> Point3<f64> {
+        if self.closed {
+            let index = i.rem_euclid(self.num_points() as isize) as usize;
+            self.points[index]
+        } else {
+            self.points[i as usize]
+        }
+    }
+
     fn plane(&self, i: usize) -> (Vector3<f64>, Vector3<f64>) {
-        let i = i.clamp(1, self.points.len() - 2);
-        let prev = self.points[i - 1];
-        let point = self.points[i];
-        let next = self.points[i + 1];
+        // Index of the polygon we're using to estimate the curvature vector.
+        let j = if self.closed {
+            i
+        } else {
+            i.clamp(1, self.num_points() - 2)
+        } as isize;
+        let prev = self.point(j - 1);
+        let point = self.point(j);
+        let next = self.point(j + 1);
         let v_next = (next - point).normalize();
         let v_prev = (point - prev).normalize();
         let x = v_next.cross(&v_prev).normalize();
@@ -29,7 +48,7 @@ impl Polyline {
         thickness: f64,
         radial_segments: usize,
     ) -> Mesh {
-        let num_points = self.points.len();
+        let num_points = self.num_points();
 
         // Doesn't make sense to do less than 3 points as cross products will be undefined.
         if num_points < 3 {
@@ -53,12 +72,23 @@ impl Polyline {
 
         let mut faces: Vec<Face> = vec![];
 
-        for i in 0..num_points - 1 {
+        let num_segments = if self.closed {
+            num_points
+        } else {
+            // Leave off the last segment connecting the first and last points for an open polyline.
+            num_points - 1
+        };
+
+        for i in 0..num_segments {
             for j in 0..radial_segments {
-                let v1 = i * radial_segments + j;
-                let v2 = i * radial_segments + (j + 1) % radial_segments;
-                let v3 = (i + 1) * radial_segments + j;
-                let v4 = (i + 1) * radial_segments + (j + 1) % radial_segments;
+                let i1 = i;
+                let i2 = (i + 1) % num_points;
+                let j1 = j;
+                let j2 = (j + 1) % radial_segments;
+                let v1 = i1 * radial_segments + j1;
+                let v2 = i1 * radial_segments + j2;
+                let v3 = i2 * radial_segments + j1;
+                let v4 = i2 * radial_segments + j2;
 
                 // v1 -- v2
                 // | ,--' |
@@ -80,9 +110,10 @@ impl Polyline {
     }
 
     pub fn transform(self, transform: &Affine3<f64>) -> Polyline {
+        let closed = self.closed;
         let points = self.points.into_iter().map(|vertex|
             transform.transform_point(&vertex)
         ).collect::<Vec<_>>();
-        Polyline { points }
+        Polyline { points, closed }
     }
 }

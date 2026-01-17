@@ -328,13 +328,21 @@ impl StripSection {
     }
 
     pub fn as_mesh(&self, config: &TorusMeshConfig) -> Mesh {
+        // First get all the CCurves, curves equal to the intersection of the two pipes, and
+        // therefore the cross section of the torus containing this strip.
         let ccurves = self.pipe_section_1.intersect(&self.pipe_section_2);
 
+        // The strip cross section's endpoints are always the points which are cross sections of its
+        // bounding rings. However, we do not know which ones yet. First, let's gather all the
+        // candidates for endpoints of the strip cross section.
         let mut endpoints = vec![];
         let points_1 = self.ring_section_1.add_points_to_vec(&mut endpoints);
         let points_2 = self.ring_section_2.add_points_to_vec(&mut endpoints);
 
         let meshes = ccurves.iter().map(|ccurve| {
+            // Some of the ring cross sections will be on the CCurve and others will not. Filter out
+            // the endpoint candidates that aren't on the CCurve, and convert them to t-values in
+            // the CCurve's explicit parametrization.
             let mut t_values = endpoints.iter().filter_map(|point| {
                 if ccurve.contains(&point) {
                     Some(ccurve.to_t(&point))
@@ -342,9 +350,19 @@ impl StripSection {
                     None
                 }
             }).collect::<Vec<_>>();
+
+            // t-values are in the range [0, 1], treated circularly. To reduce casework we have them
+            // in increasing order.
             t_values.sort_by(f64::total_cmp);
 
+            // Nominally there are 0, 2, or 4 t-values, but just in case there are 1 or 3 we round
+            // down in the following casework (unlikely but theoretically possible due to
+            // floating-point issues).
+
             if t_values.len() == 4 {
+                // The 4 t-values give us four different segments of the CCurve to check. To check
+                // each one we arbitrarily pick the midpoint of each segment and test it against the
+                // orthogonal pipe section (flipping the result if it is bloated).
                 let mut t1 = t_values[0];
                 let mut t2 = t_values[1];
                 let mut t3 = t_values[2];
@@ -360,7 +378,7 @@ impl StripSection {
                     let p_test = ccurve.at(t_test);
                     let contains = !self.orthogonal_pipe_section.interior_contains(&p_test) == self.bloated;
                     if contains {
-                        let polyline = ccurve.discretize(a, b, config.linear_segments);
+                        let polyline = ccurve.discretize_segment(a, b, config.linear_segments);
                         polylines.push(polyline);
                     }
                 }
@@ -368,7 +386,8 @@ impl StripSection {
                     polyline.as_mesh(config.thickness, config.radial_segments)
                 ).collect::<_>();
                 Mesh::merge(meshes)
-            } else if t_values.len() != 0 {
+            } else if t_values.len() >= 2 {
+                // 2 values. Same as the 4 case, but fewer cases. Sorry about code dupe.
                 let mut t1 = t_values[0];
                 let mut t2 = t_values[1];
                 let mut polylines = vec![];
@@ -380,7 +399,7 @@ impl StripSection {
                     let p_test = ccurve.at(t_test);
                     let contains = !self.orthogonal_pipe_section.interior_contains(&p_test) == self.bloated;
                     if contains {
-                        let polyline = ccurve.discretize(a, b, config.linear_segments);
+                        let polyline = ccurve.discretize_segment(a, b, config.linear_segments);
                         polylines.push(polyline);
                     }
                 }
@@ -389,11 +408,14 @@ impl StripSection {
                 ).collect::<_>();
                 Mesh::merge(meshes)
             } else {
+                // If there are no ring cross sections on this CCurve, then either the entire CCurve
+                // is part of the strip cross section, or none of it. To test this we just try one
+                // point.
                 let t_test = 0.25; // doesn't matter
                 let p_test = ccurve.at(t_test);
                 let contains = !self.orthogonal_pipe_section.interior_contains(&p_test) == self.bloated;
                 if contains {
-                    let polyline = ccurve.discretize(0.0, 1.0, config.linear_segments);
+                    let polyline = ccurve.discretize_full(config.linear_segments);
                     polyline.as_mesh(config.thickness, config.radial_segments)
                 } else {
                     Mesh::empty()
