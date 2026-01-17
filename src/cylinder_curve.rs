@@ -202,7 +202,10 @@ impl CCurve {
 #[cfg(test)]
 mod test {
     use approx::*;
-    use crate::{cylinder::{self, Cylinder}, cylinder_curve::CCurveKind, pipe_section::PipeSection, utils::linspace};
+    use crate::{cylinder::{self, Cylinder}, cylinder_curve::CCurveKind, mesh::MeshLike, pipe_section::PipeSection, utils::linspace};
+    use crate::mesh::Mesh;
+    use crate::config::CylinderMeshConfig;
+    use std::path::PathBuf;
 
     fn example_cylinder() -> Cylinder {
         Cylinder {
@@ -282,14 +285,53 @@ mod test {
         );
         let cylinder_1 = pipe_section_1.as_cylinder();
         let cylinder_2 = pipe_section_2.as_cylinder();
+
         let curves = cylinder_1.intersect_cylinder(&cylinder_2);
         for curve in curves {
             for t in linspace(0.0, 1.0, 500) {
                 let p = curve.at(t);
-                let tolerance = 1e-5;
-                assert!(pipe_section_1.boundary_contains(&p, tolerance));
-                assert!(pipe_section_2.boundary_contains(&p, tolerance));
+                assert_abs_diff_eq!(pipe_section_1.scalar_field(&p), 0.0, epsilon = 1e-5);
+                assert_abs_diff_eq!(pipe_section_2.scalar_field(&p), 0.0, epsilon = 1e-5);
             }
         }
+    }
+
+    #[test]
+    fn test_intersect_3() {
+        let w = 0.1;
+        let pipe_section_1 = PipeSection::new(
+            0.5000000000000001,
+            -0.8660254037844386,
+            0.5176380902050415,
+            0.0,
+            w,
+        );
+        let pipe_section_2 = PipeSection::new(
+            0.5176380902050417,
+            -1.759632984364885e-16,
+            0.9999999999999999,
+            0.0,
+            w,
+        );
+        let cylinder_1 = pipe_section_1.as_cylinder();
+        let cylinder_2 = pipe_section_2.as_cylinder();
+
+        let config = CylinderMeshConfig {
+            half_length: 5.0,
+            linear_segments: 10,
+            radial_segments: 10,
+        };
+        let mut meshes = vec![
+            cylinder_1.as_mesh(&config),
+            cylinder_2.as_mesh(&config),
+        ];
+
+        let curves = cylinder_1.intersect_cylinder(&cylinder_2);
+        for curve in curves {
+            meshes.push(curve.discretize(0.0, 1.0, 100).as_mesh(0.1, 10));
+        }
+
+        let path = PathBuf::from("cylinders.ply");
+        Mesh::merge(meshes).write_ply_file_and_log(&path, "cylinders");
     }
 }
