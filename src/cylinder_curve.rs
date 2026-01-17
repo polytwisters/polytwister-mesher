@@ -202,7 +202,7 @@ impl CCurve {
 #[cfg(test)]
 mod test {
     use approx::*;
-    use crate::{cylinder::{self, Cylinder}, cylinder_curve::CCurveKind};
+    use crate::{cylinder::{self, Cylinder}, cylinder_curve::CCurveKind, pipe_section::PipeSection, utils::linspace};
 
     fn example_cylinder() -> Cylinder {
         Cylinder {
@@ -260,6 +260,36 @@ mod test {
             let p = curve.at(t);
             assert!(curve.contains(&p));
             assert_abs_diff_eq!(curve.to_t(&p), t);
+        }
+    }
+
+    #[test]
+    fn test_intersect_2() {
+        let w = 0.1;
+        let pipe_section_1 = PipeSection::new(
+            0.5000000000000001,
+            -0.8660254037844386,
+            0.5176380902050415,
+            0.0,
+            w,
+        );
+        let pipe_section_2 = PipeSection::new(
+            0.5000000000000001,
+            -0.8660254037844386,
+            0.5176380902050415,
+            0.0,
+            w,
+        );
+        let cylinder_1 = pipe_section_1.as_cylinder();
+        let cylinder_2 = pipe_section_2.as_cylinder();
+        let curves = cylinder_1.intersect_cylinder(&cylinder_2);
+        for curve in curves {
+            for t in linspace(0.0, 1.0, 500) {
+                let p = curve.at(t);
+                let tolerance = 1e-5;
+                assert!(pipe_section_1.boundary_contains(&p, tolerance));
+                assert!(pipe_section_2.boundary_contains(&p, tolerance));
+            }
         }
     }
 }
