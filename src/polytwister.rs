@@ -137,7 +137,7 @@ impl Polytwister {
     }
 
     fn ring_cross_sections(&self, w: f64) -> Vec<RingSection> {
-        (0..self.pipes.len()).map(|i| { self.ring_cross_section(i, w) }).collect::<Vec<_>>()
+        (0..self.rings.len()).map(|i| { self.ring_cross_section(i, w) }).collect::<Vec<_>>()
     }
 
     pub fn twister_sections(&self, w: f64, config: &Config) -> Vec<TwisterSection> {
