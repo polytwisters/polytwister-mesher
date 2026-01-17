@@ -538,34 +538,4 @@ mod test {
             }
         }
     }
-
-    #[test]
-    fn test_intersect_bug_2_mesh_out() {
-        let cylinder = Cylinder {
-            m11: 0.96,
-            m12: 1.67,
-            m13: -0.45,
-            m14: 0.16,
-            m21: -1.67,
-            m22: 0.967,
-            m23: 1.67,
-            m24: 0.046,
-        };
-        let config = CylinderMeshConfig {
-            radial_segments: 16,
-            half_length: 3.0,
-            linear_segments: 30,
-        };
-        let mesh = Mesh::merge(vec![
-            cylinder.as_mesh(&config),
-            Cylinder::base().as_mesh(&config),
-            Mesh::merge(
-                cylinder.intersect_base_cylinder().iter().map(|curve|
-                    curve.discretize(0.0, 1.0, 100).as_mesh(0.1, 10)
-                ).collect::<Vec<_>>()
-            )
-        ]);
-        let path = PathBuf::from("./cylinders.ply");
-        mesh.write_ply_file(&path);
-    }
 }

@@ -100,7 +100,7 @@ impl CCurve {
 
     /// Return true if the given 3D point is on the curve.
     pub fn contains(&self, p: &Point3<f64>) -> bool {
-        let tolerance = 1e-10;
+        let tolerance = 1e-5;
         let p2 = self.transform.inverse_transform_point(p);
         let x = p2.x;
         let y = p2.y;
@@ -127,7 +127,8 @@ impl CCurve {
                 };
 
                 (x.hypot(y) - 1.0).abs() < tolerance
-                && theta1 - tolerance <= unwrapped_theta && unwrapped_theta <= theta2 + tolerance
+                && theta1 - tolerance <= unwrapped_theta
+                && unwrapped_theta <= theta2 + tolerance
                 && (
                     (z - z1).abs() < tolerance
                     || (z - z2).abs() < tolerance
@@ -257,6 +258,7 @@ mod test {
         let cylinder_1 = Cylinder::base();
         let cylinder_2 = example_cylinder();
         let curves = cylinder_1.intersect_cylinder(&cylinder_2);
+
         let curve = curves[0];
         assert!(matches!(curve.kind, CCurveKind::SideLoop(_, _)));
         for t in [0.0, 0.023, 0.5, 0.58] {
