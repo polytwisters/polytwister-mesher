@@ -30,6 +30,14 @@ pub struct CCurve {
     transform: Affine3<f64>,
 }
 
+fn warp_semicircle(x: f64) -> f64 {
+    (1.0 - (x * f64::consts::PI).cos()) / 2.0
+}
+
+fn unwarp_semicircle(x: f64) -> f64 {
+    (1.0 - x * 2.0).acos() * f64::consts::FRAC_1_PI
+}
+
 impl CCurve {
     pub fn wrapped_loop(cylinder: Cylinder, branch: bool) -> Self {
         Self {
@@ -81,15 +89,18 @@ impl CCurve {
             }
             CCurveKind::SideLoop(theta1, theta2) => {
                 if t2 < 0.5 {
-                    // Map [0, 1] -> [0, 0.5].
-                    let t3 = t2 * 2.0;
-                    let theta = lerp(theta1, theta2, t3);
+                    // Map [0, 0.5] -> [0, 1].
+                    let tmp = t2 * 2.0;
+                    let tmp = warp_semicircle(tmp);
+                    let theta = lerp(theta1, theta2, tmp);
                     let (p1, _) = self.cylinder.intersect_z_line_theta(theta);
                     p1
                 } else {
                     // Map [0.5, 1] -> [1, 0].
-                    let t3 = (1.0 - t2) * 2.0;
-                    let theta = lerp(theta1, theta2, t3);
+                    let tmp = t2 * 2.0 - 1.0;
+                    let tmp = 1.0 - tmp;
+                    let tmp = warp_semicircle(tmp);
+                    let theta = lerp(theta1, theta2, tmp);
                     let (_, p2) = self.cylinder.intersect_z_line_theta(theta);
                     p2
                 }
@@ -159,15 +170,20 @@ impl CCurve {
                     theta
                 };
                 if (z - z1).abs() < (z - z2).abs() {
-                    // Branch 1: 0 <= t < 0.5
-                    lerp_inverse(theta1, theta2, theta_unwrapped).clamp(0.0, 1.0) / 2.0
+                    let tmp = lerp_inverse(theta1, theta2, theta_unwrapped);
+                    let tmp = tmp.clamp(0.0, 1.0);
+                    let tmp = unwarp_semicircle(tmp);
+                    let t = tmp / 2.0;
+                    t
                 } else {
-                    // Branch 2: 0.5 <= t < 1
-                    let tmp = 0.5 + lerp_inverse(
-                        theta2, theta1, theta_unwrapped
-                    ).clamp(0.0, 1.0) / 2.0;
+                    let tmp = lerp_inverse(theta1, theta2, theta_unwrapped);
+                    let tmp = tmp.clamp(0.0, 1.0);
+                    let tmp = unwarp_semicircle(tmp);
+                    let tmp = 1.0 - tmp;
+                    let tmp = tmp / 2.0;
+                    let t = tmp + 0.5;
                     // Make sure 1.0 is wrapped back to 0.0.
-                    tmp.rem_euclid(1.0)
+                    t.rem_euclid(1.0)
                 }
             }
         }
@@ -203,7 +219,7 @@ impl CCurve {
 #[cfg(test)]
 mod test {
     use approx::*;
-    use crate::{cylinder::{self, Cylinder}, cylinder_curve::CCurveKind, mesh::MeshLike, pipe_section::PipeSection, utils::linspace};
+    use crate::{cylinder::{self, Cylinder}, cylinder_curve::{CCurveKind, unwarp_semicircle, warp_semicircle}, mesh::MeshLike, pipe_section::PipeSection, utils::linspace};
     use crate::mesh::Mesh;
     use crate::config::CylinderMeshConfig;
     use std::path::PathBuf;
@@ -262,9 +278,26 @@ mod test {
         let curve = curves[0];
         assert!(matches!(curve.kind, CCurveKind::SideLoop(_, _)));
         for t in [0.0, 0.023, 0.5, 0.58] {
+            dbg!(t);
             let p = curve.at(t);
             assert!(curve.contains(&p));
             assert_abs_diff_eq!(curve.to_t(&p), t);
         }
+    }
+
+    #[test]
+    fn test_warp_unwarp() {
+        let t = 0.34;
+        let w = warp_semicircle(t);
+        assert!(0.0 < w && w < 1.0);
+        assert_abs_diff_eq!(unwarp_semicircle(w), t);
+    }
+
+    #[test]
+    fn test_unwarp_warp() {
+        let t = 0.94;
+        let w = unwarp_semicircle(t);
+        assert!(0.0 < w && w < 1.0);
+        assert_abs_diff_eq!(warp_semicircle(w), t);
     }
 }
