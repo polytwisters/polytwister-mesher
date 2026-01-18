@@ -332,7 +332,7 @@ mod test {
     use crate::mesh::MeshLike;
     use crate::{cylinder, mesh::Mesh};
     use crate::cylinder_curve::CCurveKind;
-    use crate::config::CylinderMeshConfig;
+    use crate::config::{CylinderMeshConfig, TorusMeshConfig};
     use std::path::PathBuf;
 
     use super::*;
@@ -560,15 +560,12 @@ mod test {
         );
         let curves = ps_1.intersect(&ps_2);
 
-        let config = CylinderMeshConfig {
-            half_length: 5.0,
-            linear_segments: 10,
-            radial_segments: 10
-        };
+        let config = CylinderMeshConfig::default();
 
         Mesh::merge(vec![
             ps_1.as_mesh(&config),
             ps_2.as_mesh(&config),
+            curves.as_mesh(&TorusMeshConfig::default())
         ]).write_ply_file(&PathBuf::from("cylinders.ply"));
     }
 }
