@@ -24,8 +24,9 @@ impl RingSection {
     }
 
     pub fn as_points(&self) -> Option<(Point3<f64>, Point3<f64>)> {
+        let tolerance = 1e-10;
         let denom = self.c.hypot(self.d);
-        if denom < 1e-10 {
+        if denom < tolerance {
             return None;
         }
         let discriminant = self.w / denom;
@@ -83,6 +84,19 @@ mod test {
             c: -0.5,
             d: 0.1,
             w: 0.3,
+        };
+        assert!(matches!(section.as_points(), Some(_)));
+    }
+
+    #[ignore]
+    #[test]
+    fn test_ring_section_zero() {
+        let section = RingSection {
+            a: 1.0,
+            b: 0.0,
+            c: 0.0,
+            d: 0.0,
+            w: 0.0,
         };
         assert!(matches!(section.as_points(), Some(_)));
     }

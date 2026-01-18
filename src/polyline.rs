@@ -40,6 +40,10 @@ impl Polyline {
         let v_prev = (point - prev).normalize();
         let x = v_next.cross(&v_prev).normalize();
         let y = x.cross(&v_next).normalize();
+        if !x.x.is_finite() {
+            dbg!(prev, point, next, v_next, v_prev);
+            panic!();
+        }
         (x, y)
     }
 

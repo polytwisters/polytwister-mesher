@@ -276,7 +276,7 @@ impl Cylinder {
      */
     pub fn intersect_base_cylinder(&self) -> Vec<CCurve> {
         let solutions = self.get_critical_thetas();
-        match solutions {
+        let curves = match solutions {
             CylinderIntersectionSolutions::Empty => vec![],
             CylinderIntersectionSolutions::All => {
                 vec![
@@ -295,7 +295,9 @@ impl Cylinder {
                     CCurve::side_loop(self.clone(), interval2.start, interval2.end),
                 ]
             },
-        }
+        };
+        let tolerance = 1e-5;
+        curves.into_iter().filter(|ccurve| !ccurve.is_degenerate(tolerance)).collect::<_>()
     }
 
     /**
@@ -537,5 +539,25 @@ mod test {
                 assert_abs_diff_eq!(cylinder.scalar_field(&p), 0.0, epsilon = 1e-5);
             }
         }
+    }
+
+    #[test]
+    fn test_single_point_intersection() {
+        let ps_1 = PipeSection::new(
+            0.5,
+            0.866,
+            0.517,
+            0.0,
+            0.0
+        );
+        let ps_2 = PipeSection::new(
+            -1.0,
+            0.0,
+            0.517,
+            0.0,
+            0.0
+        );
+        let curves = ps_1.intersect(&ps_2);
+        assert!(curves.len() == 0);
     }
 }

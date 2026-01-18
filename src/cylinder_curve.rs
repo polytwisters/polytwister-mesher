@@ -222,6 +222,17 @@ impl CCurve {
         }).collect::<Vec<_>>();
         Polyline { points, closed: true }
     }
+
+    /// Return true if the CCurve is a SideLoop type and its start and endpoints are very close
+    /// together, so it is shrunk to a point.
+    pub fn is_degenerate(&self, tolerance: f64) -> bool {
+        match self.kind {
+            CCurveKind::SideLoop(start, end) => {
+                (end - start).abs() < tolerance
+            },
+            _ => false
+        }
+    }
 }
 
 #[cfg(test)]
