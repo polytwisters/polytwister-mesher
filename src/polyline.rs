@@ -17,6 +17,8 @@ impl Polyline {
         self.points.len()
     }
 
+    /// Return the point at index i. If this is a closed polyline, negative or out-of-bounds
+    /// values of i are wrapped.
     fn point(&self, i: isize) -> Point3<f64> {
         if self.closed {
             let index = i.rem_euclid(self.num_points() as isize) as usize;
@@ -40,11 +42,13 @@ impl Polyline {
         let v_prev = (point - prev).normalize();
         let x = v_next.cross(&v_prev).normalize();
         let y = x.cross(&v_next).normalize();
-        if !x.x.is_finite() {
-            dbg!(prev, point, next, v_next, v_prev);
-            panic!();
+        if x.iter().all(|c| c.is_finite()) && y.iter().all(|c| c.is_finite()) {
+            (x, y)
+        } else {
+            // With degenerate polylines, better to return some coordinate system rather than return
+            // nans.
+            (Vector3::x(), Vector3::y())
         }
-        (x, y)
     }
 
     pub fn as_mesh(
