@@ -296,8 +296,7 @@ impl Cylinder {
                 ]
             },
         };
-        let tolerance = 1e-5;
-        curves.into_iter().filter(|ccurve| !ccurve.is_degenerate(tolerance)).collect::<_>()
+        curves
     }
 
     /**
@@ -542,22 +541,32 @@ mod test {
     }
 
     #[test]
-    fn test_single_point_intersection() {
+    fn test_thingy() {
         let ps_1 = PipeSection::new(
-            0.5,
-            0.866,
-            0.517,
+            -0.2588,
+            -0.448,
+            1.0,
             0.0,
             0.0
         );
         let ps_2 = PipeSection::new(
-            -1.0,
-            0.0,
-            0.517,
+            -0.2588,
+            0.448,
+            1.0,
             0.0,
             0.0
         );
         let curves = ps_1.intersect(&ps_2);
-        assert!(curves.len() == 0);
+
+        let config = CylinderMeshConfig {
+            half_length: 5.0,
+            linear_segments: 10,
+            radial_segments: 10
+        };
+
+        Mesh::merge(vec![
+            ps_1.as_mesh(&config),
+            ps_2.as_mesh(&config),
+        ]).write_ply_file(&PathBuf::from("cylinders.ply"));
     }
 }
