@@ -331,9 +331,6 @@ impl StripSection {
         // First get all the CCurves, curves equal to the intersection of the two pipes, and
         // therefore the cross section of the torus containing this strip.
         let ccurves = self.pipe_section_1.intersect(&self.pipe_section_2);
-        dbg!(&self.pipe_section_1);
-        dbg!(&self.pipe_section_2);
-        dbg!(&ccurves);
 
         // The strip cross section's endpoints are always the points which are cross sections of its
         // bounding rings. However, we do not know which ones yet. First, let's gather all the
