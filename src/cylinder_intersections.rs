@@ -1,7 +1,7 @@
 use core::f64;
 use std::io::Empty;
 
-use crate::{cylinder::Cylinder, pipe_section::{self, PipeSection}, polyline::Polyline, utils::{angle_vector, linspace}};
+use crate::{cylinder::Cylinder, cylinder_curve::CylinderIntersection, pipe_section::{self, PipeSection}, polyline::Polyline, utils::{angle_vector, linspace}};
 use crate::cylinder_curve::{CCurve};
 use na::{Matrix2, Point2, Point3, Vector2, Vector3, Affine3, Matrix4};
 use crate::utils::{squared, sort2, sort4, angle, unzip_circle};
@@ -263,20 +263,22 @@ impl Cylinder {
 
     /// Intersect this cylinder with a planes at +z and -z, parallel to the xy-plane. Return the
     /// result as two CCurves.
-    pub fn intersect_z_planes(&self, z: f64) -> Vec<CCurve> {
-        vec![
-            self.intersect_z_plane(z),
-            self.intersect_z_plane(-z),
-        ]
+    pub fn intersect_z_planes(&self, z: f64) -> CylinderIntersection {
+        CylinderIntersection {
+            ccurves: vec![
+                self.intersect_z_plane(z),
+                self.intersect_z_plane(-z),
+            ]
+        }
     }
 
     /**
      * Intersect this Cylinder with the base Cylinder and return the connected components as a set
      * of CCurves.
      */
-    pub fn intersect_base_cylinder(&self) -> Vec<CCurve> {
+    pub fn intersect_base_cylinder(&self) -> CylinderIntersection {
         let solutions = self.get_critical_thetas();
-        let curves = match solutions {
+        let ccurves = match solutions {
             CylinderIntersectionSolutions::Empty => vec![],
             CylinderIntersectionSolutions::All => {
                 vec![
@@ -296,13 +298,13 @@ impl Cylinder {
                 ]
             },
         };
-        curves
+        CylinderIntersection { ccurves }
     }
 
     /**
      * Intersect this Cylinder with another Cylinder.
      */
-    pub fn intersect_cylinder(&self, other: &Cylinder) -> Vec<CCurve> {
+    pub fn intersect_cylinder(&self, other: &Cylinder) -> CylinderIntersection {
         // Let D(M_1) be self and let D(M_2) be other.
         // Note that D(M) = M^-1 D(I), so:
         //
@@ -315,9 +317,9 @@ impl Cylinder {
             self.matrix() * other.inv_matrix()
         );
 
-        transformed_cylinder.intersect_base_cylinder().into_iter().map(|ccurve| {
-            ccurve.transform(&transform)
-        }).collect::<Vec<_>>()
+        let untransformed_intersection = transformed_cylinder.intersect_base_cylinder();
+
+        untransformed_intersection.transform(&transform)
     }
 }
 
@@ -449,8 +451,8 @@ mod test {
     #[test]
     fn test_intersect_base_cylinder() {
         let cylinder = example_cylinder();
-        let curves = cylinder.intersect_base_cylinder();
-        for curve in curves {
+        let intersection = cylinder.intersect_base_cylinder();
+        for curve in intersection.ccurves {
             let point = curve.at(0.25);
             assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
             assert_abs_diff_eq!(point.x.hypot(point.y), 1.0, epsilon = 1e-10);
@@ -461,8 +463,8 @@ mod test {
     fn test_intersect_cylinder() {
         let cylinder = example_cylinder();
         let cylinder2 = example_cylinder_2();
-        let curves = cylinder.intersect_cylinder(&cylinder2);
-        for curve in curves {
+        let intersection = cylinder.intersect_cylinder(&cylinder2);
+        for curve in intersection.ccurves {
             let n = 30;
             for i in 0..n {
                 let t = i as f64 / n as f64;
@@ -508,8 +510,8 @@ mod test {
             m23: 0.0,
             m24: -0.1,
         };
-        let curves = cylinder_1.intersect_cylinder(&cylinder_2);
-        for curve in curves {
+        let intersection = cylinder_1.intersect_cylinder(&cylinder_2);
+        for curve in intersection.ccurves {
             for t in linspace(0.0, 1.0, 500) {
                 let p = curve.at(t);
                 assert_abs_diff_eq!(cylinder_1.scalar_field(&p), 0.0, epsilon = 1e-5);
@@ -530,8 +532,8 @@ mod test {
             m23: 1.67,
             m24: 0.046,
         };
-        let curves = cylinder.intersect_base_cylinder();
-        for curve in curves {
+        let intersection = cylinder.intersect_base_cylinder();
+        for curve in intersection.ccurves {
             assert!(matches!(curve.kind, CCurveKind::SideLoop(_, _)));
             for t in linspace(0.0, 1.0, 500) {
                 let p = curve.at(t);

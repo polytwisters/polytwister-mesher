@@ -4,7 +4,7 @@ use core::f64;
 use na::{Complex, Point3, Vector3, Vector4};
 use crate::cylinder::{Cylinder};
 use crate::config::{CylinderMeshConfig, TorusMeshConfig};
-use crate::cylinder_curve::CCurve;
+use crate::cylinder_curve::{CCurve, CylinderIntersection};
 use crate::mesh::{Mesh};
 use crate::polyline::Polyline;
 use crate::{pipe_section, ring};
@@ -134,18 +134,18 @@ impl PipeSection {
         }
     }
 
-    pub fn intersect(&self, other: &PipeSection) -> Vec<CCurve> {
+    pub fn intersect(&self, other: &PipeSection) -> CylinderIntersection {
         if self.is_plane() {
             if other.is_plane() {
                 // Both are planes. Intersection is empty.
-                vec![]
+                CylinderIntersection::empty()
             } else {
                 // Pipe section 1 is plane, pipe section 2 is cylinder.
                 if let Some(z) = self.plane_z() {
                     other.as_cylinder().intersect_z_planes(z)
                 } else {
                     // Pipe section 1 is empty.
-                    vec![]
+                    CylinderIntersection::empty()
                 }
             }
         } else {
@@ -155,7 +155,7 @@ impl PipeSection {
                     self.as_cylinder().intersect_z_planes(z)
                 } else {
                     // Pipe section 2 is empty.
-                    vec![]
+                    CylinderIntersection::empty()
                 }
             } else {
                 // Both are cylinders.
@@ -330,7 +330,8 @@ impl StripSection {
     pub fn as_mesh(&self, config: &TorusMeshConfig) -> Mesh {
         // First get all the CCurves, curves equal to the intersection of the two pipes, and
         // therefore the cross section of the torus containing this strip.
-        let ccurves = self.pipe_section_1.intersect(&self.pipe_section_2);
+        let intersection = self.pipe_section_1.intersect(&self.pipe_section_2);
+        let ccurves = intersection.ccurves;
 
         // The strip cross section's endpoints are always the points which are cross sections of its
         // bounding rings. However, we do not know which ones yet. First, let's gather all the

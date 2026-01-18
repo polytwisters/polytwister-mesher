@@ -1,7 +1,7 @@
 use core::f64;
 use std::mem::Discriminant;
 
-use crate::{cylinder::Cylinder, pipe_section::{self, PipeSection}, polyline::Polyline, utils::sort2};
+use crate::{config::{CylinderMeshConfig, TorusMeshConfig}, cylinder::Cylinder, mesh::Mesh, pipe_section::{self, PipeSection}, polyline::Polyline, utils::sort2};
 use nalgebra::{Affine3, Point3, Point2};
 use crate::utils::{lerp, lerp_inverse};
 
@@ -235,6 +235,32 @@ impl CCurve {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct CylinderIntersection {
+    pub ccurves: Vec<CCurve>
+}
+
+impl CylinderIntersection {
+    pub fn empty() -> Self {
+        Self { ccurves: vec![] }
+    }
+
+    pub fn as_mesh(&self, config: &TorusMeshConfig) -> Mesh {
+        Mesh::merge(self.ccurves.iter().map(|ccurve|
+            ccurve.discretize_full(config.linear_segments)
+                .as_mesh(config.thickness, config.radial_segments)
+        ).collect::<_>())
+    }
+
+    pub fn transform(&self, transform: &Affine3<f64>) -> Self {
+        Self {
+            ccurves: self.ccurves.iter().map(|ccurve|
+                ccurve.transform(&transform)
+            ).collect::<_>()
+        } 
+    }
+}
+
 #[cfg(test)]
 mod test {
     use approx::*;
@@ -278,8 +304,8 @@ mod test {
     fn test_to_t_wrapped_loop() {
         let cylinder_1 = example_cylinder();
         let cylinder_2 = Cylinder::base();
-        let curves = cylinder_1.intersect_cylinder(&cylinder_2);
-        let curve = curves[0];
+        let intersection = cylinder_1.intersect_cylinder(&cylinder_2);
+        let curve = intersection.ccurves[0];
         assert!(matches!(curve.kind, CCurveKind::WrappedLoop(_)));
         for t in [0.0, 0.14, 0.5, 0.99] {
             let p = curve.at(t);
@@ -292,9 +318,9 @@ mod test {
     fn test_to_t_side_loop() {
         let cylinder_1 = Cylinder::base();
         let cylinder_2 = example_cylinder();
-        let curves = cylinder_1.intersect_cylinder(&cylinder_2);
+        let intersection = cylinder_1.intersect_cylinder(&cylinder_2);
 
-        let curve = curves[0];
+        let curve = intersection.ccurves[0];
         assert!(matches!(curve.kind, CCurveKind::SideLoop(_, _)));
         for t in [0.0, 0.023, 0.5, 0.58] {
             dbg!(t);
