@@ -199,8 +199,17 @@ impl Cylinder {
 
         if let (Some((p1, p2)), Some((p3, p4))) = (solutions1, solutions2) {
             let (t1, t2, t3, t4) = sort4((angle(&p1), angle(&p2), angle(&p3), angle(&p4)));
-            let tmp = (t1 + t2) / 2.0;
-            if self.intersects_z_line_theta(tmp) {
+
+            // Special case: if t1 == t2, then (t1 + t2) / 2 will always be in K. Instead test the
+            // [t2, t3] interval and invert the result.
+            let tolerance = 1e-5;
+            let (t_test, flip) = if (t1 - t2).abs() < tolerance {
+                ((t2 + t3) / 2.0, true)
+            } else {
+                ((t1 + t2) / 2.0, false)
+            };
+
+            if self.intersects_z_line_theta(t_test) != flip {
                 return CylinderIntersectionSolutions::TwoIntervals(
                     CircularInterval::new(t1, t2),
                     CircularInterval::new(t3, t4),
@@ -540,32 +549,5 @@ mod test {
                 assert_abs_diff_eq!(cylinder.scalar_field(&p), 0.0, epsilon = 1e-5);
             }
         }
-    }
-
-    #[test]
-    fn test_thingy() {
-        let ps_1 = PipeSection::new(
-            -0.2588,
-            -0.448,
-            1.0,
-            0.0,
-            0.0
-        );
-        let ps_2 = PipeSection::new(
-            -0.2588,
-            0.448,
-            1.0,
-            0.0,
-            0.0
-        );
-        let curves = ps_1.intersect(&ps_2);
-
-        let config = CylinderMeshConfig::default();
-
-        Mesh::merge(vec![
-            ps_1.as_mesh(&config),
-            ps_2.as_mesh(&config),
-            curves.as_mesh(&TorusMeshConfig::default())
-        ]).write_ply_file(&PathBuf::from("cylinders.ply"));
     }
 }
