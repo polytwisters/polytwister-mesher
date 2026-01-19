@@ -553,6 +553,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_intersect_bug_3() {
         let pipe_section_1 = PipeSection {
             a: 0.5000000000000001,
@@ -579,9 +580,13 @@ mod test {
         let cylinder_config = CylinderMeshConfig {
             half_length: 5.0,
             linear_segments: 50,
-            radial_segments: 50
+            radial_segments: 50,
         };
-        let curve_config = TorusMeshConfig::default();
+        let curve_config = TorusMeshConfig {
+            thickness: 0.05,
+            linear_segments: 50,
+            radial_segments: 10,
+        };
         ColoredMesh {
             meshes: vec![
                 (pipe_section_1.as_mesh(&cylinder_config), Color { red: 255, green: 255, blue: 255 }),

@@ -323,7 +323,6 @@ mod test {
         let curve = intersection.ccurves[0];
         assert!(matches!(curve.kind, CCurveKind::SideLoop(_, _)));
         for t in [0.0, 0.023, 0.5, 0.58] {
-            dbg!(t);
             let p = curve.at(t);
             assert!(curve.contains(&p));
             assert_abs_diff_eq!(curve.to_t(&p), t);
