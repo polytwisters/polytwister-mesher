@@ -352,6 +352,11 @@ impl StripSection {
                 }
             }).collect::<Vec<_>>();
 
+            if t_values.len() % 2 == 1 {
+                dbg!(&t_values);
+                panic!();
+            }
+
             // t-values are in the range [0, 1], treated circularly. To reduce casework we have them
             // in increasing order.
             t_values.sort_by(f64::total_cmp);

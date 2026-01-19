@@ -336,9 +336,10 @@ impl Cylinder {
 #[cfg(test)]
 mod test {
     use core::f64;
+    use std::io::pipe;
 
     use approx::*;
-    use crate::mesh::MeshLike;
+    use crate::mesh::{ColoredMesh, MeshLike, Color};
     use crate::{cylinder, mesh::Mesh};
     use crate::cylinder_curve::CCurveKind;
     use crate::config::{CylinderMeshConfig, TorusMeshConfig};
@@ -549,5 +550,45 @@ mod test {
                 assert_abs_diff_eq!(cylinder.scalar_field(&p), 0.0, epsilon = 1e-5);
             }
         }
+    }
+
+    #[test]
+    fn test_intersect_bug_3() {
+        let pipe_section_1 = PipeSection {
+            a: 0.5000000000000001,
+            b: -0.8660254037844386,
+            c: 0.5176380902050415,
+            d: 0.0,
+            w: 0.0,
+        };
+        let pipe_section_2 = PipeSection {
+            a: 0.5000000000000001,
+            b: 0.8660254037844386,
+            c: 0.5176380902050415,
+            d: 0.0,
+            w: 0.0,
+        };
+        let orthogonal_pipe_section = PipeSection {
+            a: -0.5000000000000003,
+            b: 0.8660254037844392,
+            c: 1.931851652578138,
+            d: 0.0,
+            w: 0.0,
+        };
+        let intersection = pipe_section_1.intersect(&pipe_section_2);
+        let cylinder_config = CylinderMeshConfig {
+            half_length: 5.0,
+            linear_segments: 50,
+            radial_segments: 50
+        };
+        let curve_config = TorusMeshConfig::default();
+        ColoredMesh {
+            meshes: vec![
+                (pipe_section_1.as_mesh(&cylinder_config), Color { red: 255, green: 255, blue: 255 }),
+                (pipe_section_2.as_mesh(&cylinder_config), Color { red: 255, green: 255, blue: 255 }),
+                (orthogonal_pipe_section.as_mesh(&cylinder_config), Color { red: 128, green: 128, blue: 255 }),
+                (intersection.as_mesh(&curve_config), Color { red: 255, green: 255, blue: 255 }),
+            ]
+        } .write_ply_file(&PathBuf::from("cylinders.ply"));
     }
 }
