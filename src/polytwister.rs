@@ -295,6 +295,8 @@ impl PolytwisterDatabase {
 
 #[cfg(test)]
 mod test {
+    use crate::ring::RingSectionResult;
+
     use super::*;
     use std::fs::File;
     use std::io::Read;
@@ -315,7 +317,7 @@ mod test {
             let face = polytwister.polyhedron.faces[face_index].clone();
             for &vertex_index in face.vertices.iter() {
                 let ring_section = polytwister.ring_section(vertex_index, w);
-                if let Some((point_1, point_2)) = ring_section.as_points() {
+                if let RingSectionResult::Points(point_1, point_2) = ring_section.as_points() {
                     let tolerance = 1e-5;
                     assert!(pipe_section.boundary_contains(&point_1, tolerance));
                     assert!(pipe_section.boundary_contains(&point_2, tolerance));
