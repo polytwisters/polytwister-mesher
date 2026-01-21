@@ -209,20 +209,21 @@ impl CCurve {
     /// 
     /// Done in a stupid way with a grid+bisection search since the math got annoying.
     pub fn intersect_xy_plane(&self) -> Vec<f64> {
-        let grid_resolution = 100;
+        let tolerance = 1e-5;
+        let grid_resolution = 10000;
         let ts = (0..grid_resolution).map(|i|
             i as f64 / grid_resolution as f64
         ).collect::<Vec<_>>();
         // true for above z-plane, false for below 
         let z_signs = ts.iter().map(|t| {
-            self.at(*t).z >= -1e-5
+            self.at(*t).z >= -tolerance
         }).collect::<Vec<_>>();
         let mut result = vec![];
         let mut last_sign = z_signs[grid_resolution - 1];
         for (i, &sign) in z_signs.iter().enumerate() {
             if sign != last_sign {
                 let t_frac = bisection_search(|x| {
-                    self.at((i as f64 + x) as f64 / grid_resolution as f64).z >= -1e-5
+                    self.at((i as f64 + x) as f64 / grid_resolution as f64).z >= -tolerance
                 });
                 result.push((i as f64 + t_frac) / grid_resolution as f64);
             }
