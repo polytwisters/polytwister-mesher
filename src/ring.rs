@@ -118,7 +118,6 @@ mod test {
         assert!(matches!(section.as_points(), RingSectionResult::Points(_, _)));
     }
 
-    #[ignore]
     #[test]
     fn test_ring_section_zero() {
         let section = RingSection {
@@ -128,6 +127,6 @@ mod test {
             d: 0.0,
             w: 0.0,
         };
-        assert!(matches!(section.as_points(), RingSectionResult::Points(_, _)));
+        assert!(matches!(section.as_points(), RingSectionResult::XYCircle { radius: _ }));
     }
 }
