@@ -189,24 +189,6 @@ impl CCurve {
         }
     }
 
-    pub fn strip_t_interval(
-        &self,
-        p1: &Point3<f64>,
-        p2: &Point3<f64>,
-        orthogonal_pipe_section: &PipeSection,
-        bloated: bool
-    ) -> (f64, f64) {
-        let (mut t1, mut t2) = sort2((self.to_t(&p1), self.to_t(&p2)));
-        let t3 = (t1 + t2) / 2.0;
-        let p3 = self.at(t3);
-        let strip_contains_p3 = !orthogonal_pipe_section.interior_contains(&p3) == bloated;
-        if !strip_contains_p3 {
-            // Switch to complementary interval.
-            (t1, t2) = (t2, t1 + 1.0);
-        }
-        (t1, t2)
-    }
-
     pub fn discretize_segment(&self, t1: f64, t2: f64, resolution: usize) -> Polyline {
         let points = (0..resolution).map(|i| {
             let t = lerp(t1, t2, i as f64 / (resolution as f64 - 1.0));
