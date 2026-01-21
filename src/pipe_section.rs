@@ -10,7 +10,7 @@ use crate::polyline::Polyline;
 use crate::{pipe_section, ring};
 use crate::polytwister::{FillingRegion, RegionMode};
 use crate::ring::{RingSection, RingSectionResult};
-use crate::utils::{sort4, squared};
+use crate::utils::{bisection_search, sort4, squared};
 use crate::marching_squares::{Isosurface, Grid, GridAxis, meshify};
 
 /**
@@ -327,6 +327,12 @@ impl StripSection {
         }
     }
 
+    /// Given a point that is on the torus cross section, return whether it is also on the strip
+    /// cross section by checking it against the orthogonal pipe section.
+    pub fn contains_point_on_torus(&self, point: &Point3<f64>) -> bool {
+        !self.orthogonal_pipe_section.interior_contains(point) == self.bloated
+    }
+
     pub fn as_mesh(&self, config: &TorusMeshConfig) -> Mesh {
         // First get all the CCurves, curves equal to the intersection of the two pipes, and
         // therefore the cross section of the torus containing this strip.
@@ -358,7 +364,22 @@ impl StripSection {
             }).collect::<Vec<_>>();
 
             if has_xy_ring {
-                t_values.extend(ccurve.intersect_xy_plane());
+                // Stupid. Just discretize the strip with a combined grid/bisection search.
+                let resolution = 1000;
+                for i in 0..resolution {
+                    let t1 = i as f64 / resolution as f64;
+                    let t2 = (i + 1) as f64 / resolution as f64;
+                    let p1 = ccurve.at(t1);
+                    let p2 = ccurve.at(t2);
+                    if self.contains_point_on_torus(&p1) != self.contains_point_on_torus(&p2) {
+                        let t_frac = bisection_search(|t_frac| {
+                            self.contains_point_on_torus(
+                                &ccurve.at((i as f64 + t_frac) / resolution as f64)
+                            )
+                        });
+                        t_values.push((i as f64 + t_frac) / resolution as f64);
+                    }
+                }
             }
 
             // t-values are in the range [0, 1], treated circularly. To reduce casework we have them
@@ -371,7 +392,7 @@ impl StripSection {
                 // point.
                 let t_test = 0.25; // doesn't matter
                 let p_test = ccurve.at(t_test);
-                let contains = !self.orthogonal_pipe_section.interior_contains(&p_test) == self.bloated;
+                let contains = self.contains_point_on_torus(&p_test);
                 if contains {
                     let polyline = ccurve.discretize_full(config.linear_segments);
                     polyline.as_mesh(config.thickness, config.radial_segments)
@@ -387,7 +408,7 @@ impl StripSection {
                     let t2 = if i == t_values.len() - 1 { t_values[0] + 1.0 } else { t_values[i + 1] };
                     let t_test = (t1 + t2) / 2.0;
                     let p_test = ccurve.at(t_test);
-                    let contains = !self.orthogonal_pipe_section.interior_contains(&p_test) == self.bloated;
+                    let contains = self.contains_point_on_torus(&p_test);
                     if contains {
                         let polyline = ccurve.discretize_segment(t1, t2, config.linear_segments);
                         let mesh = polyline.as_mesh(config.thickness, config.radial_segments);
