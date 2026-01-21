@@ -9,7 +9,7 @@ use crate::mesh::{Mesh};
 use crate::polyline::Polyline;
 use crate::{pipe_section, ring};
 use crate::polytwister::{FillingRegion, RegionMode};
-use crate::ring::RingSection;
+use crate::ring::{RingSection, RingSectionResult};
 use crate::utils::{sort4, squared};
 use crate::marching_squares::{Isosurface, Grid, GridAxis, meshify};
 
@@ -340,6 +340,11 @@ impl StripSection {
         let points_1 = self.ring_section_1.add_points_to_vec(&mut endpoints);
         let points_2 = self.ring_section_2.add_points_to_vec(&mut endpoints);
 
+        let has_xy_ring = (
+            matches!(self.ring_section_1.as_points(), RingSectionResult::XYCircle { radius })
+            || matches!(self.ring_section_2.as_points(), RingSectionResult::XYCircle { radius })
+        );
+
         let meshes = ccurves.iter().map(|ccurve| {
             // Some of the ring cross sections will be on the CCurve and others will not. Filter out
             // the endpoint candidates that aren't on the CCurve, and convert them to t-values in
@@ -352,63 +357,15 @@ impl StripSection {
                 }
             }).collect::<Vec<_>>();
 
+            if has_xy_ring {
+                t_values.extend(ccurve.intersect_xy_plane());
+            }
+
             // t-values are in the range [0, 1], treated circularly. To reduce casework we have them
             // in increasing order.
             t_values.sort_by(f64::total_cmp);
 
-            // Nominally there are 0, 2, or 4 t-values, but just in case there are 1 or 3 we round
-            // down in the following casework (unlikely but theoretically possible due to
-            // floating-point issues).
-
-            if t_values.len() == 4 {
-                // The 4 t-values give us four different segments of the CCurve to check. To check
-                // each one we arbitrarily pick the midpoint of each segment and test it against the
-                // orthogonal pipe section (flipping the result if it is bloated).
-                let mut t1 = t_values[0];
-                let mut t2 = t_values[1];
-                let mut t3 = t_values[2];
-                let mut t4 = t_values[3];
-                let mut polylines = vec![];
-                for (a, b) in [
-                    (t1, t2),
-                    (t2, t3),
-                    (t3, t4),
-                    (t4, t1 + 1.0),
-                ] {
-                    let t_test = (a + b) / 2.0;
-                    let p_test = ccurve.at(t_test);
-                    let contains = !self.orthogonal_pipe_section.interior_contains(&p_test) == self.bloated;
-                    if contains {
-                        let polyline = ccurve.discretize_segment(a, b, config.linear_segments);
-                        polylines.push(polyline);
-                    }
-                }
-                let meshes = polylines.into_iter().map(|polyline|
-                    polyline.as_mesh(config.thickness, config.radial_segments)
-                ).collect::<_>();
-                Mesh::merge(meshes)
-            } else if t_values.len() >= 2 {
-                // 2 values. Same as the 4 case, but fewer cases. Sorry about code dupe.
-                let mut t1 = t_values[0];
-                let mut t2 = t_values[1];
-                let mut polylines = vec![];
-                for (a, b) in [
-                    (t1, t2),
-                    (t2, t1 + 1.0),
-                ] {
-                    let t_test = (a + b) / 2.0;
-                    let p_test = ccurve.at(t_test);
-                    let contains = !self.orthogonal_pipe_section.interior_contains(&p_test) == self.bloated;
-                    if contains {
-                        let polyline = ccurve.discretize_segment(a, b, config.linear_segments);
-                        polylines.push(polyline);
-                    }
-                }
-                let meshes = polylines.into_iter().map(|polyline|
-                    polyline.as_mesh(config.thickness, config.radial_segments)
-                ).collect::<_>();
-                Mesh::merge(meshes)
-            } else {
+            if t_values.len() == 0 {
                 // If there are no ring cross sections on this CCurve, then either the entire CCurve
                 // is part of the strip cross section, or none of it. To test this we just try one
                 // point.
@@ -421,6 +378,23 @@ impl StripSection {
                 } else {
                     Mesh::empty()
                 }
+            } else {
+                // Otherwise, use the t_values to divide up the CCurve into segments. Arbitrarily
+                // test the midpoint of each section.
+                let mut meshes = vec![];
+                for i in 0..t_values.len() {
+                    let t1 = t_values[i];
+                    let t2 = if i == t_values.len() - 1 { t_values[0] + 1.0 } else { t_values[i + 1] };
+                    let t_test = (t1 + t2) / 2.0;
+                    let p_test = ccurve.at(t_test);
+                    let contains = !self.orthogonal_pipe_section.interior_contains(&p_test) == self.bloated;
+                    if contains {
+                        let polyline = ccurve.discretize_segment(t1, t2, config.linear_segments);
+                        let mesh = polyline.as_mesh(config.thickness, config.radial_segments);
+                        meshes.push(mesh);
+                    }
+                }
+                Mesh::merge(meshes)
             }
         }).collect::<_>();
         Mesh::merge(meshes)

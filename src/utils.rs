@@ -151,3 +151,26 @@ mod tests {
         assert_abs_diff_eq!(ellipse.scalar_field(&v2), 0.0, epsilon = 1e-5);
     }
 }
+
+/// Given a monotonic function f: [0, 1] -> bool, use bisection search to find an x in [0, 1] so
+/// f(x) is right on the cusp of the switch from "true" to "false" or vice versa.
+pub fn bisection_search<F: Fn(f64) -> bool>(f: F) -> f64 {
+    let mut x_min = 0.0; 
+    let mut x_max = 1.0;
+    if f(x_min) == f(x_max) {
+        return 1.0;
+    }
+    // True if the function is ramping from false to true.
+    let upward = f(x_max);
+    let mut x;
+    for i in 0..5 {
+        x = (x_min + x_max) / 2.0;
+        // This flips the if/else statements if upward is false.
+        if f(x) == upward {
+            x_max = x;
+        } else {
+            x_min = x;
+        }
+    }
+    (x_min + x_max) / 2.0
+}

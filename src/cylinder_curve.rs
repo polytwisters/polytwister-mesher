@@ -1,7 +1,7 @@
 use core::f64;
 use std::mem::Discriminant;
 
-use crate::{config::{CylinderMeshConfig, TorusMeshConfig}, cylinder::Cylinder, mesh::Mesh, pipe_section::{self, PipeSection}, polyline::Polyline, utils::sort2};
+use crate::{config::{CylinderMeshConfig, TorusMeshConfig}, cylinder::Cylinder, mesh::Mesh, pipe_section::{self, PipeSection}, polyline::Polyline, utils::{bisection_search, linspace, sort2}};
 use nalgebra::{Affine3, Point3, Point2};
 use crate::utils::{lerp, lerp_inverse};
 
@@ -18,9 +18,9 @@ pub enum CCurveKind {
 /// sections.
 /// 
 /// The curve is encoded as follows. Let C = {(x, y, z) : x^2 + y^2 = 1} be a "base cylinder." Given
-/// a second cylinder B and an affine transformation A, the intersection is A*intersect(B, C). 
-/// This intersection is zero, or one, or two closed curves. A CCurve is one connected component of
-/// that intersection.
+/// a second cylinder B and an invertible affine transformation A, the intersection is
+/// A*intersect(B, C). This intersection is zero, or one, or two closed curves. A CCurve is one
+/// connected component of that intersection.
 /// 
 /// Alternatively the curve is the intersection with a plane with a given z-coordinate.
 #[derive(Clone, Copy, Debug)]
@@ -205,15 +205,30 @@ impl CCurve {
         Polyline { points, closed: true }
     }
 
-    /// Return true if the CCurve is a SideLoop type and its start and endpoints are very close
-    /// together, so it is shrunk to a point.
-    pub fn is_degenerate(&self, tolerance: f64) -> bool {
-        match self.kind {
-            CCurveKind::SideLoop(start, end) => {
-                (end - start).abs() < tolerance
-            },
-            _ => false
+    /// Intersect this CCurve with a circle in the XY-plane. Return the t-values.
+    /// 
+    /// Done in a stupid way with a grid+bisection search since the math got annoying.
+    pub fn intersect_xy_plane(&self) -> Vec<f64> {
+        let grid_resolution = 100;
+        let ts = (0..grid_resolution).map(|i|
+            i as f64 / grid_resolution as f64
+        ).collect::<Vec<_>>();
+        // true for above z-plane, false for below 
+        let z_signs = ts.iter().map(|t| {
+            self.at(*t).z >= -1e-5
+        }).collect::<Vec<_>>();
+        let mut result = vec![];
+        let mut last_sign = z_signs[grid_resolution - 1];
+        for (i, &sign) in z_signs.iter().enumerate() {
+            if sign != last_sign {
+                let t_frac = bisection_search(|x| {
+                    self.at((i as f64 + x) as f64 / grid_resolution as f64).z >= -1e-5
+                });
+                result.push((i as f64 + t_frac) / grid_resolution as f64);
+            }
+            last_sign = sign;
         }
+        result
     }
 }
 
