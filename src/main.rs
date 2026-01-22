@@ -164,7 +164,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut file = File::open(input_json)?;
             file.read_to_string(&mut string)?;
             let polytwister_database: PolytwisterDatabase = serde_json::from_str(&string)?;
-            let polytwister = polytwister_database.find(&polytwister_name)?;
+            let polytwister = polytwister_database.find(&polytwister_name)?.normalize();
 
             let mut any_output = false;
             let mesh = polytwister.as_meshes(*w, &config);
@@ -209,7 +209,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut file = File::open(input_json)?;
             file.read_to_string(&mut string)?;
             let polytwister_database: PolytwisterDatabase = serde_json::from_str(&string)?;
-            let polytwister = polytwister_database.find(&polytwister_name)?;
+            let polytwister = polytwister_database.find(&polytwister_name)?.normalize();
 
             std::fs::create_dir(output_dir)?;
 

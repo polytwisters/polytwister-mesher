@@ -1,6 +1,6 @@
 use core::f64;
-use na::Matrix2;
-use nalgebra::{Point2, Vector2};
+use na::{Matrix2, Matrix4};
+use nalgebra::{Point2, Vector2, Vector4};
 
 pub fn squared(x: f64) -> f64 {
     x * x
@@ -173,4 +173,62 @@ pub fn bisection_search<F: Fn(f64) -> bool>(f: F) -> f64 {
         }
     }
     (x_min + x_max) / 2.0
+}
+
+fn normalizing_su2_matrix(vec: &Vector4<f64>) -> Matrix4<f64> {
+    let norm = vec.norm();
+    // U = [
+    //    [x* y*]
+    //    [-y x]
+    // ]
+    // Use matrix representation: a + bi = [[a -b], [b a]]
+    Matrix4::new(
+        vec.x, vec.y, vec.z, vec.w,
+        -vec.y, vec.x, -vec.w, vec.z,
+        -vec.z, vec.w, vec.x, -vec.y,
+        -vec.w, -vec.z, vec.y, vec.x,
+    ) / norm
+}
+
+fn rotate_real_w(vec: &Vector4<f64>) -> Vector4<f64> {
+    let tmp = vec.z.hypot(vec.w);
+    // Matrix: [[a -b], [b a]] [z, w] = [k, 0]
+    let a = vec.z / tmp;
+    let b = -vec.w / tmp;
+    Vector4::new(
+        a * vec.x - b * vec.y,
+        b * vec.x + a * vec.y,
+        a * vec.z - b * vec.w,
+        b * vec.z + a * vec.w,
+    )
+}
+
+pub fn torus_radius(pipe1: &Vector4<f64>, pipe2: &Vector4<f64>) -> f64 {
+    let u = normalizing_su2_matrix(pipe2);
+    let k = 1.0 / pipe2.norm();
+    let p1n = rotate_real_w(&(u * pipe1 * k));
+    return 1.0f64.hypot((p1n.x.hypot(p1n.y) + 1.0) / p1n.z.abs()) * k;
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use approx::*;
+
+    #[test]
+    fn test_normalizing_su2_matrix() {
+        let vec = Vector4::new(-2.3, 0.3, 1.4, -0.6);
+        let u = normalizing_su2_matrix(&vec);
+        assert_abs_diff_eq!(u * u.transpose(), Matrix4::identity());
+        assert_abs_diff_eq!(u * vec, Vector4::new(vec.norm(), 0.0, 0.0, 0.0), epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_rotate_real_w() {
+        let vec = Vector4::new(-2.3, 0.3, 1.4, -0.6);
+        let result = rotate_real_w(&vec);
+        dbg!(result);
+        assert_abs_diff_eq!(vec.norm(), result.norm());
+        assert_abs_diff_eq!(result.w, 0.0);
+    }
 }

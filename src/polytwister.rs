@@ -1,3 +1,4 @@
+use std::io::pipe;
 use std::path::PathBuf;
 
 use clap::Error;
@@ -10,6 +11,7 @@ use crate::pipe_section::{PipeSection, StripSection, TwisterSection};
 use crate::mesh::{Color, Mesh, ColoredMesh, MeshLike};
 use crate::polyline::Polyline;
 use crate::ring::{self, RingSection};
+use crate::utils::torus_radius;
 
 #[derive(Deserialize, Clone)]
 #[serde(rename_all="camelCase")]
@@ -116,6 +118,38 @@ impl Polyhedron {
 }
 
 impl Polytwister {
+    /// Return a new polytwister which is geometrically scaled by the given ratio.
+    fn scale(&self, ratio: f64) -> Self {
+        return Polytwister {
+            polyhedron: self.polyhedron.clone(),
+            pipes: self.pipes.iter().map(|vec| vec / ratio).collect::<_>(),
+            orthogonal_pipes: self.orthogonal_pipes.iter().map(|vec| vec / ratio).collect::<_>(),
+            rings: self.rings.iter().map(|vec| vec * ratio).collect::<_>(),
+            twister_fillings: self.twister_fillings.clone(),
+            bloated: self.bloated,
+        }
+    }
+
+    /// Return the polytwister's maximum distance from the origin.
+    fn radius(&self) -> f64 {
+        if self.bloated {
+            let index = 0;
+            let index_2 = self.polyhedron.adjacent_face_indices(index)[0];
+            let pipe_1 = self.pipes[index];
+            let pipe_2 = self.pipes[index_2];
+            torus_radius(&pipe_1, &pipe_2)
+        } else {
+            self.rings[0].norm()
+        }
+    }
+
+    /// Return a scaled version of this polytwister so that its radius is 1.0.
+    pub fn normalize(&self) -> Self {
+        let scale = 1.0 / self.radius();
+        dbg!(scale);
+        self.scale(scale)
+    }
+
     fn ring_section(&self, index: usize, w: f64) -> RingSection {
         RingSection::from_vector4(&self.rings[index], w)
     }
