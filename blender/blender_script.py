@@ -15,16 +15,16 @@ import mathutils
 
 EXPECTED_BLENDER_VERSION = (4, 1)
 
-EPSILON = 1e-10
-LARGE = 10e3
-DEFAULT_CYLINDER_RESOLUTION = 64
-
 # Radius of polytwister's minimum containing sphere.
 # 20cm seems like a reasonable diameter for a physical polytwister sculpture.
 DEFAULT_SCALE = 20e-2 / 2
 
 
 HDRI_PATH = pathlib.Path(__file__).resolve().parent.parent / "assets/studio_environment_2k.exr"
+
+
+####################################################################################################
+# Utils & wrappers
 
 
 def deselect_all():
@@ -68,36 +68,6 @@ def group_under_empty(parts):
     return parent
 
 
-def make_material_from_config(config):
-    """Create a material on the active object and configure a Principled BSDF."""
-    bpy.ops.material.new()
-    material = bpy.data.materials[-1]
-
-    if config is None:
-        return material
-
-    principled_bsdf = material.node_tree.nodes["Principled BSDF"]
-    for key, value in config.items():
-        if isinstance(value, list):
-            value = tuple(value)
-        principled_bsdf.inputs[key].default_value = value
-
-    return material
-
-
-materials_by_config = {}
-
-def make_material_if_needed(config):
-    """Memoized version of make_material_from_config."""
-    # Stupid way of making the keys hashable.
-    key = str(config)
-    if key in materials_by_config:
-        return materials_by_config[key]
-    material = make_material_from_config(config)
-    materials_by_config[key] = material
-    return material
-
-
 def rotation_to_point_to_origin(point):
     """Given a location of an object pointing along the X-axis, return a set of
     Euler angles that will rotate that object so it points at the origin."""
@@ -120,6 +90,10 @@ def convert_spherical_to_cartesian(radius, latitude, longitude):
         radius * math.sin(longitude) * math.cos(latitude),
         radius * math.sin(latitude),
     )
+
+
+####################################################################################################
+# Render setup
 
 
 def set_up_camera(camera_longitude):
@@ -276,14 +250,8 @@ def set_up_for_render(config):
     set_sample_count(config.get("samples", 16), config.get("preview_samples", 4))
 
 
-def ply_is_empty(path):
-    with open(path, mode='rb') as file:
-        first_bytes = file.read(128)
-    return first_bytes.split(b"\n")[2] == b"element vertex 0"
-
-
 ####################################################################################################
-# PLY imports
+# Materials
 
 
 class MaterialConfigs(NamedTuple):
@@ -325,7 +293,7 @@ class MaterialConfigs(NamedTuple):
         }
         twister_2_material_config = {
             "Base Color": [
-                0.448,
+                0.148,
                 0.338,
                 1.0,
                 1
@@ -338,6 +306,46 @@ class MaterialConfigs(NamedTuple):
             twisters_1=twister_1_material_config,
             twisters_2=twister_2_material_config,
         )
+
+
+def make_material_from_config(config):
+    """Create a material on the active object and configure a Principled BSDF."""
+    bpy.ops.material.new()
+    material = bpy.data.materials[-1]
+
+    if config is None:
+        return material
+
+    principled_bsdf = material.node_tree.nodes["Principled BSDF"]
+    for key, value in config.items():
+        if isinstance(value, list):
+            value = tuple(value)
+        principled_bsdf.inputs[key].default_value = value
+
+    return material
+
+
+materials_by_config = {}
+
+def make_material_if_needed(config):
+    """Memoized version of make_material_from_config."""
+    # Stupid way of making the keys hashable.
+    key = str(config)
+    if key in materials_by_config:
+        return materials_by_config[key]
+    material = make_material_from_config(config)
+    materials_by_config[key] = material
+    return material
+
+
+####################################################################################################
+# PLY imports
+
+
+def ply_is_empty(path):
+    with open(path, mode='rb') as file:
+        first_bytes = file.read(128)
+    return first_bytes.split(b"\n")[2] == b"element vertex 0"
 
 
 def import_ply(
