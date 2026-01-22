@@ -1,12 +1,16 @@
 # Polytwister Mesher
 
-Tool for creating 3D meshes of cross sections of [polytwisters](https://polytwisters.com/). Output is in Stanford PLY files as a triangle mesh with vertex normals.
+Command-line tool for creating 3D meshes of cross sections of [polytwisters](https://polytwisters.com/). Output is in Stanford PLY files as a triangle mesh with vertex normals.
 
 This is a research codebase, so it might be a little janky.
 
 ## Usage
 
 `polytwisters.json` contains the 4D geometric and combinatorial of all uniform polytwisters. It is checked in for convenience but you can generate it yourself from the polytwisters.com repo using `npm run export-geometry all polytwisters.json`.
+
+### Building
+
+Polytwister Mesher is written in Rust and its few dependencies are all cross-platform. To build it, install the Rust toolchain and run:
 
 ```
 cargo build --release
