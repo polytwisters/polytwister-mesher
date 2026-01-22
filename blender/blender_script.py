@@ -1,5 +1,6 @@
 """This script is meant to be run in Blender, not the standard Python interpreter.
 """
+from __future__ import annotations
 import argparse
 import json
 import math
@@ -261,8 +262,8 @@ class MaterialConfigs(NamedTuple):
     twisters_2: dict
 
     @classmethod
-    def default(cls):
-        ring_material_config = {
+    def default(cls) -> MaterialConfigs:
+        rings = {
             "Base Color": [
                 0.5,
                 0.5,
@@ -272,7 +273,7 @@ class MaterialConfigs(NamedTuple):
             "Roughness": 0.5,
         }
 
-        strip_material_config = {
+        strips = {
             "Base Color": [
                 1.0,
                 1.0,
@@ -282,7 +283,7 @@ class MaterialConfigs(NamedTuple):
             "Roughness": 0.5,
         }
 
-        twister_1_material_config = {
+        twisters_1 = {
             "Base Color": [
                 0.948,
                 0.1,
@@ -291,7 +292,8 @@ class MaterialConfigs(NamedTuple):
             ],
             "Roughness": 0.5,
         }
-        twister_2_material_config = {
+    
+        twisters_2 = {
             "Base Color": [
                 0.148,
                 0.338,
@@ -301,10 +303,28 @@ class MaterialConfigs(NamedTuple):
             "Roughness": 0.5,
         }
         return cls(
-            rings=ring_material_config,
-            strips=strip_material_config,
-            twisters_1=twister_1_material_config,
-            twisters_2=twister_2_material_config,
+            rings=rings,
+            strips=strips,
+            twisters_1=twisters_1,
+            twisters_2=twisters_2,
+        )
+    
+    @classmethod
+    def import_from_json_object(cls, materials_obj: dict) -> MaterialConfigs:
+        default = cls.default()
+        rings = default.rings
+        strips = default.strips
+        twisters_1 = default.twisters_1
+        twisters_2 = default.twisters_2
+        rings = materials_obj.get("rings", rings)
+        strips = materials_obj.get("strips", strips)
+        twisters_1 = materials_obj.get("twisters_1", twisters_1)
+        twisters_2 = materials_obj.get("twisters_2", twisters_2)
+        return cls(
+            rings=rings,
+            strips=strips,
+            twisters_1=twisters_1,
+            twisters_2=twisters_2,
         )
 
 
@@ -383,7 +403,7 @@ def import_ply(
     return bpy.context.active_object
 
 
-def import_plys(
+def import_section(
     section_dir: pathlib.Path,
     material_configs: MaterialConfigs,
     frame_number: Optional[int] = None,
@@ -431,7 +451,7 @@ def import_animation(root_dir: pathlib.Path, material_config: MaterialConfigs):
     for i in range(num_proper_frames):
         # +1 to convert 0-indexing to 1-indexing, another +1 for the initial empty frame.
         frame_number = i + 2
-        import_plys(
+        import_section(
             section_dirs[i],
             material_configs=material_config,
             frame_number=frame_number,
@@ -496,12 +516,12 @@ def main():
     render_config = config.get("render", {})
     set_up_for_render(render_config)
 
-    materials_config = MaterialConfigs.default()
+    materials_config = MaterialConfigs.import_from_json_object(config.get("materials", {}))
 
     if is_animation_dir(directory):
         import_animation(directory, materials_config)
     else:
-        import_plys(directory, materials_config)
+        import_section(directory, materials_config)
 
     if args.output:
         # save_as_mainfile doesn't like relative paths, convert to absolute.
