@@ -236,16 +236,16 @@ impl Polytwister {
 }
 
 impl PolytwisterMeshes {
-    pub fn write_plys(&self, dir: &PathBuf, prefix: &str) -> std::io::Result<()> {
+    pub fn write_plys(&self, dir: &PathBuf) -> std::io::Result<()> {
         let ring_mesh = Mesh::merge(self.ring_meshes.clone());
         let strip_mesh = Mesh::merge(self.strip_meshes.clone());
         let twister_mesh_orbit_1 = Mesh::merge(self.twister_meshes_orbit_1.clone());
         let twister_mesh_orbit_2 = Mesh::merge(self.twister_meshes_orbit_2.clone());
 
-        ring_mesh.write_ply_file_and_log(&dir.join(format!("{prefix}_rings.ply")), "Ring mesh")?;
-        strip_mesh.write_ply_file_and_log(&dir.join(format!("{prefix}_strips.ply")), "Strip mesh")?;
-        twister_mesh_orbit_1.write_ply_file_and_log(&dir.join(format!("{prefix}_twisters_1.ply")), "Twister orbit 1 mesh")?;
-        twister_mesh_orbit_2.write_ply_file_and_log(&dir.join(format!("{prefix}_twisters_2.ply")), "Twister orbit 2 mesh")?;
+        ring_mesh.write_ply_file_and_log(&dir.join(format!("rings.ply")), "Ring mesh")?;
+        strip_mesh.write_ply_file_and_log(&dir.join(format!("strips.ply")), "Strip mesh")?;
+        twister_mesh_orbit_1.write_ply_file_and_log(&dir.join(format!("twisters_1.ply")), "Twister orbit 1 mesh")?;
+        twister_mesh_orbit_2.write_ply_file_and_log(&dir.join(format!("twisters_2.ply")), "Twister orbit 2 mesh")?;
 
         Ok(())
     }

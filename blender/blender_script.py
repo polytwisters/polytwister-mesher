@@ -8,6 +8,8 @@ import sys
 import traceback
 import warnings
 
+from typing import Optional, NamedTuple
+
 import bpy
 import mathutils
 
@@ -280,7 +282,69 @@ def ply_is_empty(path):
     return first_bytes.split(b"\n")[2] == b"element vertex 0"
 
 
-def import_ply(path, frame_number, material_config):
+####################################################################################################
+# PLY imports
+
+
+class MaterialConfigs(NamedTuple):
+    rings: dict
+    strips: dict
+    twisters_1: dict
+    twisters_2: dict
+
+    @classmethod
+    def default(cls):
+        ring_material_config = {
+            "Base Color": [
+                0.5,
+                0.5,
+                0.5,
+                1
+            ],
+            "Roughness": 0.5,
+        }
+
+        strip_material_config = {
+            "Base Color": [
+                1.0,
+                1.0,
+                1.0,
+                1
+            ],
+            "Roughness": 0.5,
+        }
+
+        twister_1_material_config = {
+            "Base Color": [
+                0.948,
+                0.1,
+                0.2,
+                1
+            ],
+            "Roughness": 0.5,
+        }
+        twister_2_material_config = {
+            "Base Color": [
+                0.448,
+                0.338,
+                1.0,
+                1
+            ],
+            "Roughness": 0.5,
+        }
+        return cls(
+            rings=ring_material_config,
+            strips=strip_material_config,
+            twisters_1=twister_1_material_config,
+            twisters_2=twister_2_material_config,
+        )
+
+
+def import_ply(
+    path: pathlib.Path,
+    material_config: dict,
+    frame_number: Optional[int] = None,
+):
     # Blender creates an error importing an empty PLY file.
     if ply_is_empty(path):
         return
@@ -293,22 +357,87 @@ def import_ply(path, frame_number, material_config):
     bpy.ops.mesh.customdata_custom_splitnormals_clear()
     do_scale(DEFAULT_SCALE)
 
-    # To animate the sections, drivers are added so that the object appears only for its
-    # assigned frame, both in the viewport and in the render.
-    #
-    # I decided not to use keyframes because the hide_viewport property can't be animated, which
-    # is annoying. Drivers are fairly similar to keyframes in Blender and I haven't noticed any
-    # performance issues in the viewport.
-    driver = bpy.context.object.driver_add("hide_viewport").driver
-    driver.type = "SCRIPTED"
-    driver.expression = f"frame != {frame_number}"
+    if frame_number is not None:
+        # To animate the sections, drivers are added so that the object appears only for its
+        # assigned frame, both in the viewport and in the render.
+        #
+        # I decided not to use keyframes because the hide_viewport property can't be animated, which
+        # is annoying. Drivers are fairly similar to keyframes in Blender and I haven't noticed any
+        # performance issues in the viewport.
+        driver = bpy.context.object.driver_add("hide_viewport").driver
+        driver.type = "SCRIPTED"
+        driver.expression = f"frame != {frame_number}"
 
-    driver = bpy.context.object.driver_add("hide_render").driver
-    driver.type = "SCRIPTED"
-    driver.expression = f"frame != {frame_number}"
+        driver = bpy.context.object.driver_add("hide_render").driver
+        driver.type = "SCRIPTED"
+        driver.expression = f"frame != {frame_number}"
 
     return bpy.context.active_object
 
+
+def import_plys(
+    section_dir: pathlib.Path,
+    material_configs: MaterialConfigs,
+    frame_number: Optional[int] = None,
+):
+    """Import PLY files for a single section."""
+    import_ply(
+        section_dir / "rings.ply",
+        frame_number=frame_number,
+        material_config=material_configs.rings,
+    )
+    import_ply(
+        section_dir / "strips.ply",
+        frame_number=frame_number,
+        material_config=material_configs.strips,
+    )
+    import_ply(
+        section_dir / "twisters_1.ply",
+        frame_number=frame_number,
+        material_config=material_configs.twisters_1,
+    )
+    import_ply(
+        section_dir / "twisters_2.ply",
+        frame_number=frame_number,
+        material_config=material_configs.twisters_2,
+    )
+
+
+def import_animation(root_dir: pathlib.Path, material_config: MaterialConfigs):
+    section_dirs = []
+
+    i = 0
+    while True:
+        section_dir = directory / f"section_{i:04}.ply"
+        if not section_dir.exists():
+            break
+        section_dirs.append(section_dir)
+        i += 1
+    
+    num_proper_frames = len(ring_paths)
+    # One empty frame is added to the beginning and end of the animation. All frames in the middle
+    # I call "proper frames."
+    num_frames = num_proper_frames + 2
+    bpy.context.scene.frame_end = num_frames
+
+    for i in range(num_proper_frames):
+        # +1 to convert 0-indexing to 1-indexing, another +1 for the initial empty frame.
+        frame_number = i + 2
+        import_plys(
+            section_dirs[i],
+            material_configs=material_config,
+            frame_number=frame_number,
+        )
+    
+    # To make things a bit more convenient when opening the .blend file interactively, navigate to
+    # a frame where there is a visible mesh and align with the camera.
+    bpy.context.scene.frame_set(num_proper_frames // 2)
+    area = next(area for area in bpy.context.screen.areas if area.type == "VIEW_3D")
+    area.spaces[0].region_3d.view_perspective = "CAMERA"
+
+
+def is_animation_dir(root_dir: pathlib.Path) -> bool:
+    return (root_dir / "section_0000").exists()
 
 
 def main():
@@ -323,7 +452,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "dir",
-        help="Input dir of Stanford PLY files.",
+        help="Input dir. If it contains a subdirectory named 'section_0000' it is imported as animation, otherwise a single section.",
     )
     parser.add_argument(
         "-o",
@@ -351,23 +480,6 @@ def main():
 
     directory = pathlib.Path(args.dir)
 
-    ring_paths = []
-    strip_paths = []
-    twister_1_paths = []
-    twister_2_paths = []
-
-    i = 0
-    while True:
-        prefix = f"section_{i:04}"
-        file = directory / f"{prefix}_rings.ply"
-        if not file.exists():
-            break
-        ring_paths.append(file)
-        strip_paths.append(directory / f"{prefix}_strips.ply")
-        twister_1_paths.append(directory / f"{prefix}_twisters_1.ply")
-        twister_2_paths.append(directory / f"{prefix}_twisters_2.ply")
-        i += 1
-
     if args.config is not None:
         config = json.loads(args.config)
     else:
@@ -375,67 +487,13 @@ def main():
 
     render_config = config.get("render", {})
     set_up_for_render(render_config)
-    material_config = config.get("material", {})
 
-    ring_material_config = {
-        "Base Color": [
-            0.5,
-            0.5,
-            0.5,
-            1
-        ],
-        "Roughness": 0.5,
-    }
+    materials_config = MaterialConfigs.default()
 
-    strip_material_config = {
-        "Base Color": [
-            1.0,
-            1.0,
-            1.0,
-            1
-        ],
-        "Roughness": 0.5,
-    }
-
-    twister_1_material_config = {
-        "Base Color": [
-            0.948,
-            0.1,
-            0.2,
-            1
-        ],
-        "Roughness": 0.5,
-    }
-    twister_2_material_config = {
-        "Base Color": [
-            0.448,
-            0.338,
-            1.0,
-            1
-        ],
-        "Roughness": 0.5,
-    }
-
-    num_proper_frames = len(ring_paths)
-    # One empty frame is added to the beginning and end of the animation. All frames in the middle
-    # I call "proper frames."
-    num_frames = num_proper_frames + 2
-    bpy.context.scene.frame_end = num_frames
-
-    for i in range(num_proper_frames):
-        # +1 to convert 0-indexing to 1-indexing, another +1 for the initial empty frame.
-        frame_number = i + 2
-
-        import_ply(ring_paths[i], frame_number, ring_material_config)
-        import_ply(strip_paths[i], frame_number, strip_material_config)
-        import_ply(twister_1_paths[i], frame_number, twister_1_material_config)
-        import_ply(twister_2_paths[i], frame_number, twister_2_material_config)
-    
-    # To make things a bit more convenient when opening the .blend file interactively, navigate to
-    # a frame where there is a visible mesh and align with the camera.
-    bpy.context.scene.frame_set(num_proper_frames // 2)
-    area = next(area for area in bpy.context.screen.areas if area.type == "VIEW_3D")
-    area.spaces[0].region_3d.view_perspective = "CAMERA"
+    if is_animation_dir(directory):
+        import_animation(directory, materials_config)
+    else:
+        import_plys(directory, materials_config)
 
     if args.output:
         # save_as_mainfile doesn't like relative paths, convert to absolute.

@@ -110,6 +110,10 @@ enum Commands {
         #[arg(long = "merged")]
         merged_path: Option<PathBuf>,
 
+        /// Output directory where ring, strip, and twister meshes are written separately.
+        #[arg(long = "split")]
+        split_path: Option<PathBuf>,
+
         /// Output PLY mesh for ring cross sections.
         #[arg(long = "rings")]
         rings_path: Option<PathBuf>,
@@ -150,6 +154,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             polytwister: polytwister_name,
             w,
             merged_path,
+            split_path,
             rings_path,
             strips_path,
             twisters_path_1,
@@ -165,6 +170,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mesh = polytwister.as_meshes(*w, &config);
             if let Some(path) = merged_path {
                 mesh.as_colored_mesh().write_ply_file_and_log(path, "Merged colored mesh");
+                any_output = true;
+            }
+            if let Some(path) = split_path {
+                std::fs::create_dir(&path);
+                mesh.write_plys(path);
                 any_output = true;
             }
             if let Some(path) = rings_path {
@@ -206,9 +216,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             for (i, w) in linspace(-1.0, 1.0, *frames).into_iter().enumerate() {
                 let tmp = *frames;
                 info!("Frame {i}/{tmp}, w = {w}");
-                let prefix = format!("section_{i:04}");
+                let section_dir = output_dir.join(format!("section_{i:04}"));
                 let mesh = polytwister.as_meshes(w, &config);
-                mesh.write_plys(output_dir, &prefix);
+                std::fs::create_dir(&section_dir)?;
+                mesh.write_plys(&section_dir);
             }
 
             Ok(())
