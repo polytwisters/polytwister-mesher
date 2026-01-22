@@ -1,6 +1,6 @@
 # Polytwister Mesher
 
-Command-line tool for creating 3D meshes of cross sections of [polytwisters](https://polytwisters.com/). Output is in Stanford PLY files as a triangle mesh with vertex normals.
+Command-line tool for creating 3D meshes of cross sections of [polytwisters](https://polytwisters.com/).
 
 ## Usage
 
@@ -24,7 +24,7 @@ For quick viewing of polytwisters, you can render a single cross section showing
 ./target/release/polytwister_mesher polytwisters.json tetter -w 0.1 --merged out.ply
 ```
 
-MeshLab is a good tool for quick previewing of such files, because you can just run `meshlab out.ply`.
+MeshLab is a good tool for quick previewing of such files, because you can just run `meshlab out.ply`. All meshes have vertex normals, so make sure to configure MeshLab to shade using them.
 
 In place of "tetter" you can use any Bowers acronym (`gaquapiditer`) or full name (`"cube twister"` or `cube-twister` or `cube_twister`) or index (`34`) or symbol `3.3`.
 
@@ -111,8 +111,10 @@ python3 blender/make_video.py out_pngs_dir/ out.mp4  # requires ffmpeg
 
 ## Limitations
 
+* Only uniform polytwisters are supported.
 * Currently the discretization of twister cross sections is rather poor and especially has problems with twisters with spiky cross sections. This can be mitigated by cranking up the mesh resolution, but at the cost of a larger mesh and more compute time.
-* This is a research codebase, so it's a little janky.
+* The above problem is especially bad if you decide to create a polytwister section without any visualization of ring or strip cross sections, because the rings and strips hide the cracks where the twisters meet. So currently, this mesher is just meant for ball-and-tube polytwister visualizations.
+* Overall, this is a research codebase, so it's a little janky.
 
 ## Development
 
@@ -130,3 +132,7 @@ subprocess.run([
     "meshlab", "out.ply"
 ], check=True)
 ```
+
+## License
+
+[MIT](./LICENSE)
