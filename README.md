@@ -99,7 +99,7 @@ python3 blender/render_blend_pngs.py polytwister.blend out_pngs_dir/
 python3 blender/make_video.py out_pngs_dir/ out.mp4  # requires ffmpeg
 ```
 
-**NOTE:** these Python scripts are a bit janky, so you might want to modify them for your use.
+**NOTE:** these Python scripts are meant more as as examples than as production tools, so you might want to modify them for your own pipeline.
 
 ## Development
 
