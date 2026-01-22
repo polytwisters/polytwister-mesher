@@ -2,11 +2,9 @@
 
 Command-line tool for creating 3D meshes of cross sections of [polytwisters](https://polytwisters.com/). Output is in Stanford PLY files as a triangle mesh with vertex normals.
 
-This is a research codebase, so it might be a little janky.
-
 ## Usage
 
-`polytwisters.json` contains the 4D geometric and combinatorial of all uniform polytwisters. It is checked in for convenience but you can generate it yourself from the polytwisters.com repo using `npm run export-geometry all polytwisters.json`.
+`polytwisters.json` contains the 4D geometric and combinatorial information of all uniform polytwisters. It is checked in for convenience but you can generate it yourself from the polytwisters.com repo using `npm run export-geometry all polytwisters.json`.
 
 ### Building
 
@@ -20,15 +18,15 @@ The executable is now at `./target/release/polytwister_mesher`.
 
 ### Single cross section, merged mesh
 
-Render a single cross section showing rings, strips, and twisters as a single PLY file:
+For quick viewing of polytwisters, you can render a single cross section showing rings, strips, and twisters as a single PLY file:
 
 ```
 ./target/release/polytwister_mesher polytwisters.json tetter -w 0.1 --merged out.ply
 ```
 
-In place of "tetter" you can use any Bowers acronym (`gaquapiditer`) or full name (`"cube twister"` or `cube-twister` or `cube_twister`) or index (`34`) or symbol `3.3`.
+MeshLab is a good tool for quick previewing of such files, because you can just run `meshlab out.ply`.
 
-MeshLab is a good way to quickly preview and inspect such meshes.
+In place of "tetter" you can use any Bowers acronym (`gaquapiditer`) or full name (`"cube twister"` or `cube-twister` or `cube_twister`) or index (`34`) or symbol `3.3`.
 
 ### Single cross section, split meshes
 
@@ -52,6 +50,8 @@ sadtadoditer_meshes/twisters_2.ply
 `twisters_1` and `twisters_2` are the two orbits of the twisters. If the polytwister is regular, then it has only one twister orbit and `twisters_2` is an empty mesh.
 
 The directory `sadtadoditer_meshes` is referred to as a "section directory."
+
+**NOTE:** Any of the PLY files produced by Polytwister Mesher might be empty meshes, such as if the W coordinate in question happens to be an empty cross section. The PLY files are not empty files, but they have zero vertices. Blender produces an error when importing such PLY files, but it is harmless. This may be the case with other 3D software as well. (You don't need to worry about this with the Blender scripts discussed below as they check for empty meshes.)
 
 ### Animation
 
@@ -80,6 +80,10 @@ out_dir/
 
 where there is one subdirectory for each frame. Each subdirectory is a section directory. The directory `out_dir` is referred to as an animation directory.
 
+### Configuration
+
+
+
 ## Rendering with Blender
 
 A Blender Python script at `blender/blender_script.py` can take either a section directory or an animation directory and load it as a single Blender file. To invoke this script and view the resulting Blender file interactively, you can run
@@ -104,6 +108,11 @@ python3 blender/make_video.py out_pngs_dir/ out.mp4  # requires ffmpeg
 ```
 
 **NOTE:** these Python scripts are meant more as as examples than as production tools, so you might want to modify them for your own pipeline.
+
+## Limitations
+
+* Currently the discretization of twister cross sections is rather poor and especially has problems with twisters with spiky cross sections. This can be mitigated by cranking up the mesh resolution, but at the cost of a larger mesh and more compute time.
+* This is a research codebase, so it's a little janky.
 
 ## Development
 
