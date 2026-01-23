@@ -12,7 +12,7 @@ Polytwister Mesher is written in Rust, and its few dependencies are all cross-pl
 cargo build --release
 ```
 
-The executable is now at `./target/release/polytwister_mesher` (file name `polytwister_mesher.exe` on Windows).
+The executable is now at `./target/release/polytwister_mesher` (file name `polytwister_mesher.exe` on Windows). I will abbreviate this as just `polytwister_mesher` from now on.
 
 The executable reads the database file at `./polytwisters.json` which has geometry and naming information on all polytwisters. It is assumed that your working directory contains `polytwisters.json` (if it doesn't, you can supply the `-d` option to the executable to set a custom location).
 
@@ -21,7 +21,7 @@ The executable reads the database file at `./polytwisters.json` which has geomet
 For quick viewing of polytwisters, you can render a single cross section showing rings, strips, and twisters as a single PLY file:
 
 ```
-./target/release/polytwister_mesher tetter -w 0.1 --merged out.ply
+polytwister_mesher tetter -w 0.1 --merged out.ply
 ```
 
 MeshLab is a good tool for quick previewing of such files, because you can just run `meshlab out.ply`. All meshes have vertex normals, so make sure to configure MeshLab to shade using them.
@@ -33,9 +33,7 @@ In place of "tetter" you can use any Bowers acronym (`gaquapiditer`) or full nam
 For production rendering, you usually want to produce individual PLY meshes for rings, strips, and twisters:
 
 ```
-./target/release/polytwister_mesher section sadtadoditer \
-    -w 0.1 \
-    --split sadtadoditer_meshes/
+polytwister_mesher section sadtadoditer -w 0.1 --split sadtadoditer_meshes/
 ```
 
 This command will create the directory `sadtadoditer_meshes/` and the following four files:
@@ -58,7 +56,7 @@ The directory `sadtadoditer_meshes` is referred to as a "section directory."
 Render evenly spaced W values to a directory of meshes:
 
 ```
-./target/release/polytwister_mesher animation sadtadoditer -n 24 out_dir
+polytwister_mesher animation sadtadoditer -n 24 out_dir
 ```
 
 This creates `out_dir` and the following structure:
@@ -82,7 +80,13 @@ where there is one subdirectory for each frame. Each subdirectory is a section d
 
 ### Configuration
 
+A configuration JSON file can be passed in with the `-c` option, for example:
 
+```
+polytwister_mesher -c mesher_configs/high_resolution.json tetter -w 0.1 --merged out.ply
+```
+
+This allows controlling the resolution of the meshing and the radius of the strip and ring cross sections. Two presets are provided in the `mesher_configs/` directory.
 
 ## Rendering with Blender
 
