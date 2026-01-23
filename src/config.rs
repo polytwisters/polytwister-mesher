@@ -14,8 +14,8 @@ impl Default for CylinderMeshConfig {
     fn default() -> Self {
         CylinderMeshConfig {
             half_length: 5.0,
-            linear_segments: 100,
-            radial_segments: 100,
+            linear_segments: 128,
+            radial_segments: 128,
         }
     }
 }
@@ -44,16 +44,16 @@ impl Default for TorusMeshConfig {
 #[derive(Clone, Copy, Debug)]
 pub struct RingMeshConfig {
     pub radius: f64,
-    pub segments: usize,
-    pub rings: usize,
+    pub longitudes: usize,
+    pub latitudes: usize,
 }
 
 impl Default for RingMeshConfig {
     fn default() -> Self {
         RingMeshConfig {
             radius: 0.02,
-            segments: 16,
-            rings: 32, 
+            longitudes: 16,
+            latitudes: 16, 
         }
     }
 }

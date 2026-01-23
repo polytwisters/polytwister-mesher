@@ -38,6 +38,14 @@ struct Args {
     /// Path to a JSON config file
     #[arg(short, long, value_name = "FILE")]
     config: Option<PathBuf>,
+
+    /// Input polytwister database file.
+    /// 
+    /// A file is provided for you in the repo at "./polytwisters.json", which this defaults to,
+    /// so you don't need to provide this option if your working directory contains that file.
+    /// To get one of these files, use the "export-geometry" script in the Polytwisters JS app.
+    #[arg(short = 'g', long)]
+    database: Option<PathBuf>,
     
     #[command(subcommand)]
     command: Commands,
@@ -65,11 +73,6 @@ enum Commands {
     /// and so forth. twisters_1 and twisters_2 are the two orbits of the twisters. If the
     /// polytwister has only one orbit, all twisters_2 meshes will be empty.
     Animation {
-        /// Input polytwister geometry file.
-        /// 
-        /// To get one of these files, use the "export-geometry" script in the Polytwisters JS app.
-        input_json: PathBuf,
-
         /// Name of the polytwister. Use full name, acronym, or ID.
         polytwister: String,
 
@@ -91,18 +94,13 @@ enum Commands {
     /// relevant options. You can also use the `--merged` option to generate a mesh that merges them
     /// all together with colors for visualization.
     Section {
-        /// Input polytwister geometry file.
-        /// 
-        /// To get one of these files, use the "export-geometry" script in the Polytwisters JS app.
-        input_json: PathBuf,
-
         /// Name of the polytwister. Use full name, acronym, or ID.
         polytwister: String,
 
         /// W coordinate for the cross section.
         #[arg(short, default_value_t = 0.1)]
         w: f64,
-
+ 
         /// Output PLY mesh with everything: rings, strips, and twisters.
         /// 
         /// This is just for quickly loading the file to inspect in a mesh viewer, so there are not
@@ -148,9 +146,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         Default::default()
     };
 
+    let default_database_path = PathBuf::from("./polytwisters.json");
+    let database_path = args.database.clone().unwrap_or(default_database_path);
+
     match &args.command {
         Commands::Section {
-            input_json,
             polytwister: polytwister_name,
             w,
             merged_path,
@@ -161,7 +161,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             twisters_path_2
         } => {
             let mut string = String::new();
-            let mut file = File::open(input_json)?;
+            let mut file = File::open(database_path)?;
             file.read_to_string(&mut string)?;
             let polytwister_database: PolytwisterDatabase = serde_json::from_str(&string)?;
             let polytwister = polytwister_database.find(&polytwister_name)?.normalize();
@@ -200,13 +200,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             Ok(())
         },
         Commands::Animation {
-            input_json,
             polytwister: polytwister_name,
             output_dir,
             frames,
         } => {
             let mut string = String::new();
-            let mut file = File::open(input_json)?;
+            let mut file = File::open(database_path)?;
             file.read_to_string(&mut string)?;
             let polytwister_database: PolytwisterDatabase = serde_json::from_str(&string)?;
             let polytwister = polytwister_database.find(&polytwister_name)?.normalize();

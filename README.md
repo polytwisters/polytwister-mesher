@@ -4,24 +4,24 @@ Command-line tool for creating 3D meshes of cross sections of [polytwisters](htt
 
 ## Usage
 
-`polytwisters.json` contains the 4D geometric and combinatorial information of all uniform polytwisters. It is checked in for convenience but you can generate it yourself from the polytwisters.com repo using `npm run export-geometry all polytwisters.json`.
-
 ### Building
 
-Polytwister Mesher is written in Rust and its few dependencies are all cross-platform. To build it, install the Rust toolchain and run:
+Polytwister Mesher is written in Rust, and its few dependencies are all cross-platform. To build it, install the Rust toolchain and run:
 
 ```
 cargo build --release
 ```
 
-The executable is now at `./target/release/polytwister_mesher`.
+The executable is now at `./target/release/polytwister_mesher` (file name `polytwister_mesher.exe` on Windows).
+
+The executable reads the database file at `./polytwisters.json` which has geometry and naming information on all polytwisters. It is assumed that your working directory contains `polytwisters.json` (if it doesn't, you can supply the `-d` option to the executable to set a custom location).
 
 ### Single cross section, merged mesh
 
 For quick viewing of polytwisters, you can render a single cross section showing rings, strips, and twisters as a single PLY file:
 
 ```
-./target/release/polytwister_mesher polytwisters.json tetter -w 0.1 --merged out.ply
+./target/release/polytwister_mesher tetter -w 0.1 --merged out.ply
 ```
 
 MeshLab is a good tool for quick previewing of such files, because you can just run `meshlab out.ply`. All meshes have vertex normals, so make sure to configure MeshLab to shade using them.
@@ -33,7 +33,7 @@ In place of "tetter" you can use any Bowers acronym (`gaquapiditer`) or full nam
 For production rendering, you usually want to produce individual PLY meshes for rings, strips, and twisters:
 
 ```
-./target/release/polytwister_mesher section polytwisters.json sadtadoditer \
+./target/release/polytwister_mesher section sadtadoditer \
     -w 0.1 \
     --split sadtadoditer_meshes/
 ```
@@ -58,7 +58,7 @@ The directory `sadtadoditer_meshes` is referred to as a "section directory."
 Render evenly spaced W values to a directory of meshes:
 
 ```
-./target/release/polytwister_mesher animation polytwisters.json sadtadoditer -n 24 out_dir
+./target/release/polytwister_mesher animation sadtadoditer -n 24 out_dir
 ```
 
 This creates `out_dir` and the following structure:
@@ -125,13 +125,17 @@ import subprocess
 from pathlib import Path
 
 subprocess.run([
-    "cargo", "run", "section", "polytwisters.json", "tetratwister", "--merged", "out.ply"
+    "cargo", "run", "section", "tetratwister", "--merged", "out.ply"
 ], check=True)
 
 subprocess.run([
     "meshlab", "out.ply"
 ], check=True)
 ```
+
+### Database file
+
+`polytwisters.json` contains the 4D geometric and combinatorial information of all uniform polytwisters. It is checked in for convenience but you can generate it yourself from the polytwisters.com repo using `npm run export-geometry all polytwisters.json`.
 
 ## License
 

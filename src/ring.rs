@@ -73,8 +73,8 @@ impl RingSection {
             },
             RingSectionResult::Points(p1, p2) => {
                 Mesh::merge(vec![
-                    Mesh::uv_sphere(&p1, options.radius, options.segments, options.rings),
-                    Mesh::uv_sphere(&p2, options.radius, options.segments, options.rings),
+                    Mesh::uv_sphere(&p1, options.radius, options.longitudes, options.latitudes),
+                    Mesh::uv_sphere(&p2, options.radius, options.longitudes, options.latitudes),
                 ])
             },
             RingSectionResult::XYCircle { radius } => {
@@ -87,7 +87,7 @@ impl RingSection {
                     }).collect::<_>(),
                     closed: true,
                 };
-                polyline.as_mesh(options.radius, options.segments)
+                polyline.as_mesh(options.radius, options.longitudes)
             }
         }
     }
