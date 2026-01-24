@@ -158,10 +158,10 @@ def set_up_lights(camera_longitude):
     # absolute.
     light_specs = [
         # Key light illuminates most of the front of the object
-        {"latitude": 10.0, "longitude": -80, "power": 300.0, "radius": 3.0},
+        {"latitude": 10.0, "longitude": -80, "power": 600.0, "radius": 3.0},
         # Fill light gently illuminates the shadows left by the key light
         # Don't make this too strong, shadows are good
-        {"latitude": 0.0, "longitude": 50.0, "power": 15.0, "radius": 3.0},
+        {"latitude": 0.0, "longitude": 50.0, "power": 100.0, "radius": 3.0},
         # I used to have a back light here but it didn't work too well. The HDRI is sufficient for
         # preventing really dark areas.
     ]
@@ -328,6 +328,24 @@ class MaterialConfigs(NamedTuple):
         )
 
 
+def parse_hex_color(string: str) -> (float, float, float, float):
+    if len(string) != 7:
+        raise ValueError("Not a color string")
+    tmp = string[1:]
+    max_ = 255.0
+    red = int(tmp[0:2], 16) / max_
+    green = int(tmp[2:4], 16) / max_
+    blue = int(tmp[4:6], 16) / max_
+    alpha = 1.0
+    return (red, green, blue, alpha)
+
+
+def fix_color(color):
+    r, g, b, a = color
+    tmp = mathutils.Color((r, g, b)).from_srgb_to_scene_linear()
+    return (tmp.r, tmp.g, tmp.b, a)
+
+
 def make_material_from_config(config):
     """Create a material on the active object and configure a Principled BSDF."""
     bpy.ops.material.new()
@@ -338,8 +356,10 @@ def make_material_from_config(config):
 
     principled_bsdf = material.node_tree.nodes["Principled BSDF"]
     for key, value in config.items():
+        if isinstance(value, str) and value.startswith("#"):
+            value = fix_color(parse_hex_color(value))
         if isinstance(value, list):
-            value = tuple(value)
+            value = fix_color(value)
         principled_bsdf.inputs[key].default_value = value
 
     return material
@@ -488,8 +508,13 @@ def main():
         help="If provided, saves a .blend file to the given location.",
     )
     parser.add_argument(
+        "-f",
+        "--config-file",
+        help="A JSON config file",
+    )
+    parser.add_argument(
         "-c",
-        "--config",
+        "--config-string",
         help="If provided, a JSON config string.",
     )
 
@@ -508,8 +533,11 @@ def main():
 
     directory = pathlib.Path(args.dir)
 
-    if args.config is not None:
-        config = json.loads(args.config)
+    if args.config_file is not None:
+        with open(args.config_file) as f:
+            config = json.load(args.config_file)
+    elif args.config_string is not None:
+        config = json.loads(args.config_string)
     else:
         config = {}
 
