@@ -97,7 +97,7 @@ def convert_spherical_to_cartesian(radius, latitude, longitude):
 # Render setup
 
 
-def set_up_camera(camera_longitude):
+def set_up_camera(camera_azimuth):
     """Add and return a camera object and set it to the primary camera of the scene. The input
     longitude is given in radians. A longitude of 0 is located on the positive X-axis, pi/2 on the
     positive Y-axis, etc.
@@ -112,7 +112,7 @@ def set_up_camera(camera_longitude):
 
     camera_latitude = math.radians(15)
     camera_location = convert_spherical_to_cartesian(
-        camera_distance, camera_latitude, camera_longitude
+        camera_distance, camera_latitude, camera_azimuth
     )
     bpy.ops.object.camera_add(
         location=camera_location,
@@ -143,7 +143,7 @@ def set_up_environment(strength, image_path):
     links.new(background_node.outputs["Background"], output_node.inputs["Surface"])
 
 
-def set_up_lights(camera_longitude):
+def set_up_lights(camera_azimuth):
     """Add big, soft area lights. Hard shadows can give the impression of features that aren't
     really there, and aren't appropriate for presenting mathematical objects. However, we also must
     be careful to ensure nice contrast. If it is too washed out, it looks unattractive and inhibits
@@ -158,20 +158,20 @@ def set_up_lights(camera_longitude):
     # absolute.
     light_specs = [
         # Key light illuminates most of the front of the object
-        {"latitude": 10.0, "longitude": -80, "power": 600.0, "radius": 3.0},
+        {"latitude": 10.0, "longitude": -80, "power": 300.0, "radius": 3.0},
         # Fill light gently illuminates the shadows left by the key light
         # Don't make this too strong, shadows are good
-        {"latitude": 0.0, "longitude": 50.0, "power": 100.0, "radius": 3.0},
+        {"latitude": 0.0, "longitude": 50.0, "power": 30.0, "radius": 3.0},
         # I used to have a back light here but it didn't work too well. The HDRI is sufficient for
         # preventing really dark areas.
     ]
     # If the lights are too bright, then this variable allows dimming all at once.
     power_multiplier = 1.0
-    distance = 5.0
+    distance = 2.0
 
     for light_spec in light_specs:
         latitude = math.radians(light_spec["latitude"])
-        longitude = camera_longitude + math.radians(light_spec["longitude"])
+        longitude = camera_azimuth + math.radians(light_spec["longitude"])
         location = convert_spherical_to_cartesian(
             distance, latitude, longitude
         )
@@ -236,14 +236,16 @@ def set_up_for_render(config):
     - Sample count
     - Look
     """
-    camera_longitude = math.radians(10)
-    camera = set_up_camera(camera_longitude)
+    camera_azimuth = math.radians(
+        config.get("camera_azimuth", 10.0)
+    )
+    camera = set_up_camera(camera_azimuth)
 
     set_up_environment(
         config.get("environment_strength", 0.3),
         config.get("environment_image", str(HDRI_PATH))
     )
-    set_up_lights(camera_longitude)
+    set_up_lights(camera_azimuth)
     set_ambient_occlusion()
     set_transparent_background()
     set_image_size(config.get("resolution", 1080), camera)
