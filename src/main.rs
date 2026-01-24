@@ -146,6 +146,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Default::default()
     };
 
+    dbg!(config);
+
     let default_database_path = PathBuf::from("./polytwisters.json");
     let database_path = args.database.clone().unwrap_or(default_database_path);
 

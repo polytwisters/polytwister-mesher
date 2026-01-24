@@ -32,8 +32,9 @@
             "radius": 0.02
         },
         "twisters": {
-            "linear_segments": 50,
-            "radial_segments": 50
+            "half_length": 2.0,
+            "linear_segments": 500,
+            "radial_segments": 500
         }
     }
 }
