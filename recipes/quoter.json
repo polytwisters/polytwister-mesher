@@ -1,0 +1,39 @@
+{
+    "polytwister": "quoter",
+    "w": 0.01,
+    "blender_config": {
+        "render": {
+            "camera_azimuth": 15.0
+        },
+        "materials": {
+            "rings": {
+                "Base Color": [0.5, 0.5, 0.5, 1],
+                "Roughness": 0.1
+            },
+            "strips": {
+                "Base Color": [1.0, 1.0, 1.0, 1],
+                "Roughness": 0.1
+            },
+            "twisters_1": {
+                "Base Color": "#4dabf7",
+                "Roughness": 0.4
+            }
+        }
+    },
+    "mesher_config": {
+        "rings": {
+            "latitudes": 64,
+            "longitudes": 64,
+            "radius": 0.04
+        },
+        "strips": {
+            "linear_segments": 200,
+            "radial_segments": 64,
+            "radius": 0.02
+        },
+        "twisters": {
+            "linear_segments": 50,
+            "radial_segments": 50
+        }
+    }
+}
