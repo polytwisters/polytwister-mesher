@@ -395,7 +395,7 @@ impl StripSection {
                 let contains = self.contains_point_on_torus(&p_test);
                 if contains {
                     let polyline = ccurve.discretize_full(config.linear_segments);
-                    polyline.as_mesh(config.thickness, config.radial_segments)
+                    polyline.as_mesh(config.radius, config.radial_segments)
                 } else {
                     Mesh::empty()
                 }
@@ -411,7 +411,7 @@ impl StripSection {
                     let contains = self.contains_point_on_torus(&p_test);
                     if contains {
                         let polyline = ccurve.discretize_segment(t1, t2, config.linear_segments);
-                        let mesh = polyline.as_mesh(config.thickness, config.radial_segments);
+                        let mesh = polyline.as_mesh(config.radius, config.radial_segments);
                         meshes.push(mesh);
                     }
                 }

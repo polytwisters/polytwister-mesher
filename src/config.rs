@@ -24,7 +24,7 @@ impl Default for CylinderMeshConfig {
 #[serde(rename_all="camelCase", default)]
 #[derive(Clone, Copy, Debug)]
 pub struct TorusMeshConfig {
-    pub thickness: f64,
+    pub radius: f64,
     pub linear_segments: usize,
     pub radial_segments: usize,
 }
@@ -32,7 +32,7 @@ pub struct TorusMeshConfig {
 impl Default for TorusMeshConfig {
     fn default() -> Self {
         TorusMeshConfig {
-            thickness: 0.01,
+            radius: 0.01,
             radial_segments: 16,
             linear_segments: 128,
         }

@@ -219,7 +219,7 @@ impl CylinderIntersection {
     pub fn as_mesh(&self, config: &TorusMeshConfig) -> Mesh {
         Mesh::merge(self.ccurves.iter().map(|ccurve|
             ccurve.discretize_full(config.linear_segments)
-                .as_mesh(config.thickness, config.radial_segments)
+                .as_mesh(config.radius, config.radial_segments)
         ).collect::<_>())
     }
 

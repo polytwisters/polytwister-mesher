@@ -583,7 +583,7 @@ mod test {
             radial_segments: 50,
         };
         let curve_config = TorusMeshConfig {
-            thickness: 0.05,
+            radius: 0.05,
             linear_segments: 50,
             radial_segments: 10,
         };
