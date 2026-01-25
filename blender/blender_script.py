@@ -198,16 +198,11 @@ def set_ambient_occlusion():
 
 def set_image_size(resolution, camera):
     """Set the image size to resolution x resolution in pixels."""
-    old_resolution = max([
-        bpy.context.scene.render.resolution_x,
-        bpy.context.scene.render.resolution_y,
-    ])
     bpy.context.scene.render.resolution_x = resolution
     bpy.context.scene.render.resolution_y = resolution
 
-    # Adjust the camera width to compensate for the change in resolution.
-    # See https://blender.stackexchange.com/a/105805/154615.
-    camera.data.sensor_width *= resolution / old_resolution
+    # No good reason for this, compensates for an apparent behavior change in Blender 3->4.
+    camera.data.sensor_width *= 1080 / 1920
 
 
 def set_render_engine():
@@ -248,7 +243,7 @@ def set_up_for_render(config):
     set_up_lights(camera_azimuth)
     set_ambient_occlusion()
     set_transparent_background()
-    set_image_size(config.get("resolution", 1080), camera)
+    set_image_size(config.get("resolution", 520), camera)
     set_render_engine()
     set_sample_count(config.get("samples", 16), config.get("preview_samples", 4))
 
@@ -455,16 +450,15 @@ def import_section(
 
 def import_animation(root_dir: pathlib.Path, material_config: MaterialConfigs):
     section_dirs = []
-
     i = 0
     while True:
-        section_dir = directory / f"section_{i:04}.ply"
+        section_dir = root_dir / f"section_{i:04}"
         if not section_dir.exists():
             break
         section_dirs.append(section_dir)
         i += 1
     
-    num_proper_frames = len(ring_paths)
+    num_proper_frames = len(section_dirs)
     # One empty frame is added to the beginning and end of the animation. All frames in the middle
     # I call "proper frames."
     num_frames = num_proper_frames + 2
