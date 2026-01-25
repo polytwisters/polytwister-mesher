@@ -1,9 +1,10 @@
 {
     "polytwister": "quoter",
-    "w": 0.01,
+    "frames": 11,
     "blender_config": {
         "render": {
-            "camera_azimuth": 15.0
+            "camera_azimuth": 15.0,
+            "resolution": 500
         },
         "materials": {
             "rings": {
