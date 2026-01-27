@@ -7,10 +7,28 @@ pub struct C2 {
 }
 
 impl C2 {
-    fn from_parts(a: f64, b: f64, c: f64, d: f64) -> Self {
+    pub fn from_parts(a: f64, b: f64, c: f64, d: f64) -> Self {
         Self {
             vec: Vector2::new(Complex::new(a, b), Complex::new(c, d))
         }
+    }
+
+    pub fn from_vector4(vec: &Vector4<f64>) -> Self {
+        Self {
+            vec: Vector2::new(
+                Complex::new(vec.x, vec.y),
+                Complex::new(vec.z, vec.y),
+            )
+        }
+    }
+
+    pub fn to_vector4(&self) -> Vector4<f64> {
+        Vector4::new(
+            self.vec.x.re,
+            self.vec.x.im,
+            self.vec.y.re,
+            self.vec.y.im,
+        )
     }
 
     fn new(a: Complex<f64>, b: Complex<f64>) -> Self {
@@ -23,15 +41,19 @@ impl C2 {
         self.vec.norm()
     }
 
-    fn inner(&self, other: &Self) -> Complex<f64> {
+    pub fn abs_difference(&self, other: &Self) -> f64 {
+        (self.vec - other.vec).norm()
+    }
+
+    pub fn inner(&self, other: &Self) -> Complex<f64> {
         other.vec.dotc(&self.vec)
     }
 
-    fn inner_abs(&self, other: &Self) -> f64 {
+    pub fn inner_abs(&self, other: &Self) -> f64 {
         self.inner(&other).abs()
     }
 
-    fn rotate_real_b(&self) -> Self {
+    pub fn rotate_real_b(&self) -> Self {
         let tmp = self.vec.y.conj() / self.vec.y.abs();
         C2 { vec: self.vec * tmp }
     }
@@ -77,7 +99,7 @@ impl C2 {
         Some((solution_a, solution_b))
     }
 
-    fn intersect_pipes(pipe1: &Self, pipe2: &Self, pipe3: &Self) -> Option<(C2, C2)> {
+    pub fn intersect_pipes(pipe1: &Self, pipe2: &Self, pipe3: &Self) -> Option<(C2, C2)> {
         let u = pipe3.normalizing_su2_matrix();
         let u_inv = pipe3.normalizing_su2_matrix_inv();
         let k = 1.0 / pipe3.abs();
@@ -92,6 +114,10 @@ impl C2 {
             },
             None => None
         }
+    }
+
+    pub fn similarity(&self, other: &Self) -> f64 {
+        self.inner_abs(&other) / (self.abs() * other.abs())
     }
 }
 

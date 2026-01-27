@@ -26,6 +26,7 @@ mod polyline;
 mod ring;
 mod uniform_polytwister;
 mod c2;
+mod convex_polytwister;
 mod config;
 mod marching_squares;
 use crate::config::Config;

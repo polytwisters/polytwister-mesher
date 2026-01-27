@@ -93,10 +93,6 @@ impl PipeSection {
     }
 
     pub fn as_mesh(&self, config: &CylinderMeshConfig) -> Mesh {
-        if self.d != 0.0 {
-            panic!("PipeSection::as_mesh does not yet work with d != 0");
-        }
-
         if self.is_plane() {
             if let Some(z) = self.plane_z() {
                 Mesh::merge(vec![
