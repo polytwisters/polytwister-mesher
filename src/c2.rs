@@ -1,3 +1,5 @@
+use std::ops::{Mul, Div};
+
 use na::{Complex, Vector2, Vector4, ComplexField, Matrix2};
 
 /// A complex 2-vector.
@@ -37,7 +39,7 @@ impl C2 {
         }
     }
 
-    fn abs(&self) -> f64 {
+    pub fn abs(&self) -> f64 {
         self.vec.norm()
     }
 
@@ -118,6 +120,24 @@ impl C2 {
 
     pub fn similarity(&self, other: &Self) -> f64 {
         self.inner_abs(&other) / (self.abs() * other.abs())
+    }
+}
+
+impl Mul<f64> for &C2 {
+    type Output = C2;
+    fn mul(self, rhs: f64) -> C2 {
+        C2 {
+            vec: self.vec * Complex::from_real(rhs)
+        }
+    }
+}
+
+impl Div<f64> for &C2 {
+    type Output = C2;
+    fn div(self, rhs: f64) -> C2 {
+        C2 {
+            vec: self.vec / Complex::from_real(rhs)
+        }
     }
 }
 

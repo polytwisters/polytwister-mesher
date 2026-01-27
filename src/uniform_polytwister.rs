@@ -140,7 +140,6 @@ impl UniformPolytwister {
     /// Return a scaled version of this polytwister so that its radius is 1.0.
     pub fn normalize(&self) -> Self {
         let scale = 1.0 / self.radius();
-        dbg!(scale);
         self.scale(scale)
     }
 

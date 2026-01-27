@@ -112,6 +112,7 @@ impl ConvexPolytwister {
                 None
             }
         ).collect::<Vec<_>>();
+        // Sorry about code dupe with StripSection in uniform polytwisters. I was in a hurry to get this done.
         t_values.sort_by(f64::total_cmp);
         let mut meshes = vec![];
         for i in 0..t_values.len() {
@@ -120,7 +121,6 @@ impl ConvexPolytwister {
             let t_test = (t1 + t2) / 2.0;
             let p_test = ccurve.at(t_test);
             let contains = self.section_contains_skip2(w, &p_test, skip_1, skip_2);
-            dbg!(i, contains);
             if contains {
                 let polyline = ccurve.discretize_segment(t1, t2, config.linear_segments);
                 let mesh = polyline.as_mesh(config.radius, config.radial_segments);
@@ -128,6 +128,22 @@ impl ConvexPolytwister {
             }
         }
         Mesh::merge(meshes)
+    }
+
+    fn scale(&self, ratio: f64) -> Self {
+        Self {
+            logs: self.logs.iter().map(|log| log / ratio).collect::<_>(),
+            rings: self.rings.iter().map(|log| log * ratio).collect::<_>(),
+        }
+    }
+
+    fn radius(&self) -> f64 {
+        // Not actually correct, but gets the job done for now
+        self.rings.iter().map(|ring| ring.abs()).max_by(f64::total_cmp).unwrap_or(1.0)
+    }
+
+    pub fn normalize(&self) -> Self {
+        self.scale(1.0 / self.radius())
     }
 }
 

@@ -227,7 +227,6 @@ mod test {
     fn test_rotate_real_w() {
         let vec = Vector4::new(-2.3, 0.3, 1.4, -0.6);
         let result = rotate_w_zero(&vec);
-        dbg!(result);
         assert_abs_diff_eq!(vec.norm(), result.norm());
         assert_abs_diff_eq!(result.w, 0.0);
     }
