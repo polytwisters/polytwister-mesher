@@ -24,11 +24,11 @@ mod utils;
 mod ellipse_spacing;
 mod polyline;
 mod ring;
-mod polytwister;
+mod uniform_polytwister;
 mod config;
 mod marching_squares;
 use crate::config::Config;
-use crate::polytwister::{Polytwister, PolytwisterDatabase};
+use crate::uniform_polytwister::{UniformPolytwister, PolytwisterDatabase};
 use crate::utils::linspace;
 use crate::mesh::{Mesh, MeshLike};
 

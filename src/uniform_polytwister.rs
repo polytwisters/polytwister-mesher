@@ -31,7 +31,7 @@ pub struct PolytwisterDef {
 #[derive(Deserialize, Clone)]
 #[serde(rename_all="camelCase")]
 pub struct PolytwisterWithDef {
-    geometry: Polytwister,
+    geometry: UniformPolytwister,
     def: PolytwisterDef,
 }
 
@@ -73,7 +73,7 @@ pub struct FillingRegion {
 
 #[derive(Deserialize, Clone)]
 #[serde(rename_all="camelCase")]
-pub struct Polytwister {
+pub struct UniformPolytwister {
     polyhedron: Polyhedron,
     pipes: Vec<Vector4<f64>>,
     orthogonal_pipes: Vec<Vector4<f64>>,
@@ -117,10 +117,10 @@ impl Polyhedron {
     }
 }
 
-impl Polytwister {
+impl UniformPolytwister {
     /// Return a new polytwister which is geometrically scaled by the given ratio.
     fn scale(&self, ratio: f64) -> Self {
-        return Polytwister {
+        return UniformPolytwister {
             polyhedron: self.polyhedron.clone(),
             pipes: self.pipes.iter().map(|vec| vec / ratio).collect::<_>(),
             orthogonal_pipes: self.orthogonal_pipes.iter().map(|vec| vec / ratio).collect::<_>(),
@@ -310,7 +310,7 @@ impl PolytwisterMeshes {
 impl PolytwisterDatabase {
     /// Given a search string, find a matching polytwister. Matches by full name, acronym, ID,
     /// and index. Case-insensitive and _ and - may be substituted for spaces.
-    pub fn find(&self, query: &str) -> Result<Polytwister, std::io::Error> {
+    pub fn find(&self, query: &str) -> Result<UniformPolytwister, std::io::Error> {
         let query = query.to_ascii_lowercase().replace("_", " ").replace("-", " ");
         for polytwister_with_def in self.polytwisters.iter() {
             let def = &polytwister_with_def.def;

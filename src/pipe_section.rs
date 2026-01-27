@@ -8,7 +8,7 @@ use crate::cylinder_curve::{CCurve, CylinderIntersection};
 use crate::mesh::{Mesh};
 use crate::polyline::Polyline;
 use crate::{pipe_section, ring};
-use crate::polytwister::{FillingRegion, RegionMode};
+use crate::uniform_polytwister::{FillingRegion, RegionMode};
 use crate::ring::{RingSection, RingSectionResult};
 use crate::utils::{bisection_search, sort4, squared};
 use crate::marching_squares::{Isosurface, Grid, GridAxis, meshify};
