@@ -25,6 +25,7 @@ mod ellipse_spacing;
 mod polyline;
 mod ring;
 mod uniform_polytwister;
+mod c2;
 mod config;
 mod marching_squares;
 use crate::config::Config;
