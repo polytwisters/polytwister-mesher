@@ -19,7 +19,7 @@ pub struct ConvexPolytwister {
 }
 
 impl ConvexPolytwisterSpec {
-    fn as_convex_polytwister(&self) -> ConvexPolytwister {
+    pub fn as_convex_polytwister(&self) -> ConvexPolytwister {
         ConvexPolytwister::new(self.logs.iter().map(|log| C2::from_vector4(&log)).collect::<_>())
     }
 }
@@ -207,26 +207,5 @@ impl Isosurface for TwisterSection {
         self.pipe_section.as_cylinder().scalar_field_gradient(
             &self.pipe_section.as_cylinder().surface_coords_to_cartesian(u, theta)
         )
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use std::path::PathBuf;
-    use crate::mesh::MeshLike;
-    use super::*;
-
-    #[test]
-    fn test_convex_polytwister() {
-        let polytwister = ConvexPolytwister::new(vec![
-            C2::from_parts(0.63, -0.42, -0.78, 0.04),
-            C2::from_parts(-0.42, 0.69, 0.41, 0.32),
-            C2::from_parts(-0.04, 0.54, -0.57, 0.51),
-            C2::from_parts(-0.78, -0.49, -0.15, 0.10),
-            C2::from_parts(0.20, 0.84, -0.51, 0.05),
-            C2::from_parts(-0.27, -0.44, -0.62, -0.73)
-        ]);
-        let w = 0.3;
-        polytwister.as_colored_mesh(w, &Config::default()).write_ply_file(&PathBuf::from("convex.ply"));
     }
 }

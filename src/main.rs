@@ -34,6 +34,7 @@ mod polytwister;
 use crate::config::Config;
 use crate::polytwister::Polytwister;
 use crate::uniform_polytwister::{UniformPolytwister, PolytwisterDatabase};
+use crate::convex_polytwister::{ConvexPolytwister, ConvexPolytwisterSpec};
 use crate::utils::linspace;
 use crate::mesh::{Mesh, MeshLike};
 
@@ -135,6 +136,21 @@ enum Commands {
     }
 }
 
+fn load_polytwister(polytwister_name: &String, database_path: &PathBuf) -> Result<Box<dyn Polytwister>, Box<dyn Error>> {
+    if polytwister_name.starts_with("{") {
+        let polytwister_spec: ConvexPolytwisterSpec = serde_json::from_str(polytwister_name)?;
+        let polytwister = polytwister_spec.as_convex_polytwister();
+        Ok(Box::new(polytwister))
+    } else {
+        let mut string = String::new();
+        let mut file = File::open(database_path)?;
+        file.read_to_string(&mut string)?;
+        let polytwister_database: PolytwisterDatabase = serde_json::from_str(&string)?;
+        let polytwister = polytwister_database.find(&polytwister_name)?.normalize();
+        Ok(Box::new(polytwister))
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let env = Env::default()
         .filter_or("LOG_LEVEL", "info");
@@ -167,11 +183,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             twisters_path_1,
             twisters_path_2
         } => {
-            let mut string = String::new();
-            let mut file = File::open(database_path)?;
-            file.read_to_string(&mut string)?;
-            let polytwister_database: PolytwisterDatabase = serde_json::from_str(&string)?;
-            let polytwister = polytwister_database.find(&polytwister_name)?.normalize();
+            let polytwister = load_polytwister(polytwister_name, &database_path)?;
 
             let mut any_output = false;
             let mesh = polytwister.as_meshes(*w, &config);
@@ -211,12 +223,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             output_dir,
             frames,
         } => {
-            let mut string = String::new();
-            let mut file = File::open(database_path)?;
-            file.read_to_string(&mut string)?;
-            let polytwister_database: PolytwisterDatabase = serde_json::from_str(&string)?;
-            let polytwister = polytwister_database.find(&polytwister_name)?.normalize();
-
+            let polytwister = load_polytwister(polytwister_name, &database_path)?;
             std::fs::create_dir(output_dir)?;
 
             for (i, w) in linspace(-1.0, 1.0, *frames).into_iter().enumerate() {
