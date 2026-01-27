@@ -29,7 +29,10 @@ mod c2;
 mod convex_polytwister;
 mod config;
 mod marching_squares;
+mod polytwister;
+
 use crate::config::Config;
+use crate::polytwister::Polytwister;
 use crate::uniform_polytwister::{UniformPolytwister, PolytwisterDatabase};
 use crate::utils::linspace;
 use crate::mesh::{Mesh, MeshLike};

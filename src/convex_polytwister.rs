@@ -1,10 +1,14 @@
 use core::f64;
-use crate::{c2::C2, mesh::Mesh, pipe_section::{self, PipeSection}, ring::RingSection, utils::linspace};
+use serde::Deserialize;
+use crate::{c2::C2, mesh::Mesh, pipe_section::{self, PipeSection}, polytwister::Polytwister, ring::RingSection, utils::linspace};
 use crate::config::{CylinderMeshConfig, RingMeshConfig, TorusMeshConfig};
 use crate::marching_squares::{Isosurface, meshify, Grid, GridAxis};
 use crate::cylinder_curve::CCurve;
+use crate::config::Config;
 use na::{Vector4, Point3, Vector3, Point4};
 
+#[derive(Deserialize, Clone)]
+#[serde(rename_all="camelCase")]
 pub struct ConvexPolytwisterSpec {
     logs: Vec<Vector4<f64>>,
 }
@@ -72,36 +76,6 @@ impl ConvexPolytwister {
         ConvexPolytwister { logs, rings }
     }
 
-    pub fn twisters_as_mesh(&self, w: f64) -> Mesh {
-        let config = CylinderMeshConfig {
-            linear_segments: 50,
-            radial_segments: 50,
-            half_length: 2.0
-        };
-        let mut meshes = vec![];
-        for (i, pipe) in self.logs.iter().enumerate() {
-            let pipe = pipe.rotate_real_b();
-            let pipe_section = PipeSection::from_vector4(&pipe.to_vector4(), w);
-            let grid = Grid {
-                u_axis: GridAxis::Linear(config.linear_segments, -config.half_length, config.half_length),
-                v_axis: GridAxis::Circular(config.radial_segments, f64::consts::TAU),
-            };
-            let surface = TwisterSection {
-                pipe_section,
-                log_sections: self.logs.iter().enumerate().filter_map(|(j, log)|
-                    if (i == j) {
-                        None
-                    } else {
-                        Some(PipeSection::from_vector4(&log.to_vector4(), w))
-                    }
-                ).collect::<_>()
-            };
-            let mesh = meshify(&surface, &grid);
-            meshes.push(mesh);
-        }
-        Mesh::merge(meshes)
-    }
-
     fn section_contains(&self, w: f64, point: &Point3<f64>) -> bool {
         for log in self.logs.iter() {
             let log_section = PipeSection::from_vector4(&log.to_vector4(), w);
@@ -155,13 +129,37 @@ impl ConvexPolytwister {
         }
         Mesh::merge(meshes)
     }
+}
 
-    pub fn strips_as_mesh(&self, w: f64) -> Mesh {
-        let config = TorusMeshConfig {
-            linear_segments: 100,
-            radial_segments: 16,
-            radius: 0.03,
-        };
+impl Polytwister for ConvexPolytwister {
+    fn twister_orbit_as_meshes(&self, w: f64, orbit: u8, config: &Config) -> Vec<Mesh> {
+        let config = config.twisters;
+        let mut meshes = vec![];
+        for (i, pipe) in self.logs.iter().enumerate() {
+            let pipe = pipe.rotate_real_b();
+            let pipe_section = PipeSection::from_vector4(&pipe.to_vector4(), w);
+            let grid = Grid {
+                u_axis: GridAxis::Linear(config.linear_segments, -config.half_length, config.half_length),
+                v_axis: GridAxis::Circular(config.radial_segments, f64::consts::TAU),
+            };
+            let surface = TwisterSection {
+                pipe_section,
+                log_sections: self.logs.iter().enumerate().filter_map(|(j, log)|
+                    if (i == j) {
+                        None
+                    } else {
+                        Some(PipeSection::from_vector4(&log.to_vector4(), w))
+                    }
+                ).collect::<_>()
+            };
+            let mesh = meshify(&surface, &grid);
+            meshes.push(mesh);
+        }
+        meshes
+    }
+
+    fn strips_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh> {
+        let config = config.strips;
         let mut meshes = vec![];
         for i in 0..self.logs.len() {
             for j in (i + 1)..self.logs.len() {
@@ -174,32 +172,17 @@ impl ConvexPolytwister {
                 }
             }
         }
-        Mesh::merge(meshes)
+        meshes
     }
 
-
-    pub fn rings_as_mesh(&self, w: f64) -> Mesh {
-        let config = RingMeshConfig {
-            latitudes: 16,
-            longitudes: 16,
-            radius: 0.05,
-        };
+    fn rings_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh> {
         let mut meshes = vec![];
         for ring in self.rings.iter() {
             let ring_section = RingSection::from_vector4(&ring.to_vector4(), w);
-            let mesh = ring_section.as_mesh(&config);
+            let mesh = ring_section.as_mesh(&config.rings);
             meshes.push(mesh);
         }
-        Mesh::merge(meshes)
-    }
-
-
-    pub fn as_mesh(&self, w: f64) -> Mesh {
-        Mesh::merge(vec![
-            self.rings_as_mesh(w),
-            self.strips_as_mesh(w),
-            self.twisters_as_mesh(w),
-        ])
+        meshes
     }
 }
 
@@ -243,7 +226,7 @@ mod test {
             C2::from_parts(0.20, 0.84, -0.51, 0.05),
             C2::from_parts(-0.27, -0.44, -0.62, -0.73)
         ]);
-        let w = 0.05;
-        polytwister.as_mesh(w).write_ply_file(&PathBuf::from("convex.ply"));
+        let w = 0.3;
+        polytwister.as_colored_mesh(w, &Config::default()).write_ply_file(&PathBuf::from("convex.ply"));
     }
 }
