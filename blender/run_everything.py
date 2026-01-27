@@ -21,6 +21,10 @@ def main():
     out_dir.mkdir(parents=True)
     
     polytwister = config_root["polytwister"]
+    if isinstance(polytwister, dict):
+        # Convex polytwister.
+        polytwister = json.dumps(polytwister)
+
     w = config_root.get("w", None)
     frames = config_root.get("frames", None)
 
