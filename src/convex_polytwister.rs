@@ -149,6 +149,10 @@ impl ConvexPolytwister {
 
 impl Polytwister for ConvexPolytwister {
     fn twister_orbit_as_meshes(&self, w: f64, orbit: u8, config: &Config) -> Vec<Mesh> {
+        if orbit != 0 {
+            return vec![];
+        }
+
         let config = config.twisters;
         let mut meshes = vec![];
         for (i, pipe) in self.logs.iter().enumerate() {
