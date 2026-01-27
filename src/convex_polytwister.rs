@@ -236,13 +236,14 @@ mod test {
     #[test]
     fn test_convex_polytwister() {
         let polytwister = ConvexPolytwister::new(vec![
-            C2::from_parts(1.0, 0.4, 0.23, -0.3),
-            C2::from_parts(-0.3, 0.4, -0.44, 0.8),
-            C2::from_parts(0.7, -0.2, 0.5, 0.4),
-            C2::from_parts(0.3, -0.7, -0.9, 0.1),
-            C2::from_parts(-0.9, 0.4, -0.7, 0.3),
+            C2::from_parts(0.63, -0.42, -0.78, 0.04),
+            C2::from_parts(-0.42, 0.69, 0.41, 0.32),
+            C2::from_parts(-0.04, 0.54, -0.57, 0.51),
+            C2::from_parts(-0.78, -0.49, -0.15, 0.10),
+            C2::from_parts(0.20, 0.84, -0.51, 0.05),
+            C2::from_parts(-0.27, -0.44, -0.62, -0.73)
         ]);
-        let w = 0.1;
+        let w = 0.05;
         polytwister.as_mesh(w).write_ply_file(&PathBuf::from("convex.ply"));
     }
 }
