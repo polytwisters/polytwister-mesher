@@ -12,7 +12,7 @@
     "frames": 21,
     "blender_config": {
         "render": {
-            "camera_azimuth": 90.0,
+            "camera_azimuth": 135.0,
             "resolution": 350
         },
         "materials": {
