@@ -1,8 +1,9 @@
 use core::f64;
-use crate::{c2::C2, config::RingMeshConfig, mesh::Mesh, pipe_section::{self, PipeSection}, ring::RingSection};
-use crate::config::CylinderMeshConfig;
+use crate::{c2::C2, mesh::Mesh, pipe_section::{self, PipeSection}, ring::RingSection, utils::linspace};
+use crate::config::{CylinderMeshConfig, RingMeshConfig, TorusMeshConfig};
 use crate::marching_squares::{Isosurface, meshify, Grid, GridAxis};
-use na::{Vector4, Point3, Vector3};
+use crate::cylinder_curve::CCurve;
+use na::{Vector4, Point3, Vector3, Point4};
 
 pub struct ConvexPolytwisterSpec {
     logs: Vec<Vector4<f64>>,
@@ -101,21 +102,91 @@ impl ConvexPolytwister {
         Mesh::merge(meshes)
     }
 
+    fn section_contains(&self, w: f64, point: &Point3<f64>) -> bool {
+        for log in self.logs.iter() {
+            let log_section = PipeSection::from_vector4(&log.to_vector4(), w);
+            if !log_section.interior_contains(&point) {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn section_contains_skip2(&self, w: f64, point: &Point3<f64>, skip_1: usize, skip_2: usize) -> bool {
+        for (i, log) in self.logs.iter().enumerate() {
+            if i == skip_1 || i == skip_2 {
+                continue;
+            }
+            let log_section = PipeSection::from_vector4(&log.to_vector4(), w);
+            if !log_section.interior_contains(&point) {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn mesh_strip(&self, ccurve: CCurve, w: f64, config: &TorusMeshConfig, skip_1: usize, skip_2: usize) -> Mesh {
+        let mut points = vec![];
+        for ring in self.rings.iter() {
+            let section = RingSection::from_vector4(&ring.to_vector4(), w);
+            section.add_points_to_vec(&mut points);
+        }
+        let mut t_values = points.iter().filter_map(|point|
+            if ccurve.contains(&point) {
+                Some(ccurve.to_t(&point))
+            } else {
+                None
+            }
+        ).collect::<Vec<_>>();
+        t_values.sort_by(f64::total_cmp);
+        let mut meshes = vec![];
+        for i in 0..t_values.len() {
+            let t1 = t_values[i];
+            let t2 = if i == t_values.len() - 1 { t_values[0] + 1.0 } else { t_values[i + 1] };
+            let t_test = (t1 + t2) / 2.0;
+            let p_test = ccurve.at(t_test);
+            let contains = self.section_contains_skip2(w, &p_test, skip_1, skip_2);
+            dbg!(i, contains);
+            if contains {
+                let polyline = ccurve.discretize_segment(t1, t2, config.linear_segments);
+                let mesh = polyline.as_mesh(config.radius, config.radial_segments);
+                meshes.push(mesh);
+            }
+        }
+        Mesh::merge(meshes)
+    }
+
+    pub fn strips_as_mesh(&self, w: f64) -> Mesh {
+        let config = TorusMeshConfig {
+            linear_segments: 100,
+            radial_segments: 16,
+            radius: 0.03,
+        };
+        let mut meshes = vec![];
+        for i in 0..self.logs.len() {
+            for j in (i + 1)..self.logs.len() {
+                let pipe1 = PipeSection::from_vector4(&self.logs[i].to_vector4(), w);
+                let pipe2 = PipeSection::from_vector4(&self.logs[j].to_vector4(), w);
+                let torus_section = pipe1.intersect(&pipe2);
+                for ccurve in torus_section.ccurves {
+                    let mesh = self.mesh_strip(ccurve, w, &config, i, j);
+                    meshes.push(mesh);
+                }
+            }
+        }
+        Mesh::merge(meshes)
+    }
+
+
     pub fn rings_as_mesh(&self, w: f64) -> Mesh {
         let config = RingMeshConfig {
             latitudes: 16,
             longitudes: 16,
-            radius: 0.1,
+            radius: 0.05,
         };
         let mut meshes = vec![];
         for ring in self.rings.iter() {
-            let ring_section = RingSection {
-                a: ring.vec.x.re,
-                b: ring.vec.x.im,
-                c: ring.vec.y.re,
-                d: ring.vec.y.im,
-                w
-            };
+            let ring_section = RingSection::from_vector4(&ring.to_vector4(), w);
             let mesh = ring_section.as_mesh(&config);
             meshes.push(mesh);
         }
@@ -126,7 +197,8 @@ impl ConvexPolytwister {
     pub fn as_mesh(&self, w: f64) -> Mesh {
         Mesh::merge(vec![
             self.rings_as_mesh(w),
-            self.twisters_as_mesh(w)
+            self.strips_as_mesh(w),
+            self.twisters_as_mesh(w),
         ])
     }
 }
@@ -164,9 +236,11 @@ mod test {
     #[test]
     fn test_convex_polytwister() {
         let polytwister = ConvexPolytwister::new(vec![
-            C2::from_parts(1.0, 0.0, 0.2, 0.3),
-            C2::from_parts(-0.3, 0.4, 0.4, 0.8),
+            C2::from_parts(1.0, 0.4, 0.23, -0.3),
+            C2::from_parts(-0.3, 0.4, -0.44, 0.8),
             C2::from_parts(0.7, -0.2, 0.5, 0.4),
+            C2::from_parts(0.3, -0.7, -0.9, 0.1),
+            C2::from_parts(-0.9, 0.4, -0.7, 0.3),
         ]);
         let w = 0.1;
         polytwister.as_mesh(w).write_ply_file(&PathBuf::from("convex.ply"));
