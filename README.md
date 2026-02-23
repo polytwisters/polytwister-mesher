@@ -115,10 +115,11 @@ python3 blender/make_video.py out_pngs_dir/ out.mp4  # requires ffmpeg
 
 ## Limitations
 
-* Only uniform polytwisters are supported.
+* The meshes generated are not manifold and are not yet usable for 3D printing.
+* Only uniform polytwisters are supported. There is a branch for non-uniform convex polytwisters as well. Arbitrary self-intersecting polytwisters are not supported yet because the binary/solid filling algorithms become more difficult to implement for them.
 * Currently the discretization of twister cross sections is rather poor and especially has problems with twisters with spiky cross sections. This can be mitigated by cranking up the mesh resolution, but at the cost of a larger mesh and more compute time.
 * The above problem is especially bad if you decide to create a polytwister section without any visualization of ring or strip cross sections, because the rings and strips hide the cracks where the twisters meet. So currently, this mesher is just meant for ball-and-tube polytwister visualizations.
-* Overall, this is a research codebase, so it's a little janky.
+* This is a research codebase and many features were implemented quickly to meet a paper deadline, so expect some jank.
 
 ## Development
 
