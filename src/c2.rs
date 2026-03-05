@@ -53,28 +53,36 @@ impl C2 {
         )
     }
 
+    /// Return the norm: ||(x, y)|| = sqrt(|x|^2 + |y|^2).
     pub fn abs(&self) -> f64 {
         self.vec.norm()
     }
 
+    /// Return the absolute difference between two C2 vectors.
     pub fn abs_difference(&self, other: &Self) -> f64 {
         (self.vec - other.vec).norm()
     }
 
+    /// Take the inner product <(x1, x2), (y1, y2)> = x1 conj(y1) + x2 conj(y2), which is linear in
+    /// the first argument.
     pub fn inner(&self, other: &Self) -> Complex<f64> {
         other.vec.dotc(&self.vec)
     }
 
+    /// Absolute value of inner product.
     pub fn inner_abs(&self, other: &Self) -> f64 {
         self.inner(&other).abs()
     }
 
+    /// Given this vector (x, y), return a new vector (kx, ky) where |k| = 1 such that y is a real
+    /// number. This will produce NaNs if y = 0.
     pub fn rotate_real_b(&self) -> Self {
         let tmp = self.vec.y.conj() / self.vec.y.abs();
         C2 { vec: self.vec * tmp }
     }
 
-    /// Return the special 2x2 unitary matrix that sends this C2 to k[1, 0] for real k.
+    /// Given this vector x, return a special 2x2 unitary matrix M in SU(2) such that Mx = (k, 0)
+    /// for real k.
     fn normalizing_su2_matrix(&self) -> Matrix2<Complex<f64>> {
         let norm = self.abs();
         Matrix2::new(
@@ -90,6 +98,10 @@ impl C2 {
         self.normalizing_su2_matrix().adjoint()
     }
 
+    /// Given p_1, p_2 in C^2, solve the system of nonlinear equations
+    /// |<p_1, z>| = 1, |<p_2, z>| = 1 for all z of the form z = (1, z2). If there are no solutions
+    /// return None, if there are two solutions return both, if there is one solution return that
+    /// solution duplicated.
     fn intersect_pipes_core(pipe1: &Self, pipe2: &Self) -> Option<(C2, C2)> {
         let a1 = pipe1.vec.x;
         let b1 = pipe1.vec.y;
@@ -115,7 +127,16 @@ impl C2 {
         Some((solution_a, solution_b))
     }
 
+    /// Given three C^2 vectors p_1, p_2, p_3, solve for all values z such that |<z, p_i>| = 1 for
+    /// i in (1, 2, 3), producing a system of three nonlinear equations. If there are no solutions,
+    /// None is returned. Otherwise, two solutions z1 and z2 are returned such that all phase
+    /// rotations of z1 and z2 constitute the solutions to the system of equations.
+    /// 
+    /// Using the P function defined in the polytwister paper, this computes the intersection of the
+    /// pipes P(p_1), P(p_2), and P(p_3).
     pub fn intersect_pipes(pipe1: &Self, pipe2: &Self, pipe3: &Self) -> Option<(C2, C2)> {
+        // Normalize the three pipes so that pipe3 becomes (1, 0), reducing the problem to
+        // intersect_pipes_core.
         let u = pipe3.normalizing_su2_matrix();
         let u_inv = pipe3.normalizing_su2_matrix_inv();
         let k = 1.0 / pipe3.abs();
@@ -123,6 +144,7 @@ impl C2 {
         let pipe2_transformed = C2 { vec: (u * pipe2.vec) * Complex::from_real(k) } .rotate_real_b();
         match Self::intersect_pipes_core(&pipe1_transformed, &pipe2_transformed) {
             Some((a, b)) => {
+                // Undo the normalizing transformation.
                 Some((
                     C2 { vec: u_inv * a.vec * Complex::from_real(k) },
                     C2 { vec: u_inv * b.vec * Complex::from_real(k) }
@@ -132,6 +154,8 @@ impl C2 {
         }
     }
 
+    /// Given C^2 vectors z1 and z2, return the similarity |<z1, z2>| / (||z1|| ||z2||). This is a
+    /// cosine-like similarity function which is 1 iff they are phase rotations of each other.
     pub fn similarity(&self, other: &Self) -> f64 {
         self.inner_abs(&other) / (self.abs() * other.abs())
     }
@@ -162,6 +186,10 @@ mod test {
     use approx::*;
     use super::*;
 
+    fn c2_example() -> C2 {
+        C2::from_components(1.0, 0.2, -3.0, -0.1)
+    }
+
     #[test]
     fn test_from_to_components() {
         let tuple4 = (1.0, 2.0, -3.0, 4.0);
@@ -190,6 +218,23 @@ mod test {
             )
         );
         assert_eq!(x.to_vector4(), vector4);
+    }
+
+    #[test]
+    fn test_abs() {
+        let x = C2::from_components(3.0, 4.0, 0.0, 0.0);
+        assert_abs_diff_eq!(x.abs(), 5.0);
+    }
+
+    #[test]
+    fn test_inner() {
+        // <(i, 2i), (1, i)> = i conj(1) + 2i conj(i) = 2 + i
+        // Test fails if "inner" is linear in the second argument instead of the first.
+        let x = C2::from_components(0.0, 1.0, 0.0, 2.0);
+        let y = C2::from_components(1.0, 0.0, 0.0, 1.0);
+        let expected = Complex::new(2.0, 1.0);
+        let inner = x.inner(&y);
+        assert_eq!(inner, expected);
     }
 
     #[test]
