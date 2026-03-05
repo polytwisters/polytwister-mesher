@@ -28,7 +28,7 @@ impl C2 {
         Self {
             vec: Vector2::new(
                 Complex::new(vec.x, vec.y),
-                Complex::new(vec.z, vec.y),
+                Complex::new(vec.z, vec.w),
             )
         }
     }
@@ -154,6 +154,20 @@ mod test {
     fn test_from_components() {
         let (a, b, c, d) = (1.0, 2.0, -3.0, 4.0);
         let x = C2::from_components(a, b, c, d);
+        assert_eq!(
+            x.vec,
+            Vector2::new(
+                Complex { re: a, im: b },
+                Complex { re: c, im: d },
+            )
+        );
+    }
+
+    #[test]
+    fn test_from_vector4() {
+        let (a, b, c, d) = (1.0, 2.0, -3.0, 4.0);
+        let vector4 = Vector4::<f64>::new(a, b, c, d);
+        let x = C2::from_vector4(&vector4);
         assert_eq!(
             x.vec,
             Vector2::new(
