@@ -6,8 +6,8 @@ use std::{any, fs};
 use std::error::Error;
 use std::path;
 use std::path::PathBuf;
-use std::{fs::File, io::Read};
-use serde::Deserialize;
+use std::{fs::File, io::Read, io::Write};
+use serde::{Deserialize, Serialize};
 extern crate nalgebra as na;
 use na::{Point3, Vector4};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -138,12 +138,22 @@ fn main() -> Result<(), Box<dyn Error>> {
             return Err(String::from("Too many frames").into());
         }
         std::fs::create_dir(&out_path)?;
-        for (i, w) in linspace(-1.0, 1.0, frames).into_iter().enumerate() {
+        let w_values = linspace(-1.0, 1.0, frames);
+        for (i, w_ref) in w_values.iter().enumerate() {
+            let w = *w_ref;
             info!("Frame {i}/{frames}, w = {w}");
             let section_dir = out_path.join(format!("section_{i:04}"));
             let mesh = polytwister.as_meshes(w, &config);
             std::fs::create_dir(&section_dir)?;
             mesh.write_plys(&section_dir);
+        }
+
+        let manifest_path = out_path.join("manifest.json");
+        let manifest = AnimationManifest { w_values };
+        let manifest_json = serde_json::to_string(&manifest)?;
+        {
+            let mut buffer = File::create(manifest_path)?;
+            buffer.write(manifest_json.as_bytes())?;
         }
     } else {
         let w = args.w.unwrap_or(DEFAULT_W);
@@ -156,4 +166,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
     Ok(())
+}
+
+#[derive(Serialize)]
+struct AnimationManifest {
+    w_values: Vec<f64>
 }
