@@ -6,13 +6,7 @@ Command-line tool for creating 3D meshes of cross sections of [polytwisters](htt
 
 ### Building
 
-Polytwister Mesher is written in Rust, and its few dependencies are all cross-platform. To build it, install the Rust toolchain and run:
-
-```
-cargo build --release
-```
-
-The executable is now at `./target/release/polytwister_mesher` (file name `polytwister_mesher.exe` on Windows). This is abbreviated as `polytwister_mesher` from now on.
+Install the Rust toolchain and run: `cargo build --release`. The executable is now at `./target/release/polytwister_mesher` (file name `polytwister_mesher.exe` on Windows). This is abbreviated as `polytwister_mesher` from now on.
 
 The executable reads the database file at `./polytwisters.json` which has geometry and naming information on all polytwisters. It is assumed that your working directory contains `polytwisters.json`. If it doesn't, supply the `-d` option to the executable to set a custom location.
 
@@ -119,7 +113,7 @@ python3 blender/make_video.py out_pngs_dir/ out.mp4  # requires ffmpeg
 ## Limitations
 
 * The meshes generated are not manifold and are not yet usable for 3D printing.
-* Only uniform polytwisters are supported. There is a branch for non-uniform convex polytwisters as well. Arbitrary self-intersecting polytwisters are not supported yet because the binary/solid filling algorithms become more difficult to implement for them.
+* Only polytwisters that are uniform OR convex are supported. Arbitrary self-intersecting polytwisters are not supported yet because the binary/solid filling algorithms become more difficult to implement for them.
 * Currently the discretization of twister cross sections is rather poor and especially has problems with twisters with spiky cross sections. This can be mitigated by cranking up the mesh resolution, but at the cost of a larger mesh and more compute time.
 * The above problem is especially bad if you decide to create a polytwister section without any visualization of ring or strip cross sections, because the rings and strips hide the cracks where the twisters meet. So currently, this mesher is just meant for ball-and-tube polytwister visualizations.
 * This is a research codebase and many features were implemented quickly to meet a paper deadline, so expect some jank.
