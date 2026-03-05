@@ -21,7 +21,7 @@ The executable reads the database file at `./polytwisters.json` which has geomet
 For quick viewing of polytwisters, you can render a single cross section showing rings, strips, and twisters as a single PLY file:
 
 ```
-polytwister_mesher tetter -w 0.1 --merged out.ply
+polytwister_mesher section tetter -w 0.1 --merged out.ply
 ```
 
 MeshLab is a good tool for quick previewing of such files, because you can just run `meshlab out.ply`. All meshes have vertex normals, so make sure to configure MeshLab to shade using them.
