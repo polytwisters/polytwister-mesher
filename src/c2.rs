@@ -23,6 +23,16 @@ impl C2 {
         }
     }
 
+    /// Convert (a + bi, c + di) to the 4-tuple of floats (a, b, c, d).
+    pub fn to_components(&self) -> (f64, f64, f64, f64) {
+        (
+            self.vec.x.re,
+            self.vec.x.im,
+            self.vec.y.re,
+            self.vec.y.im,
+        )
+    }
+
     /// Create the C^2 vector (a + bi, c + di) from the R^4 vector (a, b, c, d).
     pub fn from_vector4(vec: &Vector4<f64>) -> Self {
         Self {
@@ -147,12 +157,15 @@ impl Div<f64> for &C2 {
 
 #[cfg(test)]
 mod test {
+    use std::vec;
+
     use approx::*;
     use super::*;
 
     #[test]
-    fn test_from_components() {
-        let (a, b, c, d) = (1.0, 2.0, -3.0, 4.0);
+    fn test_from_to_components() {
+        let tuple4 = (1.0, 2.0, -3.0, 4.0);
+        let (a, b, c, d) = tuple4;
         let x = C2::from_components(a, b, c, d);
         assert_eq!(
             x.vec,
@@ -161,10 +174,11 @@ mod test {
                 Complex { re: c, im: d },
             )
         );
+        assert_eq!(tuple4, x.to_components());
     }
 
     #[test]
-    fn test_from_vector4() {
+    fn test_from_to_vector4() {
         let (a, b, c, d) = (1.0, 2.0, -3.0, 4.0);
         let vector4 = Vector4::<f64>::new(a, b, c, d);
         let x = C2::from_vector4(&vector4);
@@ -175,6 +189,7 @@ mod test {
                 Complex { re: c, im: d },
             )
         );
+        assert_eq!(x.to_vector4(), vector4);
     }
 
     #[test]
