@@ -12,28 +12,27 @@ Polytwister Mesher is written in Rust, and its few dependencies are all cross-pl
 cargo build --release
 ```
 
-The executable is now at `./target/release/polytwister_mesher` (file name `polytwister_mesher.exe` on Windows). I will abbreviate this as just `polytwister_mesher` from now on.
+The executable is now at `./target/release/polytwister_mesher` (file name `polytwister_mesher.exe` on Windows). This is abbreviated as `polytwister_mesher` from now on.
 
-The executable reads the database file at `./polytwisters.json` which has geometry and naming information on all polytwisters. It is assumed that your working directory contains `polytwisters.json` (if it doesn't, you can supply the `-d` option to the executable to set a custom location).
+The executable reads the database file at `./polytwisters.json` which has geometry and naming information on all polytwisters. It is assumed that your working directory contains `polytwisters.json`. If it doesn't, supply the `-d` option to the executable to set a custom location.
 
-### Single cross section, merged mesh
+### Quick start
 
-For quick viewing of polytwisters, you can render a single cross section showing rings, strips, and twisters as a single PLY file:
+Mesh the tetratwister (defaulting to w = 0.1) and combine rings, strips, and twisters into a single mesh:
 
 ```
-polytwister_mesher section tetter -w 0.1 --merged out.ply
+polytwister_mesher tetter --merged out.ply
+meshlab out.ply
 ```
 
 MeshLab is a good tool for quick previewing of such files, because you can just run `meshlab out.ply`. All meshes have vertex normals, so make sure to configure MeshLab to shade using them.
 
 In place of "tetter" you can use any Bowers acronym (`gaquapiditer`) or full name (`"cube twister"` or `cube-twister` or `cube_twister`) or index (`34`) or symbol `3.3`.
 
-### Single cross section, split meshes
-
-For production rendering, you usually want to produce individual PLY meshes for rings, strips, and twisters:
+### Single cross section
 
 ```
-polytwister_mesher section sadtadoditer -w 0.1 --split sadtadoditer_meshes/
+polytwister_mesher tetter -w 0.1 sadtadoditer_meshes/
 ```
 
 This command will create the directory `sadtadoditer_meshes/` and the following four files:
@@ -49,14 +48,14 @@ sadtadoditer_meshes/twisters_2.ply
 
 The directory `sadtadoditer_meshes` is referred to as a "section directory."
 
-**NOTE:** Any of the PLY files produced by Polytwister Mesher might be empty meshes, such as if the W coordinate in question happens to be an empty cross section. The PLY files are not empty files, but they have zero vertices. Blender produces an error when importing such PLY files, but it is harmless. This may be the case with other 3D software as well. (You don't need to worry about this with the Blender scripts discussed below as they check for empty meshes.)
+**NOTE:** Any of the PLY files produced by Polytwister Mesher might be empty, i.e. zero vertices. Blender produces an error when importing such PLY files, but it is harmless.
 
 ### Animation
 
-Render evenly spaced W values to a directory of meshes:
+Render 24 evenly spaced W values to a directory of meshes:
 
 ```
-polytwister_mesher animation sadtadoditer -n 24 out_dir
+polytwister_mesher sadtadoditer -n 24 out_dir/
 ```
 
 This creates `out_dir` and the following structure:
@@ -130,7 +129,7 @@ import subprocess
 from pathlib import Path
 
 subprocess.run([
-    "cargo", "run", "section", "tetratwister", "--merged", "out.ply"
+    "cargo", "run", "tetratwister", "--merged", "out.ply"
 ], check=True)
 
 subprocess.run([
