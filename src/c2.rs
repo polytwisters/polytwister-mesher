@@ -83,7 +83,7 @@ impl C2 {
 
     /// Given this vector x, return a special 2x2 unitary matrix M in SU(2) such that Mx = (k, 0)
     /// for real k.
-    fn normalizing_su2_matrix(&self) -> Matrix2<Complex<f64>> {
+    pub fn normalizing_su2_matrix(&self) -> Matrix2<Complex<f64>> {
         let norm = self.abs();
         Matrix2::new(
             self.vec.x.conj() / norm,
@@ -94,64 +94,8 @@ impl C2 {
     }
 
     /// Return the inverse of self.normalizing_su2_matrix.
-    fn normalizing_su2_matrix_inv(&self) -> Matrix2<Complex<f64>> {
+    pub fn normalizing_su2_matrix_inv(&self) -> Matrix2<Complex<f64>> {
         self.normalizing_su2_matrix().adjoint()
-    }
-
-    /// Given p_1, p_2 in C^2, solve the system of nonlinear equations
-    /// |<p_1, z>| = 1, |<p_2, z>| = 1 for all z of the form z = (1, z2). If there are no solutions
-    /// return None, if there are two solutions return both, if there is one solution return that
-    /// solution duplicated.
-    fn intersect_pipes_core(pipe1: &Self, pipe2: &Self) -> Option<(C2, C2)> {
-        let a1 = pipe1.vec.x;
-        let b1 = pipe1.vec.y;
-        let a2 = pipe2.vec.x;
-        let b2 = pipe2.vec.y;
-
-        let r1 = 1.0 / b1.re;
-        let r2 = 1.0 / b2.re;
-        let c1 = -a1.conj() / b1;
-        let c2 = -a2.conj() / b2;
-        let d = (c2 - c1).abs();
-        let ell = (r1 * r1 - r2 * r2 + d * d) / (2.0 * d);
-        let discriminant = r1 * r1 - ell * ell;
-        if discriminant < 0.0 {
-            return None;
-        }
-        let tmp = Complex::new(ell, -discriminant.sqrt());
-        let z2_a = c1 + tmp / d * (c2 - c1);
-        let z2_b = c1 + tmp.conj() / d * (c2 - c1);
-        let solution_a = C2::new(Complex::new(1.0, 0.0), z2_a);
-        let solution_b = C2::new(Complex::new(1.0, 0.0), z2_b);
-
-        Some((solution_a, solution_b))
-    }
-
-    /// Given three C^2 vectors p_1, p_2, p_3, solve for all values z such that |<z, p_i>| = 1 for
-    /// i in (1, 2, 3), producing a system of three nonlinear equations. If there are no solutions,
-    /// None is returned. Otherwise, two solutions z1 and z2 are returned such that all phase
-    /// rotations of z1 and z2 constitute the solutions to the system of equations.
-    /// 
-    /// Using the P function defined in the polytwister paper, this computes the intersection of the
-    /// pipes P(p_1), P(p_2), and P(p_3).
-    pub fn intersect_pipes(pipe1: &Self, pipe2: &Self, pipe3: &Self) -> Option<(C2, C2)> {
-        // Normalize the three pipes so that pipe3 becomes (1, 0), reducing the problem to
-        // intersect_pipes_core.
-        let u = pipe3.normalizing_su2_matrix();
-        let u_inv = pipe3.normalizing_su2_matrix_inv();
-        let k = 1.0 / pipe3.abs();
-        let pipe1_transformed = C2 { vec: (u * pipe1.vec) * Complex::from_real(k) } .rotate_real_b();
-        let pipe2_transformed = C2 { vec: (u * pipe2.vec) * Complex::from_real(k) } .rotate_real_b();
-        match Self::intersect_pipes_core(&pipe1_transformed, &pipe2_transformed) {
-            Some((a, b)) => {
-                // Undo the normalizing transformation.
-                Some((
-                    C2 { vec: u_inv * a.vec * Complex::from_real(k) },
-                    C2 { vec: u_inv * b.vec * Complex::from_real(k) }
-                ))
-            },
-            None => None
-        }
     }
 
     /// Given C^2 vectors z1 and z2, return the similarity |<z1, z2>| / (||z1|| ||z2||). This is a
@@ -161,8 +105,11 @@ impl C2 {
     }
 }
 
+
 impl Mul<f64> for &C2 {
     type Output = C2;
+
+    /// Multiply by a real scalar.
     fn mul(self, rhs: f64) -> C2 {
         C2 {
             vec: self.vec * Complex::from_real(rhs)
@@ -172,6 +119,8 @@ impl Mul<f64> for &C2 {
 
 impl Div<f64> for &C2 {
     type Output = C2;
+
+    /// Divide by a real scalar.
     fn div(self, rhs: f64) -> C2 {
         C2 {
             vec: self.vec / Complex::from_real(rhs)
@@ -262,36 +211,5 @@ mod test {
         let actual = m * adjoint;
         let expected = Matrix2::identity();
         assert_abs_diff_eq!((actual - expected).norm(), 0.0);
-    }
-
-    #[test]
-    fn test_intersect_3_pipes_core() {
-        let pipe1 = C2::from_components(0.0, 0.3, 1.0, 0.3).rotate_real_b();
-        let pipe2 = C2::from_components(1.0, 0.3, 1.0, 0.1).rotate_real_b();
-        let intersection = C2::intersect_pipes_core(&pipe1, &pipe2);
-        if let Some((p1, p2)) = intersection {
-            for pipe in [pipe1, pipe2] {
-                assert_abs_diff_eq!(p1.inner_abs(&pipe), 1.0);
-                assert_abs_diff_eq!(p2.inner_abs(&pipe), 1.0);
-            }
-        } else {
-            panic!("Didn't intersect");
-        }
-    }
-
-    #[test]
-    fn test_intersect_3_pipes() {
-        let pipe1 = C2::from_components(0.0, 0.3, 1.0, 0.3);
-        let pipe2 = C2::from_components(1.0, 0.3, 1.0, 0.1);
-        let pipe3 = C2::from_components(1.1, -0.3, 0.4, 0.5); 
-        let intersection = C2::intersect_pipes(&pipe1, &pipe2, &pipe3);
-        if let Some((p1, p2)) = intersection {
-            for pipe in [pipe1, pipe2, pipe3] {
-                assert_abs_diff_eq!(p1.inner_abs(&pipe), 1.0, epsilon = 1e-5);
-                assert_abs_diff_eq!(p2.inner_abs(&pipe), 1.0, epsilon = 1e-5);
-            }
-        } else {
-            panic!("Didn't intersect");
-        }
     }
 }

@@ -1,10 +1,11 @@
 use core::f64;
 use serde::Deserialize;
-use crate::{c2::C2, mesh::Mesh, pipe_section::{self, PipeSection}, polytwister::Polytwister, ring::RingSection, utils::linspace};
+use crate::{c2::C2, elements::Pipe, mesh::Mesh, pipe_section::{self, PipeSection}, polytwister::Polytwister, ring::RingSection, utils::linspace};
 use crate::config::{CylinderMeshConfig, RingMeshConfig, TorusMeshConfig};
 use crate::marching_squares::{Isosurface, meshify, Grid, GridAxis};
 use crate::cylinder_curve::CCurve;
 use crate::config::Config;
+use crate::elements::{Fiber, Log};
 use na::{Vector4, Point3, Vector3, Point4};
 
 /// A specification of a convex polytwister intended for deserialization only. It is represented as
@@ -18,57 +19,50 @@ pub struct ConvexPolytwisterSpec {
 }
 
 pub struct ConvexPolytwister {
-    logs: Vec<C2>,
-    rings: Vec<C2>,
+    logs: Vec<Log>,
+    rings: Vec<Fiber>,
 }
 
 impl ConvexPolytwisterSpec {
     /// Convert this to a convex polytwister.
     pub fn to_convex_polytwister(&self) -> ConvexPolytwister {
-        ConvexPolytwister::new(self.logs.iter().map(|log| C2::from_vector4(&log)).collect::<_>())
+        ConvexPolytwister::new(self.logs.iter().map(|log|
+            Log::from_vector4(&log)
+        ).collect::<_>())
     }
 }
 
 impl ConvexPolytwister {
-    pub fn new(logs: Vec<C2>) -> Self {
+    pub fn new(logs: Vec<Log>) -> Self {
         let rings = Self::compute_rings(&logs);
         ConvexPolytwister { logs, rings }
     }
 
-    fn logs_contains(logs: &Vec<C2>, fiber: &C2, skip_1: usize, skip_2: usize, skip_3: usize) -> bool {
+    /// Given a set of logs L(p_i) and a single vector x_i, check to see whether x_i is in all logs
+    /// *except* the three logs given at the indices skip_1, skip_2, or skip_3.
+    fn logs_contains(logs: &Vec<Log>, fiber: &Fiber, skip_1: usize, skip_2: usize, skip_3: usize) -> bool {
         for (index, log) in logs.iter().enumerate() {
             if index == skip_1 || index == skip_2 || index == skip_3 {
                 continue;
             }
-            if log.inner_abs(&fiber) > 1.0 {
+            if log.contains(fiber) {
                 return false;
             }
         }
         true
     }
 
-    fn deduplicate_rings(rings: &Vec<C2>) -> Vec<C2> {
-        let epsilon = 1e-5;
-        let mut result = vec![];
-        for ring in rings.iter() {
-            if result.iter().all(|ring2| ring.similarity(ring2) < 1.0 - epsilon) {
-                result.push(ring.clone());
-            }
-        }
-        result
-    }
-
     /// Given a set of logs L(x_i) specified using the C^2 vectors x_i, find all rings. Return each
     /// ring as a single C^2 vector.
-    fn compute_rings(logs: &Vec<C2>) -> Vec<C2> {
+    fn compute_rings(logs: &Vec<Log>) -> Vec<Fiber> {
         let num_logs = logs.len();
         let mut result = vec![];
         // Check all triples (i, j, k) where 0 <= i < j < k < num_logs.
         for (i, j, k) in UnorderedTriples::new(num_logs) {
-            let pipe1 = logs[i];
-            let pipe2 = logs[j];
-            let pipe3 = logs[k];
-            if let Some((ring1, ring2)) = C2::intersect_pipes(&pipe1, &pipe2, &pipe3) {
+            let pipe1 = logs[i].bounding_pipe();
+            let pipe2 = logs[j].bounding_pipe();
+            let pipe3 = logs[k].bounding_pipe();
+            if let Some((ring1, ring2)) = Pipe::intersect(&pipe1, &pipe2, &pipe3) {
                 if Self::logs_contains(&logs, &ring1, i, j, k) {
                     result.push(ring1);
                 }
@@ -77,7 +71,8 @@ impl ConvexPolytwister {
                 }
             }
         }
-        Self::deduplicate_rings(&result)
+        let epsilon = 1e-5;
+        Fiber::deduplicate(&result, epsilon)
     }
 
     fn section_contains(&self, w: f64, point: &Point3<f64>) -> bool {
@@ -136,14 +131,14 @@ impl ConvexPolytwister {
 
     fn scale(&self, ratio: f64) -> Self {
         Self {
-            logs: self.logs.iter().map(|log| log / ratio).collect::<_>(),
-            rings: self.rings.iter().map(|log| log * ratio).collect::<_>(),
+            logs: self.logs.iter().map(|log| log.scale(ratio)).collect::<_>(),
+            rings: self.rings.iter().map(|ring| ring.scale(ratio)).collect::<_>(),
         }
     }
 
     fn radius(&self) -> f64 {
         // Not actually correct, but gets the job done for now
-        self.rings.iter().map(|ring| ring.abs()).max_by(f64::total_cmp).unwrap_or(1.0)
+        self.rings.iter().map(|ring| ring.radius()).max_by(f64::total_cmp).unwrap_or(1.0)
     }
 
     pub fn normalize(&self) -> Self {
@@ -160,7 +155,7 @@ impl Polytwister for ConvexPolytwister {
         let config = config.twisters;
         let mut meshes = vec![];
         for (i, pipe) in self.logs.iter().enumerate() {
-            let pipe = pipe.rotate_real_b();
+            let pipe = pipe.vec.rotate_real_b();
             let pipe_section = PipeSection::from_vector4(&pipe.to_vector4(), w);
             let grid = Grid {
                 u_axis: GridAxis::Linear(config.linear_segments, -config.half_length, config.half_length),

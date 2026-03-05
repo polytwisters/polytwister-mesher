@@ -30,6 +30,7 @@ mod convex_polytwister;
 mod config;
 mod marching_squares;
 mod polytwister;
+mod elements;
 
 use crate::config::Config;
 use crate::polytwister::Polytwister;
