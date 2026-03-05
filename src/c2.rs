@@ -2,19 +2,28 @@ use std::ops::{Mul, Div};
 
 use na::{Complex, Vector2, Vector4, ComplexField, Matrix2};
 
-/// A complex 2-vector.
+/// A complex 2-vector, i.e., a member of the vector space C^2.
 #[derive(Clone, Copy, Debug)]
 pub struct C2 {
     pub vec: Vector2<Complex<f64>>
 }
 
 impl C2 {
-    pub fn from_parts(a: f64, b: f64, c: f64, d: f64) -> Self {
+    /// Create the C^2 vector (x, y) from x and y.
+    pub fn new(x: Complex<f64>, y: Complex<f64>) -> Self {
+        Self {
+            vec: Vector2::new(x, y)
+        }
+    }
+
+    /// Create the C^2 vector (a + bi, c + di) for real a, b, c, d.
+    pub fn from_components(a: f64, b: f64, c: f64, d: f64) -> Self {
         Self {
             vec: Vector2::new(Complex::new(a, b), Complex::new(c, d))
         }
     }
 
+    /// Create the C^2 vector (a + bi, c + di) from the R^4 vector (a, b, c, d).
     pub fn from_vector4(vec: &Vector4<f64>) -> Self {
         Self {
             vec: Vector2::new(
@@ -24,6 +33,7 @@ impl C2 {
         }
     }
 
+    /// Convert the C^2 vector (a + bi, c + di) to the R^4 vector (a, b, c, d).
     pub fn to_vector4(&self) -> Vector4<f64> {
         Vector4::new(
             self.vec.x.re,
@@ -31,12 +41,6 @@ impl C2 {
             self.vec.y.re,
             self.vec.y.im,
         )
-    }
-
-    fn new(a: Complex<f64>, b: Complex<f64>) -> Self {
-        Self {
-            vec: Vector2::new(a, b)
-        }
     }
 
     pub fn abs(&self) -> f64 {
@@ -147,8 +151,21 @@ mod test {
     use super::*;
 
     #[test]
+    fn test_from_components() {
+        let (a, b, c, d) = (1.0, 2.0, -3.0, 4.0);
+        let x = C2::from_components(a, b, c, d);
+        assert_eq!(
+            x.vec,
+            Vector2::new(
+                Complex { re: a, im: b },
+                Complex { re: c, im: d },
+            )
+        );
+    }
+
+    #[test]
     fn test_rotate_real_b() {
-        let x = C2::from_parts(0.0, 0.3, 1.0, 0.3);
+        let x = C2::from_components(0.0, 0.3, 1.0, 0.3);
         let y = x.rotate_real_b();
         assert_abs_diff_eq!(y.vec.y.im, 0.0);
         assert_abs_diff_eq!(y.abs(), x.abs());
@@ -156,7 +173,7 @@ mod test {
 
     #[test]
     fn test_normalizing_su2_matrix() {
-        let x = C2::from_parts(0.1, 0.3, 1.0, 0.3);
+        let x = C2::from_components(0.1, 0.3, 1.0, 0.3);
         let m = x.normalizing_su2_matrix();
         let actual = m * x.vec;
         let expected = Vector2::new(Complex::new(x.abs(), 0.0), Complex::ZERO);
@@ -165,7 +182,7 @@ mod test {
 
     #[test]
     fn test_normalizing_su2_matrix_is_unitary() {
-        let x = C2::from_parts(0.1, 0.3, 1.0, 0.3);
+        let x = C2::from_components(0.1, 0.3, 1.0, 0.3);
         let m = x.normalizing_su2_matrix();
         let adjoint = m.adjoint();
         let actual = m * adjoint;
@@ -175,8 +192,8 @@ mod test {
 
     #[test]
     fn test_intersect_3_pipes_core() {
-        let pipe1 = C2::from_parts(0.0, 0.3, 1.0, 0.3).rotate_real_b();
-        let pipe2 = C2::from_parts(1.0, 0.3, 1.0, 0.1).rotate_real_b();
+        let pipe1 = C2::from_components(0.0, 0.3, 1.0, 0.3).rotate_real_b();
+        let pipe2 = C2::from_components(1.0, 0.3, 1.0, 0.1).rotate_real_b();
         let intersection = C2::intersect_pipes_core(&pipe1, &pipe2);
         if let Some((p1, p2)) = intersection {
             for pipe in [pipe1, pipe2] {
@@ -190,9 +207,9 @@ mod test {
 
     #[test]
     fn test_intersect_3_pipes() {
-        let pipe1 = C2::from_parts(0.0, 0.3, 1.0, 0.3);
-        let pipe2 = C2::from_parts(1.0, 0.3, 1.0, 0.1);
-        let pipe3 = C2::from_parts(1.1, -0.3, 0.4, 0.5); 
+        let pipe1 = C2::from_components(0.0, 0.3, 1.0, 0.3);
+        let pipe2 = C2::from_components(1.0, 0.3, 1.0, 0.1);
+        let pipe3 = C2::from_components(1.1, -0.3, 0.4, 0.5); 
         let intersection = C2::intersect_pipes(&pipe1, &pipe2, &pipe3);
         if let Some((p1, p2)) = intersection {
             for pipe in [pipe1, pipe2, pipe3] {
