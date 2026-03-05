@@ -18,14 +18,14 @@ The executable reads the database file at `./polytwisters.json` which has geomet
 
 ### Quick start
 
-Mesh the tetratwister (defaulting to w = 0.1) and combine rings, strips, and twisters into a single mesh:
+Mesh the tetratwister (defaulting to w = 0.1) and combine rings, strips, and twisters into a single mesh, then use MeshLab to inspect:
 
 ```
 polytwister_mesher tetter --merged out.ply
 meshlab out.ply
 ```
 
-MeshLab is a good tool for quick previewing of such files, because you can just run `meshlab out.ply`. All meshes have vertex normals, so make sure to configure MeshLab to shade using them.
+All meshes have vertex normals, so make sure to configure MeshLab to shade using them.
 
 In place of "tetter" you can use any Bowers acronym (`gaquapiditer`) or full name (`"cube twister"` or `cube-twister` or `cube_twister`) or index (`34`) or symbol `3.3`.
 
@@ -38,10 +38,11 @@ polytwister_mesher tetter -w 0.1 sadtadoditer_meshes/
 This command will create the directory `sadtadoditer_meshes/` and the following four files:
 
 ```
-sadtadoditer_meshes/rings.ply
-sadtadoditer_meshes/strips.ply
-sadtadoditer_meshes/twisters_1.ply
-sadtadoditer_meshes/twisters_2.ply
+sadtadoditer_meshes/
+    rings.ply
+    strips.ply
+    twisters_1.ply
+    twisters_2.ply
 ```
 
 `twisters_1` and `twisters_2` are the two orbits of the twisters. If the polytwister is regular, then it has only one twister orbit and `twisters_2` is an empty mesh.
@@ -62,6 +63,7 @@ This creates `out_dir` and the following structure:
 
 ```
 out_dir/
+    animation_manifest.json
     section_0000/
         rings.ply
         strips.ply
@@ -76,6 +78,8 @@ out_dir/
 ```
 
 where there is one subdirectory for each frame. Each subdirectory is a section directory. The directory `out_dir` is referred to as an animation directory.
+
+The file `animation_manifest.json` contains the computed W values for each section.
 
 ### Configuration
 
