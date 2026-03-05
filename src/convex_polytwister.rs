@@ -7,6 +7,10 @@ use crate::cylinder_curve::CCurve;
 use crate::config::Config;
 use na::{Vector4, Point3, Vector3, Point4};
 
+/// A specification of a convex polytwister intended for deserialization only. It is represented as
+/// a list of C^2 vectors x_i so that the polytwister is the intersection of all L(x_i), where
+/// L(y) is the set of all x in C^2 such that |<x, y>| <= 1. The C^2 vectors x_i are specified as
+/// Vector4s with the real and imaginary parts split.
 #[derive(Deserialize, Clone)]
 #[serde(rename_all="camelCase")]
 pub struct ConvexPolytwisterSpec {
@@ -19,12 +23,18 @@ pub struct ConvexPolytwister {
 }
 
 impl ConvexPolytwisterSpec {
-    pub fn as_convex_polytwister(&self) -> ConvexPolytwister {
+    /// Convert this to a convex polytwister.
+    pub fn to_convex_polytwister(&self) -> ConvexPolytwister {
         ConvexPolytwister::new(self.logs.iter().map(|log| C2::from_vector4(&log)).collect::<_>())
     }
 }
 
 impl ConvexPolytwister {
+    pub fn new(logs: Vec<C2>) -> Self {
+        let rings = Self::compute_rings(&logs);
+        ConvexPolytwister { logs, rings }
+    }
+
     fn logs_contains(logs: &Vec<C2>, fiber: &C2, skip_1: usize, skip_2: usize, skip_3: usize) -> bool {
         for (index, log) in logs.iter().enumerate() {
             if index == skip_1 || index == skip_2 || index == skip_3 {
@@ -48,32 +58,26 @@ impl ConvexPolytwister {
         result
     }
 
+    /// Given a set of logs L(x_i) specified using the C^2 vectors x_i, find all rings. Return each
+    /// ring as a single C^2 vector.
     fn compute_rings(logs: &Vec<C2>) -> Vec<C2> {
         let num_logs = logs.len();
         let mut result = vec![];
-        for i in 0..num_logs {
-            for j in (i + 1)..num_logs {
-                for k in (j + 1)..num_logs {
-                    let pipe1 = logs[i];
-                    let pipe2 = logs[j];
-                    let pipe3 = logs[k];
-                    if let Some((ring1, ring2)) = C2::intersect_pipes(&pipe1, &pipe2, &pipe3) {
-                        if Self::logs_contains(&logs, &ring1, i, j, k) {
-                            result.push(ring1);
-                        }
-                        if Self::logs_contains(&logs, &ring2, i, j, k) {
-                            result.push(ring2);
-                        }
-                    }
+        // Check all triples (i, j, k) where 0 <= i < j < k < num_logs.
+        for (i, j, k) in UnorderedTriples::new(num_logs) {
+            let pipe1 = logs[i];
+            let pipe2 = logs[j];
+            let pipe3 = logs[k];
+            if let Some((ring1, ring2)) = C2::intersect_pipes(&pipe1, &pipe2, &pipe3) {
+                if Self::logs_contains(&logs, &ring1, i, j, k) {
+                    result.push(ring1);
+                }
+                if Self::logs_contains(&logs, &ring2, i, j, k) {
+                    result.push(ring2);
                 }
             }
         }
         Self::deduplicate_rings(&result)
-    }
-
-    pub fn new(logs: Vec<C2>) -> Self {
-        let rings = Self::compute_rings(&logs);
-        ConvexPolytwister { logs, rings }
     }
 
     fn section_contains(&self, w: f64, point: &Point3<f64>) -> bool {
@@ -227,5 +231,79 @@ impl Isosurface for TwisterSection {
         self.pipe_section.as_cylinder().scalar_field_gradient(
             &self.pipe_section.as_cylinder().surface_coords_to_cartesian(u, theta)
         )
+    }
+}
+
+/// An Iterator that returns all triples (i, j, k) where 0 <= i < j < k < n for fixed n.
+struct UnorderedTriples {
+    n: usize,
+    i: usize,
+    j: usize,
+    k: usize
+}
+
+impl UnorderedTriples {
+    fn new(n: usize) -> Self {
+        Self { n, i: 0, j: 1, k: 2 }
+    }
+}
+
+impl Iterator for UnorderedTriples {
+    type Item = (usize, usize, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = (self.i, self.j, self.k);
+        if self.i >= self.n - 2 {
+            return None;
+        }
+        self.k += 1;
+        if self.k >= self.n {
+            self.j += 1;
+            // Reset k.
+            self.k = self.j + 1;
+            if self.j >= self.n - 1 {
+                self.i += 1;
+                // Reset j and k.
+                self.j = self.i + 1;
+                self.k = self.j + 1;
+            }
+        }
+        Some(result)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_iter_unordered_triples_1() {
+        let result = UnorderedTriples::new(5).collect::<Vec<_>>();
+        assert_eq!(
+            result,
+            vec![
+                (0, 1, 2),
+                (0, 1, 3),
+                (0, 1, 4),
+                (0, 2, 3),
+                (0, 2, 4),
+                (0, 3, 4),
+                (1, 2, 3),
+                (1, 2, 4),
+                (1, 3, 4),
+                (2, 3, 4),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_iter_unordered_triples_2() {
+        let n = 10;
+        let n_choose_3 = 120;
+        let result = UnorderedTriples::new(n).collect::<Vec<_>>();
+        assert_eq!(result.len(), n_choose_3);
+        assert!(result.into_iter().all(|(i, j, k)| {
+            i < j && j < k && k < n
+        }));
     }
 }

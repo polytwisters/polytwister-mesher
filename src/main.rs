@@ -139,7 +139,7 @@ enum Commands {
 fn load_polytwister(polytwister_name: &String, database_path: &PathBuf) -> Result<Box<dyn Polytwister>, Box<dyn Error>> {
     if polytwister_name.starts_with("{") {
         let polytwister_spec: ConvexPolytwisterSpec = serde_json::from_str(polytwister_name)?;
-        let polytwister = polytwister_spec.as_convex_polytwister().normalize();
+        let polytwister = polytwister_spec.to_convex_polytwister().normalize();
         Ok(Box::new(polytwister))
     } else {
         let mut string = String::new();
