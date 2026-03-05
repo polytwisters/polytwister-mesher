@@ -12,6 +12,8 @@ impl Fiber {
     pub fn from_vector4(vec4: &Vector4<f64>) -> Self { Self::new(C2::from_vector4(vec4)) }
     pub fn to_vector4(&self) -> Vector4<f64> { self.vec.to_vector4() }
 
+    pub fn zero() -> Self { Self { vec: C2::zero() } }
+
     pub fn radius(&self) -> f64 {
         self.vec.abs()
     }
@@ -130,7 +132,7 @@ impl Log {
     }
 
     pub fn contains(&self, fiber: &Fiber) -> bool {
-        self.vec.inner_abs(&fiber.vec) > 1.0
+        self.vec.inner_abs(&fiber.vec) <= 1.0
     }
 
     pub fn bounding_pipe(&self) -> Pipe {

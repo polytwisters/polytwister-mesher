@@ -2,6 +2,9 @@ use core::f64;
 use na::{Matrix2, Matrix4};
 use nalgebra::{Point2, Vector2, Vector4};
 
+mod unordered_triples;
+pub use unordered_triples::UnorderedTriples;
+
 pub fn squared(x: f64) -> f64 {
     x * x
 }

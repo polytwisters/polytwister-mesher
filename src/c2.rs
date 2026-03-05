@@ -43,6 +43,10 @@ impl C2 {
         }
     }
 
+    pub fn zero() -> Self {
+        Self { vec: Vector2::zeros() }
+    }
+
     /// Convert the C^2 vector (a + bi, c + di) to the R^4 vector (a, b, c, d).
     pub fn to_vector4(&self) -> Vector4<f64> {
         Vector4::new(
