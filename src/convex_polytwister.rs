@@ -238,17 +238,31 @@ impl Isosurface for TwisterSection {
 mod test {
     use super::*;
 
-    #[test]
-    fn test_dyster() {
-        let dyster = ConvexPolytwister::new(vec![
+    fn dyster() -> ConvexPolytwister {
+        ConvexPolytwister::new(vec![
             Log::new(C2::from_components(1.0, 0.0, 0.0, 0.0)),
             Log::new(C2::from_components(0.0, 0.0, 1.0, 0.0)),
             Log::new(C2::from_components(0.0, 1.0, 1.0, 0.0)),
-        ]);
+        ])
+    }
+
+    #[test]
+    fn test_dyster() {
+        let dyster = dyster();
         let rings = dyster.rings.clone();
         assert_eq!(rings.len(), 2);
         assert!(dyster.contains(&Fiber::zero()));
         assert!(dyster.contains(&rings[0]));
         assert!(dyster.contains(&rings[1]));
+    }
+
+    #[test]
+    fn test_basic() {
+        let dyster = dyster();
+        let meshes = dyster.as_meshes(0.3, &Config::default());
+        assert!(meshes.ring_meshes.len() > 0);
+        assert!(meshes.strip_meshes.len() > 0);
+        assert!(meshes.twister_meshes_orbit_1.len() > 0);
+        assert!(meshes.twister_meshes_orbit_2.len() == 0);
     }
 }
