@@ -270,12 +270,23 @@ mod test {
     fn test_cross_section_basic() {
         let dyster = dyster();
         let w = 0.2;
+        let ring_sections = dyster.rings.iter().map(|ring| ring.cross_section(w));
+        let pipe_sections: Vec<PipeSection> = dyster.logs.iter().map(|log| log.pipe().cross_section(w)).collect();
+        for ring_section in ring_sections {
+            let mut points = vec![];
+            ring_section.add_points_to_vec(&mut points);
+            for point in points {
+                for pipe_section in pipe_sections.iter() {
+                    assert!(pipe_section.interior_contains(&point));
+                }
+            }
+        }
     }
 
     /// Issue #11, fails because ConvexPolytwister does not correctly handle L(0, 1).
     #[test]
     #[ignore]
-    fn test_cross_section_plane() {
+    fn test_cross_section_meshing() {
         let dyster = dyster_with_plane();
         let meshes = dyster.as_meshes(0.3, &Config::default());
         assert!(meshes.ring_meshes.len() > 0);
