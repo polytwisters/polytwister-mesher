@@ -238,9 +238,19 @@ impl Isosurface for ConvexTwisterSection {
 mod test {
     use super::*;
 
-    fn dyster() -> ConvexPolytwister {
+    /** Example of a dyster. One pipe has two planes as its cross section. */
+    fn dyster_with_plane() -> ConvexPolytwister {
         ConvexPolytwister::new(vec![
             Log::new(C2::from_components(1.0, 0.0, 0.0, 0.0)),
+            Log::new(C2::from_components(0.0, 0.0, 1.0, 0.0)),
+            Log::new(C2::from_components(0.0, 1.0, 1.0, 0.0)),
+        ])
+    }
+
+    /** General example of a dyster. */
+    fn dyster() -> ConvexPolytwister {
+        ConvexPolytwister::new(vec![
+            Log::new(C2::from_components(1.0, 0.0, 0.2, -0.1)),
             Log::new(C2::from_components(0.0, 0.0, 1.0, 0.0)),
             Log::new(C2::from_components(0.0, 1.0, 1.0, 0.0)),
         ])
@@ -256,11 +266,21 @@ mod test {
         assert!(dyster.contains(&rings[1]));
     }
 
+    #[test]
+    fn test_cross_section_basic() {
+        let dyster = dyster();
+        let rings = dyster.rings.clone();
+        assert_eq!(rings.len(), 2);
+        assert!(dyster.contains(&Fiber::zero()));
+        assert!(dyster.contains(&rings[0]));
+        assert!(dyster.contains(&rings[1]));
+    }
+
     /// Issue #11, fails because ConvexPolytwister does not correctly handle L(0, 1).
     #[test]
     #[ignore]
-    fn test_cross_section_basic() {
-        let dyster = dyster();
+    fn test_cross_section_plane() {
+        let dyster = dyster_with_plane();
         let meshes = dyster.as_meshes(0.3, &Config::default());
         assert!(meshes.ring_meshes.len() > 0);
         assert!(meshes.strip_meshes.len() > 0);
