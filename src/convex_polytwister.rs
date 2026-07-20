@@ -275,9 +275,11 @@ mod test {
         for ring_section in ring_sections {
             let mut points = vec![];
             ring_section.add_points_to_vec(&mut points);
-            for point in points {
-                for pipe_section in pipe_sections.iter() {
-                    assert!(pipe_section.interior_contains(&point));
+            for point in points.iter() {
+                let point_vec4 = Vector4::new(point.x, point.y, point.z, w);
+                let fiber = Fiber::from_vector4(&point_vec4);
+                for log in dyster.logs.iter() {
+                    assert!(log.contains(&fiber));
                 }
             }
         }
