@@ -1,6 +1,8 @@
 use na::Vector4;
 use na::{Complex, Vector2, ComplexField, Matrix2};
 use crate::c2::C2;
+use crate::pipe_section::PipeSection;
+use crate::ring::RingSection;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Fiber {
@@ -36,6 +38,10 @@ impl Fiber {
         }
         result
     }
+
+    pub fn cross_section(&self, w: f64) -> RingSection {
+        RingSection::from_vector4(&self.to_vector4(), w)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -47,6 +53,10 @@ impl Pipe {
     pub fn new(vec: C2) -> Self { Self { vec } }
     pub fn from_vector4(vec4: &Vector4<f64>) -> Self { Self::new(C2::from_vector4(vec4)) }
     pub fn to_vector4(&self) -> Vector4<f64> { self.vec.to_vector4() }
+
+    pub fn cross_section(&self, w: f64) -> PipeSection {
+        PipeSection::from_vector4(&self.to_vector4(), w)
+    }
 
     pub fn scale(&self, k: f64) -> Self {
         Self::new(&self.vec / k)
@@ -135,7 +145,8 @@ impl Log {
         self.vec.inner_abs(&fiber.vec) <= 1.0
     }
 
-    pub fn bounding_pipe(&self) -> Pipe {
+    /** The pipe bounding this log. */
+    pub fn pipe(&self) -> Pipe {
         Pipe::new(self.vec)
     }
 }

@@ -60,9 +60,9 @@ impl ConvexPolytwister {
         let mut result = vec![];
         // Check all triples (i, j, k) where 0 <= i < j < k < num_logs.
         for (i, j, k) in UnorderedTriples::new(num_logs) {
-            let pipe1 = logs[i].bounding_pipe();
-            let pipe2 = logs[j].bounding_pipe();
-            let pipe3 = logs[k].bounding_pipe();
+            let pipe1 = logs[i].pipe();
+            let pipe2 = logs[j].pipe();
+            let pipe3 = logs[k].pipe();
             if let Some((ring1, ring2)) = Pipe::intersect(&pipe1, &pipe2, &pipe3) {
                 if Self::logs_contains(&logs, &ring1, i, j, k) {
                     result.push(ring1);
@@ -82,7 +82,7 @@ impl ConvexPolytwister {
 
     fn section_contains(&self, w: f64, point: &Point3<f64>) -> bool {
         for log in self.logs.iter() {
-            let log_section = PipeSection::from_vector4(&log.to_vector4(), w);
+            let log_section = log.pipe().cross_section(w);
             if !log_section.interior_contains(&point) {
                 return false;
             }
@@ -95,7 +95,7 @@ impl ConvexPolytwister {
             if i == skip_1 || i == skip_2 {
                 continue;
             }
-            let log_section = PipeSection::from_vector4(&log.to_vector4(), w);
+            let log_section = log.pipe().cross_section(w);
             if !log_section.interior_contains(&point) {
                 return false;
             }
