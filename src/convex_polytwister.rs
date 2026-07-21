@@ -66,11 +66,10 @@ impl ConvexPolytwister {
             let pipe2 = logs[j].pipe();
             let pipe3 = logs[k].pipe();
             if let Some((ring1, ring2)) = Pipe::intersect(&pipe1, &pipe2, &pipe3) {
-                if Self::logs_contains(&logs, &ring1, i, j, k) {
-                    result.push(ring1);
-                }
-                if Self::logs_contains(&logs, &ring2, i, j, k) {
-                    result.push(ring2);
+                for ring in [ring1, ring2] {
+                    if Self::logs_contains(&logs, &ring, i, j, k) {
+                        result.push(ring);
+                    }
                 }
             }
         }
