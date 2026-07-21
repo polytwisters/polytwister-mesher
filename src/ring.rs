@@ -2,6 +2,7 @@ use core::f64;
 
 use na::{Complex, ComplexField};
 use nalgebra::{Point2, Point3, Vector4};
+use crate::c2::C2;
 use crate::polyline::{self, Polyline};
 use crate::{mesh::Mesh, utils::angle};
 use crate::config::{RingMeshConfig};
@@ -24,6 +25,10 @@ impl RingSection {
             d: vector.w,
             w
         }
+    }
+
+    pub fn from_c2(c2: &C2, w: f64) -> Self {
+        RingSection::from_vector4(&c2.to_vector4(), w)
     }
 
     pub fn as_points(&self) -> RingSectionResult {
@@ -104,18 +109,27 @@ pub enum RingSectionResult {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::elements::Fiber;
     use approx::*;
 
+    /**
+     * Given a fiber F, compute the cross section of F at w. Take the two resulting points in 4D
+     * space, extend them to fibers F1 and F2, and confirm that F = F1 = F2.
+     */
     #[test]
     fn test_ring_section() {
-        let section = RingSection {
-            a: 0.3,
-            b: 0.4,
-            c: -0.5,
-            d: 0.1,
-            w: 0.3,
-        };
-        assert!(matches!(section.as_points(), RingSectionResult::Points(_, _)));
+        let c2 = C2::from_components(0.3, 0.4, -0.5, 0.1);
+        let fiber = Fiber::new(c2);
+        let w = 0.3;
+        let section = fiber.cross_section(w);
+        if let RingSectionResult::Points(p1, p2) = section.as_points() {
+            for point in [p1, p2] {
+                let reconstructed_fiber = Fiber::new(C2::from_components(point.x, point.y, point.z, w));
+                assert_abs_diff_eq!(fiber.similarity(&reconstructed_fiber), 1.0);
+            }
+        } else {
+            panic!("Ring section should be two points");
+        }
     }
 
     #[test]

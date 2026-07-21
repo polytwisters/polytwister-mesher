@@ -20,8 +20,8 @@ pub struct ConvexPolytwisterSpec {
 }
 
 pub struct ConvexPolytwister {
-    logs: Vec<Log>,
-    rings: Vec<Fiber>,
+    pub logs: Vec<Log>,
+    pub rings: Vec<Fiber>,
 }
 
 impl ConvexPolytwisterSpec {
@@ -32,6 +32,8 @@ impl ConvexPolytwisterSpec {
         ).collect::<_>())
     }
 }
+
+const EPSILON: f64 = 1e-5;
 
 impl ConvexPolytwister {
     pub fn new(logs: Vec<Log>) -> Self {
@@ -46,7 +48,7 @@ impl ConvexPolytwister {
             if index == skip_1 || index == skip_2 || index == skip_3 {
                 continue;
             }
-            if log.contains(fiber) {
+            if !log.contains(&fiber.vec, EPSILON) {
                 return false;
             }
         }
@@ -60,9 +62,9 @@ impl ConvexPolytwister {
         let mut result = vec![];
         // Check all triples (i, j, k) where 0 <= i < j < k < num_logs.
         for (i, j, k) in UnorderedTriples::new(num_logs) {
-            let pipe1 = logs[i].bounding_pipe();
-            let pipe2 = logs[j].bounding_pipe();
-            let pipe3 = logs[k].bounding_pipe();
+            let pipe1 = logs[i].pipe();
+            let pipe2 = logs[j].pipe();
+            let pipe3 = logs[k].pipe();
             if let Some((ring1, ring2)) = Pipe::intersect(&pipe1, &pipe2, &pipe3) {
                 if Self::logs_contains(&logs, &ring1, i, j, k) {
                     result.push(ring1);
@@ -72,17 +74,16 @@ impl ConvexPolytwister {
                 }
             }
         }
-        let epsilon = 1e-5;
-        Fiber::deduplicate(&result, epsilon)
+        Fiber::deduplicate(&result, EPSILON)
     }
 
-    fn contains(&self, fiber: &Fiber) -> bool {
-        self.logs.iter().all(|log| log.contains(&fiber)) 
+    fn contains(&self, point: &C2, epsilon: f64) -> bool {
+        self.logs.iter().all(|log| log.contains(&point, epsilon)) 
     }
 
     fn section_contains(&self, w: f64, point: &Point3<f64>) -> bool {
         for log in self.logs.iter() {
-            let log_section = PipeSection::from_vector4(&log.to_vector4(), w);
+            let log_section = log.pipe().cross_section(w);
             if !log_section.interior_contains(&point) {
                 return false;
             }
@@ -95,7 +96,7 @@ impl ConvexPolytwister {
             if i == skip_1 || i == skip_2 {
                 continue;
             }
-            let log_section = PipeSection::from_vector4(&log.to_vector4(), w);
+            let log_section = log.pipe().cross_section(w);
             if !log_section.interior_contains(&point) {
                 return false;
             }
@@ -106,8 +107,7 @@ impl ConvexPolytwister {
     fn mesh_strip(&self, ccurve: CCurve, w: f64, config: &TorusMeshConfig, skip_1: usize, skip_2: usize) -> Mesh {
         let mut points = vec![];
         for ring in self.rings.iter() {
-            let section = RingSection::from_vector4(&ring.to_vector4(), w);
-            section.add_points_to_vec(&mut points);
+            ring.cross_section(w).add_points_to_vec(&mut points);
         }
         let mut t_values = points.iter().filter_map(|point|
             if ccurve.contains(&point) {
@@ -160,19 +160,20 @@ impl Polytwister for ConvexPolytwister {
         let config = config.twisters;
         let mut meshes = vec![];
         for (i, pipe) in self.logs.iter().enumerate() {
-            let pipe = pipe.vec.rotate_real_b();
-            let pipe_section = PipeSection::from_vector4(&pipe.to_vector4(), w);
+            let pipe_with_real_b = Pipe::new(pipe.vec.rotate_real_b());
+            let pipe_section = pipe_with_real_b.cross_section(w);
             let grid = Grid {
                 u_axis: GridAxis::Linear(config.linear_segments, -config.half_length, config.half_length),
                 v_axis: GridAxis::Circular(config.radial_segments, f64::consts::TAU),
             };
             let surface = ConvexTwisterSection {
                 pipe_section,
+                // Grab all log sections except the one we're currently on.
                 log_sections: self.logs.iter().enumerate().filter_map(|(j, log)|
                     if (i == j) {
                         None
                     } else {
-                        Some(PipeSection::from_vector4(&log.to_vector4(), w))
+                        Some(log.pipe().cross_section(w))
                     }
                 ).collect::<_>()
             };
@@ -187,8 +188,8 @@ impl Polytwister for ConvexPolytwister {
         let mut meshes = vec![];
         for i in 0..self.logs.len() {
             for j in (i + 1)..self.logs.len() {
-                let pipe1 = PipeSection::from_vector4(&self.logs[i].to_vector4(), w);
-                let pipe2 = PipeSection::from_vector4(&self.logs[j].to_vector4(), w);
+                let pipe1 = self.logs[i].pipe().cross_section(w);
+                let pipe2 = self.logs[j].pipe().cross_section(w);
                 let torus_section = pipe1.intersect(&pipe2);
                 for ccurve in torus_section.ccurves {
                     let mesh = self.mesh_strip(ccurve, w, &config, i, j);
@@ -202,7 +203,7 @@ impl Polytwister for ConvexPolytwister {
     fn rings_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh> {
         let mut meshes = vec![];
         for ring in self.rings.iter() {
-            let ring_section = RingSection::from_vector4(&ring.to_vector4(), w);
+            let ring_section = ring.cross_section(w);
             let mesh = ring_section.as_mesh(&config.rings);
             meshes.push(mesh);
         }
@@ -237,8 +238,23 @@ impl Isosurface for ConvexTwisterSection {
 #[cfg(test)]
 mod test {
     use super::*;
+    use serde_json;
 
     fn dyster() -> ConvexPolytwister {
+        let spec: ConvexPolytwisterSpec = serde_json::from_str(r#"
+            {
+                "logs": [
+                    [1.0, 0.2, 0.0, 0.0],
+                    [0.0, 0.1, 0.9, 0.0],
+                    [0.0, 1.0, 1.0, 0.0]
+                ]
+            }
+        "#).unwrap();
+        spec.to_convex_polytwister()
+    }
+
+    /** Example of a dyster. One pipe has two planes as its cross section. */
+    fn dyster_with_plane() -> ConvexPolytwister {
         ConvexPolytwister::new(vec![
             Log::new(C2::from_components(1.0, 0.0, 0.0, 0.0)),
             Log::new(C2::from_components(0.0, 0.0, 1.0, 0.0)),
@@ -246,21 +262,69 @@ mod test {
         ])
     }
 
+    /** General example of a polytwister. */
+    fn arbitrary_convex_polytwister() -> ConvexPolytwister {
+        let spec: ConvexPolytwisterSpec = serde_json::from_str(r#"
+            {
+                "logs": [
+                    [0.6, -0.0, 0.5, -0.5],
+                    [-0.6, -0.3, 0.4, 0.7],
+                    [-0.3, 0.5, 0.5, 0.5],
+                    [0.9, -0.1, -0.1, -0.6],
+                    [0.6, 0.2, 0.2, -0.6],
+                    [0.0, 0.3, 0.2, 0.8]
+                ]
+            }
+        "#).unwrap();
+        spec.to_convex_polytwister()
+    }
+
+    /// Arbitrary dyster has two rings, both of which it contains.
     #[test]
     fn test_dyster() {
         let dyster = dyster();
         let rings = dyster.rings.clone();
         assert_eq!(rings.len(), 2);
-        assert!(dyster.contains(&Fiber::zero()));
-        assert!(dyster.contains(&rings[0]));
-        assert!(dyster.contains(&rings[1]));
+        assert!(dyster.contains(&C2::zero(), EPSILON));
+        assert!(dyster.contains(&rings[0].vec, EPSILON));
+        assert!(dyster.contains(&rings[1].vec, EPSILON));
+    }
+
+    /// Arbitrary polytwister contains all its rings.
+    #[test]
+    fn test_rings_basic() {
+        let polytwister = arbitrary_convex_polytwister();
+        for ring in polytwister.rings.iter() {
+            assert!(polytwister.contains(&ring.vec, EPSILON));
+        }
+    }
+
+    /// Given a polytwister cross section, check that each ring cross section is inside each pipe
+    /// cross section.
+    #[test]
+    fn test_cross_section_basic() {
+        let dyster = arbitrary_convex_polytwister();
+        let w = 0.2;
+        let ring_sections = dyster.rings.iter().map(|ring| ring.cross_section(w));
+        let pipe_sections: Vec<PipeSection> = dyster.logs.iter().map(|log| log.pipe().cross_section(w)).collect();
+        for ring_section in ring_sections {
+            let mut points = vec![];
+            ring_section.add_points_to_vec(&mut points);
+            for point in points.iter() {
+                let point_c2 = C2::from_components(point.x, point.y, point.z, w);
+                for log in dyster.logs.iter() {
+                    let tmp = log.scalar_field(&point_c2);
+                    assert!(tmp <= 1e-10);
+                }
+            }
+        }
     }
 
     /// Issue #11, fails because ConvexPolytwister does not correctly handle L(0, 1).
     #[test]
     #[ignore]
-    fn test_cross_section_basic() {
-        let dyster = dyster();
+    fn test_cross_section_meshing() {
+        let dyster = dyster_with_plane();
         let meshes = dyster.as_meshes(0.3, &Config::default());
         assert!(meshes.ring_meshes.len() > 0);
         assert!(meshes.strip_meshes.len() > 0);

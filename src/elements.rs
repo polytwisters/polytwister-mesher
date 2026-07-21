@@ -1,6 +1,10 @@
 use na::Vector4;
 use na::{Complex, Vector2, ComplexField, Matrix2};
 use crate::c2::C2;
+use crate::pipe_section::PipeSection;
+use crate::ring::RingSection;
+
+const EPSILON: f64 = 1e-5;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Fiber {
@@ -22,7 +26,7 @@ impl Fiber {
         Self::new(&self.vec * k)
     }
 
-    pub fn similarity(&self, other: Self) -> f64 {
+    pub fn similarity(&self, other: &Self) -> f64 {
         self.vec.similarity(&other.vec)
     }
 
@@ -30,11 +34,15 @@ impl Fiber {
         let epsilon = 1e-5;
         let mut result = vec![];
         for fiber in fibers.iter() {
-            if result.iter().all(|fiber2| fiber.similarity(*fiber2) < 1.0 - epsilon) {
+            if result.iter().all(|fiber2| fiber.similarity(fiber2) < 1.0 - epsilon) {
                 result.push(fiber.clone());
             }
         }
         result
+    }
+
+    pub fn cross_section(&self, w: f64) -> RingSection {
+        RingSection::from_vector4(&self.to_vector4(), w)
     }
 }
 
@@ -48,12 +56,26 @@ impl Pipe {
     pub fn from_vector4(vec4: &Vector4<f64>) -> Self { Self::new(C2::from_vector4(vec4)) }
     pub fn to_vector4(&self) -> Vector4<f64> { self.vec.to_vector4() }
 
+    pub fn cross_section(&self, w: f64) -> PipeSection {
+        PipeSection::from_vector4(&self.to_vector4(), w)
+    }
+
     pub fn scale(&self, k: f64) -> Self {
         Self::new(&self.vec / k)
     }
 
     pub fn inner_abs(&self, fiber: &Fiber) -> f64 {
         self.vec.inner_abs(&fiber.vec)
+    }
+
+    /// For pipe P(y), compute |<y, x>|^2 - 1. This is 0 on the pipe, negative inside, and positive
+    /// outside.
+    pub fn scalar_field(&self, point: &C2) -> f64 {
+        self.vec.inner_abs_squared(point) - 1.0
+    }
+
+    pub fn contains(&self, point: &C2, epsilon: f64) -> bool {
+        self.scalar_field(point).abs() < epsilon
     }
 
     /// Given p_1, p_2 in C^2, solve the system of nonlinear equations
@@ -131,11 +153,19 @@ impl Log {
         Self::new(&self.vec / k)
     }
 
-    pub fn contains(&self, fiber: &Fiber) -> bool {
-        self.vec.inner_abs(&fiber.vec) <= 1.0
+    /// For log L(y), compute |<y, x>|^2 - 1. This is 0 on the boundary of the log, negative in its
+    /// interior, and positive in the exterior of the log.
+    pub fn scalar_field(&self, point: &C2) -> f64 {
+        self.vec.inner_abs_squared(point) - 1.0
     }
 
-    pub fn bounding_pipe(&self) -> Pipe {
+    /// Return true if this log contains the given point.
+    pub fn contains(&self, point: &C2, epsilon: f64) -> bool {
+        self.scalar_field(&point) < epsilon
+    }
+
+    /** The pipe bounding this log. */
+    pub fn pipe(&self) -> Pipe {
         Pipe::new(self.vec)
     }
 }
@@ -147,8 +177,8 @@ mod test {
 
     #[test]
     fn test_intersect_3_pipes_core() {
-        let pipe1 = C2::from_components(0.0, 0.3, 1.0, 0.3).rotate_real_b();
-        let pipe2 = C2::from_components(1.0, 0.3, 1.0, 0.1).rotate_real_b();
+        let pipe1 = C2::from_components(0.0, 0.3, -1.5, 0.33).rotate_real_b();
+        let pipe2 = C2::from_components(1.1, -0.4, 0.2, 0.1).rotate_real_b();
         let intersection = Pipe::intersect_core(&pipe1, &pipe2);
         if let Some((p1, p2)) = intersection {
             for pipe in [pipe1, pipe2] {
@@ -163,13 +193,13 @@ mod test {
     #[test]
     fn test_intersect_3_pipes() {
         let pipe1 = Pipe::new(C2::from_components(0.0, 0.3, 1.0, 0.3));
-        let pipe2 = Pipe::new(C2::from_components(1.0, 0.3, 1.0, 0.1));
+        let pipe2 = Pipe::new(C2::from_components(-1.0, 0.4, 0.5, 0.1));
         let pipe3 = Pipe::new(C2::from_components(1.1, -0.3, 0.4, 0.5)); 
         let intersection = Pipe::intersect(&pipe1, &pipe2, &pipe3);
         if let Some((f1, f2)) = intersection {
             for pipe in [pipe1, pipe2, pipe3] {
-                assert_abs_diff_eq!(pipe.inner_abs(&f1), 1.0, epsilon = 1e-5);
-                assert_abs_diff_eq!(pipe.inner_abs(&f2), 1.0, epsilon = 1e-5);
+                assert!(pipe.contains(&f1.vec, EPSILON));
+                assert!(pipe.contains(&f2.vec, EPSILON));
             }
         } else {
             panic!("Didn't intersect");
