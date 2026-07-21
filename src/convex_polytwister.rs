@@ -301,9 +301,7 @@ mod test {
 
     /// Given a polytwister cross section, check that each ring cross section is inside each pipe
     /// cross section.
-    /// Failing due to issue #12.
     #[test]
-    #[ignore]
     fn test_cross_section_basic() {
         let dyster = arbitrary_convex_polytwister();
         let w = 0.2;
