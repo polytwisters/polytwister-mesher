@@ -170,8 +170,8 @@ mod test {
 
     #[test]
     fn test_intersect_3_pipes_core() {
-        let pipe1 = C2::from_components(0.0, 0.3, 1.0, 0.3).rotate_real_b();
-        let pipe2 = C2::from_components(1.0, 0.3, 1.0, 0.1).rotate_real_b();
+        let pipe1 = C2::from_components(0.0, 0.3, -1.5, 0.33).rotate_real_b();
+        let pipe2 = C2::from_components(1.1, -0.4, 0.2, 0.1).rotate_real_b();
         let intersection = Pipe::intersect_core(&pipe1, &pipe2);
         if let Some((p1, p2)) = intersection {
             for pipe in [pipe1, pipe2] {
@@ -186,7 +186,7 @@ mod test {
     #[test]
     fn test_intersect_3_pipes() {
         let pipe1 = Pipe::new(C2::from_components(0.0, 0.3, 1.0, 0.3));
-        let pipe2 = Pipe::new(C2::from_components(1.0, 0.3, 1.0, 0.1));
+        let pipe2 = Pipe::new(C2::from_components(-1.0, 0.4, 0.5, 0.1));
         let pipe3 = Pipe::new(C2::from_components(1.1, -0.3, 0.4, 0.5)); 
         let intersection = Pipe::intersect(&pipe1, &pipe2, &pipe3);
         if let Some((f1, f2)) = intersection {
