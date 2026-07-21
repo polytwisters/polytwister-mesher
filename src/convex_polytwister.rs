@@ -219,7 +219,6 @@ struct ConvexTwisterSection {
 
 impl Isosurface for ConvexTwisterSection {
     fn contains_point(&self, p: &Point3<f64>) -> bool {
-        return true;
         for log_section in self.log_sections.iter() {
             if !log_section.interior_contains(p) {
                 return false;
