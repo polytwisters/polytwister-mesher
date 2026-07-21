@@ -73,6 +73,11 @@ impl C2 {
         other.vec.dotc(&self.vec)
     }
 
+    /// Absolute value of inner product squared.
+    pub fn inner_abs_squared(&self, other: &Self) -> f64 {
+        self.inner(&other).modulus_squared()
+    }
+
     /// Absolute value of inner product.
     pub fn inner_abs(&self, other: &Self) -> f64 {
         self.inner(&other).abs()

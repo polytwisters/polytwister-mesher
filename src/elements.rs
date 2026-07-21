@@ -66,6 +66,12 @@ impl Pipe {
         self.vec.inner_abs(&fiber.vec)
     }
 
+    /// For pipe P(y), compute |<y, x>|^2 - 1. This is 0 on the pipe, negative inside, and positive
+    /// outside.
+    pub fn scalar_field(&self, point: &C2) -> f64 {
+        self.vec.inner_abs_squared(point) - 1.0
+    }
+
     /// Given p_1, p_2 in C^2, solve the system of nonlinear equations
     /// |<p_1, z>| = 1, |<p_2, z>| = 1 for all z of the form z = (1, z2). If there are no solutions
     /// return None, if there are two solutions return both, if there is one solution return that
@@ -141,14 +147,14 @@ impl Log {
         Self::new(&self.vec / k)
     }
 
-    /// For log L(y), compute |<y, x>| - 1. This is 0 on the boundary of the log, negative in its
+    /// For log L(y), compute |<y, x>|^2 - 1. This is 0 on the boundary of the log, negative in its
     /// interior, and positive in the exterior of the log.
     pub fn scalar_field(&self, point: &C2) -> f64 {
-        self.vec.inner_abs(point)
+        self.vec.inner_abs_squared(point)
     }
 
     pub fn contains(&self, fiber: &Fiber) -> bool {
-        self.vec.inner_abs(&fiber.vec) <= 1.0
+        self.vec.inner_abs_squared(&fiber.vec) <= 1.0
     }
 
     /** The pipe bounding this log. */

@@ -440,10 +440,12 @@ mod test {
         let pipe_section = pipe.cross_section(w);
         let fiber_section = fiber.cross_section(w);
 
-        let expected = pipe_c2.inner_abs(&fiber_c2) - 1.0;
+        let expected = pipe.scalar_field(&fiber_c2);
         if let RingSectionResult::Points(point1, point2) = fiber_section.as_points() {
-            let actual = pipe_section.scalar_field(&point1);
-            assert_abs_diff_eq!(expected, actual);
+            for point in [point1, point2] {
+                let actual = pipe_section.scalar_field(&point);
+                assert_abs_diff_eq!(expected, actual);
+            }
         } else {
             panic!("No intersection");
         }
