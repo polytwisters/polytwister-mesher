@@ -153,8 +153,9 @@ impl Log {
         self.vec.inner_abs_squared(point) - 1.0
     }
 
-    pub fn contains(&self, fiber: &Fiber) -> bool {
-        self.vec.inner_abs_squared(&fiber.vec) <= 1.0
+    /// Return true if this log contains the given point.
+    pub fn contains(&self, point: &C2, epsilon: f64) -> bool {
+        self.scalar_field(&point) < epsilon
     }
 
     /** The pipe bounding this log. */

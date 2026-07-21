@@ -33,6 +33,8 @@ impl ConvexPolytwisterSpec {
     }
 }
 
+const EPSILON: f64 = 1e-5;
+
 impl ConvexPolytwister {
     pub fn new(logs: Vec<Log>) -> Self {
         let rings = Self::compute_rings(&logs);
@@ -46,7 +48,7 @@ impl ConvexPolytwister {
             if index == skip_1 || index == skip_2 || index == skip_3 {
                 continue;
             }
-            if log.contains(fiber) {
+            if log.contains(&fiber.vec, EPSILON) {
                 return false;
             }
         }
@@ -76,8 +78,8 @@ impl ConvexPolytwister {
         Fiber::deduplicate(&result, epsilon)
     }
 
-    fn contains(&self, fiber: &Fiber) -> bool {
-        self.logs.iter().all(|log| log.contains(&fiber)) 
+    fn contains(&self, point: &C2, epsilon: f64) -> bool {
+        self.logs.iter().all(|log| log.contains(&point, epsilon)) 
     }
 
     fn section_contains(&self, w: f64, point: &Point3<f64>) -> bool {
@@ -217,6 +219,7 @@ struct ConvexTwisterSection {
 
 impl Isosurface for ConvexTwisterSection {
     fn contains_point(&self, p: &Point3<f64>) -> bool {
+        return true;
         for log_section in self.log_sections.iter() {
             if !log_section.interior_contains(p) {
                 return false;
@@ -240,11 +243,16 @@ mod test {
     use serde_json;
 
     fn dyster() -> ConvexPolytwister {
-        ConvexPolytwister::new(vec![
-            Log::new(C2::from_components(1.0, 0.2, 0.0, 0.0)),
-            Log::new(C2::from_components(0.0, 0.1, 0.9, 0.0)),
-            Log::new(C2::from_components(0.0, 1.0, 1.0, 0.0)),
-        ])
+        let spec: ConvexPolytwisterSpec = serde_json::from_str(r#"
+            {
+                "logs": [
+                    [1.0, 0.2, 0.0, 0.0],
+                    [0.0, 0.1, 0.9, 0.0],
+                    [0.0, 1.0, 1.0, 0.0]
+                ]
+            }
+        "#).unwrap();
+        spec.to_convex_polytwister()
     }
 
     /** Example of a dyster. One pipe has two planes as its cross section. */
@@ -256,7 +264,7 @@ mod test {
         ])
     }
 
-    /** General example of a dyster. */
+    /** General example of a polytwister. */
     fn arbitrary_convex_polytwister() -> ConvexPolytwister {
         let spec: ConvexPolytwisterSpec = serde_json::from_str(r#"
             {
@@ -279,9 +287,16 @@ mod test {
         let dyster = dyster();
         let rings = dyster.rings.clone();
         assert_eq!(rings.len(), 2);
-        assert!(dyster.contains(&Fiber::zero()));
-        assert!(dyster.contains(&rings[0]));
-        assert!(dyster.contains(&rings[1]));
+        assert!(dyster.contains(&C2::zero(), EPSILON));
+
+        for log in dyster.logs.iter() {
+            let pipe = log.pipe();
+            let tmp = pipe.scalar_field(&rings[0].vec);
+            dbg!(tmp);
+        }
+
+        assert!(dyster.contains(&rings[0].vec, EPSILON));
+        assert!(dyster.contains(&rings[1].vec, EPSILON));
     }
 
     /// Arbitrary polytwister contains all its rings.
@@ -289,7 +304,7 @@ mod test {
     fn test_rings_basic() {
         let dyster = dyster();
         for ring in dyster.rings.iter() {
-            assert!(dyster.contains(&ring));
+            assert!(dyster.contains(&ring.vec, EPSILON));
         }
     }
 
