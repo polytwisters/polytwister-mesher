@@ -150,7 +150,7 @@ impl Log {
     /// For log L(y), compute |<y, x>|^2 - 1. This is 0 on the boundary of the log, negative in its
     /// interior, and positive in the exterior of the log.
     pub fn scalar_field(&self, point: &C2) -> f64 {
-        self.vec.inner_abs_squared(point)
+        self.vec.inner_abs_squared(point) - 1.0
     }
 
     pub fn contains(&self, fiber: &Fiber) -> bool {

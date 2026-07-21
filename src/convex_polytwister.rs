@@ -266,9 +266,9 @@ mod test {
         assert!(dyster.contains(&rings[1]));
     }
 
-    /// Issue #12, fails for unclear reasons.
+    /// Given a polytwister cross section, check that each ring cross section is inside each pipe
+    /// cross section.
     #[test]
-    #[ignore]
     fn test_cross_section_basic() {
         let dyster = dyster();
         let w = 0.2;
@@ -280,7 +280,7 @@ mod test {
             for point in points.iter() {
                 let point_c2 = C2::from_components(point.x, point.y, point.z, w);
                 for log in dyster.logs.iter() {
-                    assert!(log.scalar_field(&point_c2) <= 1e-4);
+                    assert!(log.scalar_field(&point_c2) <= 1e-10);
                 }
             }
         }
