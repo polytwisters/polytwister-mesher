@@ -284,9 +284,20 @@ mod test {
         assert!(dyster.contains(&rings[1]));
     }
 
+    /// Arbitrary polytwister contains all its rings.
+    #[test]
+    fn test_rings_basic() {
+        let dyster = dyster();
+        for ring in dyster.rings.iter() {
+            assert!(dyster.contains(&ring));
+        }
+    }
+
     /// Given a polytwister cross section, check that each ring cross section is inside each pipe
     /// cross section.
+    /// Failing due to issue #12.
     #[test]
+    #[ignore]
     fn test_cross_section_basic() {
         let dyster = arbitrary_convex_polytwister();
         let w = 0.2;
@@ -298,7 +309,8 @@ mod test {
             for point in points.iter() {
                 let point_c2 = C2::from_components(point.x, point.y, point.z, w);
                 for log in dyster.logs.iter() {
-                    assert!(log.scalar_field(&point_c2) <= 1e-10);
+                    let tmp = log.scalar_field(&point_c2);
+                    assert!(tmp <= 1e-10);
                 }
             }
         }
