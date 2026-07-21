@@ -24,7 +24,7 @@ impl Fiber {
         Self::new(&self.vec * k)
     }
 
-    pub fn similarity(&self, other: Self) -> f64 {
+    pub fn similarity(&self, other: &Self) -> f64 {
         self.vec.similarity(&other.vec)
     }
 
@@ -32,7 +32,7 @@ impl Fiber {
         let epsilon = 1e-5;
         let mut result = vec![];
         for fiber in fibers.iter() {
-            if result.iter().all(|fiber2| fiber.similarity(*fiber2) < 1.0 - epsilon) {
+            if result.iter().all(|fiber2| fiber.similarity(fiber2) < 1.0 - epsilon) {
                 result.push(fiber.clone());
             }
         }
