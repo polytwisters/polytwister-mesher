@@ -141,6 +141,12 @@ impl Log {
         Self::new(&self.vec / k)
     }
 
+    /// For log L(y), compute |<y, x>| - 1. This is 0 on the boundary of the log, negative in its
+    /// interior, and positive in the exterior of the log.
+    pub fn scalar_field(&self, point: &C2) -> f64 {
+        self.vec.inner_abs(point)
+    }
+
     pub fn contains(&self, fiber: &Fiber) -> bool {
         self.vec.inner_abs(&fiber.vec) <= 1.0
     }

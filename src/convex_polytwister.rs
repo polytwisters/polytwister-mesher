@@ -278,10 +278,9 @@ mod test {
             let mut points = vec![];
             ring_section.add_points_to_vec(&mut points);
             for point in points.iter() {
-                let point_vec4 = Vector4::new(point.x, point.y, point.z, w);
-                let fiber = Fiber::from_vector4(&point_vec4);
+                let point_c2 = C2::from_components(point.x, point.y, point.z, w);
                 for log in dyster.logs.iter() {
-                    assert!(log.contains(&fiber));
+                    assert!(log.scalar_field(&point_c2) <= 1e-4);
                 }
             }
         }
