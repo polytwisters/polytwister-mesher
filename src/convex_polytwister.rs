@@ -237,6 +237,15 @@ impl Isosurface for ConvexTwisterSection {
 #[cfg(test)]
 mod test {
     use super::*;
+    use serde_json;
+
+    fn dyster() -> ConvexPolytwister {
+        ConvexPolytwister::new(vec![
+            Log::new(C2::from_components(1.0, 0.2, 0.0, 0.0)),
+            Log::new(C2::from_components(0.0, 0.1, 0.9, 0.0)),
+            Log::new(C2::from_components(0.0, 1.0, 1.0, 0.0)),
+        ])
+    }
 
     /** Example of a dyster. One pipe has two planes as its cross section. */
     fn dyster_with_plane() -> ConvexPolytwister {
@@ -248,14 +257,23 @@ mod test {
     }
 
     /** General example of a dyster. */
-    fn dyster() -> ConvexPolytwister {
-        ConvexPolytwister::new(vec![
-            Log::new(C2::from_components(1.0, 0.0, 0.2, -0.1)),
-            Log::new(C2::from_components(0.1, 0.2, 1.0, 0.0)),
-            Log::new(C2::from_components(0.0, 1.0, 1.0, 0.0)),
-        ])
+    fn arbitrary_convex_polytwister() -> ConvexPolytwister {
+        let spec: ConvexPolytwisterSpec = serde_json::from_str(r#"
+            {
+                "logs": [
+                    [0.6, -0.0, 0.5, -0.5],
+                    [-0.6, -0.3, 0.4, 0.7],
+                    [-0.3, 0.5, 0.5, 0.5],
+                    [0.9, -0.1, -0.1, -0.6],
+                    [0.6, 0.2, 0.2, -0.6],
+                    [0.0, 0.3, 0.2, 0.8]
+                ]
+            }
+        "#).unwrap();
+        spec.to_convex_polytwister()
     }
 
+    /// Arbitrary dyster has two rings, both of which it contains.
     #[test]
     fn test_dyster() {
         let dyster = dyster();
@@ -270,7 +288,7 @@ mod test {
     /// cross section.
     #[test]
     fn test_cross_section_basic() {
-        let dyster = dyster();
+        let dyster = arbitrary_convex_polytwister();
         let w = 0.2;
         let ring_sections = dyster.rings.iter().map(|ring| ring.cross_section(w));
         let pipe_sections: Vec<PipeSection> = dyster.logs.iter().map(|log| log.pipe().cross_section(w)).collect();
