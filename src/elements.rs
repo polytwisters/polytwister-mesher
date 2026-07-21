@@ -4,6 +4,8 @@ use crate::c2::C2;
 use crate::pipe_section::PipeSection;
 use crate::ring::RingSection;
 
+const EPSILON: f64 = 1e-5;
+
 #[derive(Clone, Copy, Debug)]
 pub struct Fiber {
     pub vec: C2
@@ -70,6 +72,10 @@ impl Pipe {
     /// outside.
     pub fn scalar_field(&self, point: &C2) -> f64 {
         self.vec.inner_abs_squared(point) - 1.0
+    }
+
+    pub fn contains(&self, point: &C2, epsilon: f64) -> bool {
+        self.scalar_field(point).abs() < epsilon
     }
 
     /// Given p_1, p_2 in C^2, solve the system of nonlinear equations
@@ -192,8 +198,8 @@ mod test {
         let intersection = Pipe::intersect(&pipe1, &pipe2, &pipe3);
         if let Some((f1, f2)) = intersection {
             for pipe in [pipe1, pipe2, pipe3] {
-                assert_abs_diff_eq!(pipe.inner_abs(&f1), 1.0, epsilon = 1e-5);
-                assert_abs_diff_eq!(pipe.inner_abs(&f2), 1.0, epsilon = 1e-5);
+                assert!(pipe.contains(&f1.vec, EPSILON));
+                assert!(pipe.contains(&f2.vec, EPSILON));
             }
         } else {
             panic!("Didn't intersect");

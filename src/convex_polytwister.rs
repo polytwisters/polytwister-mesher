@@ -48,7 +48,7 @@ impl ConvexPolytwister {
             if index == skip_1 || index == skip_2 || index == skip_3 {
                 continue;
             }
-            if log.contains(&fiber.vec, EPSILON) {
+            if !log.contains(&fiber.vec, EPSILON) {
                 return false;
             }
         }
@@ -74,8 +74,7 @@ impl ConvexPolytwister {
                 }
             }
         }
-        let epsilon = 1e-5;
-        Fiber::deduplicate(&result, epsilon)
+        Fiber::deduplicate(&result, EPSILON)
     }
 
     fn contains(&self, point: &C2, epsilon: f64) -> bool {
@@ -287,13 +286,6 @@ mod test {
         let rings = dyster.rings.clone();
         assert_eq!(rings.len(), 2);
         assert!(dyster.contains(&C2::zero(), EPSILON));
-
-        for log in dyster.logs.iter() {
-            let pipe = log.pipe();
-            let tmp = pipe.scalar_field(&rings[0].vec);
-            dbg!(tmp);
-        }
-
         assert!(dyster.contains(&rings[0].vec, EPSILON));
         assert!(dyster.contains(&rings[1].vec, EPSILON));
     }
@@ -301,9 +293,9 @@ mod test {
     /// Arbitrary polytwister contains all its rings.
     #[test]
     fn test_rings_basic() {
-        let dyster = dyster();
-        for ring in dyster.rings.iter() {
-            assert!(dyster.contains(&ring.vec, EPSILON));
+        let polytwister = arbitrary_convex_polytwister();
+        for ring in polytwister.rings.iter() {
+            assert!(polytwister.contains(&ring.vec, EPSILON));
         }
     }
 
