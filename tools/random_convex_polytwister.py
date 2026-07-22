@@ -19,9 +19,9 @@ def r4_to_c2(r4):
     return r4[0::2] + 1j * r4[1::2]
 
 def c2_to_r4(c2):
-    result = np.zeros(len(r4) * 2)
-    result[0::2] = c2.real()
-    result[1::2] = c2.imag()
+    result = np.zeros(len(c2) * 2)
+    result[0::2] = c2.real
+    result[1::2] = c2.imag
     return result
 
 
