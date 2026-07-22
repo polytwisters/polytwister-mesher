@@ -44,7 +44,8 @@ impl GridAxis {
         }
     }
 
-    /// Convert from grid coordinates to values.
+    /// Convert from grid coordinate to values. If it is on an integer grid point, return the value
+    /// at that grid point. If it is between two grid points, linearly interpolate the values.
     pub fn at(&self, index: f64) -> f64 {
         match self.topology {
             GridAxisTopology::Circular => {
