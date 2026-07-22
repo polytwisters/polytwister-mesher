@@ -1,7 +1,8 @@
 use core::f64;
 use std::mem::Discriminant;
 
-use crate::{config::{CylinderMeshConfig, TorusMeshConfig}, cylinder::Cylinder, mesh::Mesh, pipe_section::{self, PipeSection}, polyline::Polyline, utils::{bisection_search, linspace, sort2}};
+use nalgebra as na;
+use crate::{config::{CylinderMeshConfig, TorusMeshConfig}, cylinder::Cylinder, mesh::Mesh, pipe_section::{self, PipeSection}, polyline::Polyline, utils::{adaptive_sample, bisection_search, linspace, sort2}};
 use nalgebra::{Affine3, Point3, Point2};
 use crate::utils::{lerp, lerp_inverse};
 
@@ -189,19 +190,34 @@ impl CCurve {
         }
     }
 
-    pub fn discretize_segment(&self, t1: f64, t2: f64, resolution: usize) -> Polyline {
-        let points = (0..resolution).map(|i| {
-            let t = lerp(t1, t2, i as f64 / (resolution as f64 - 1.0));
-            self.at(t)
-        }).collect::<Vec<_>>();
+    pub fn discretize_segment(&self, tmin: f64, tmax: f64, resolution: f64) -> Polyline {
+        let t_values = adaptive_sample(
+            |t1, t2| {
+                na::distance(&self.at(t1), &self.at(t2))
+            },
+            resolution,
+            100,
+            tmin,
+            tmax,
+            false
+        );
+        dbg!(&t_values);
+        let points = t_values.into_iter().map(|t| self.at(t)).collect();
         Polyline { points, closed: false }
     }
 
-    pub fn discretize_full(&self, resolution: usize) -> Polyline {
-        let points = (0..resolution).map(|i| {
-            let t = i as f64 / resolution as f64;
-            self.at(t)
-        }).collect::<Vec<_>>();
+    pub fn discretize_full(&self, resolution: f64) -> Polyline {
+        let t_values = adaptive_sample(
+            |t1, t2| {
+                na::distance(&self.at(t1), &self.at(t2))
+            },
+            resolution,
+            100,
+            0.0,
+            1.0,
+            true
+        );
+        let points = t_values.into_iter().map(|t| self.at(t)).collect();
         Polyline { points, closed: true }
     }
 }
@@ -218,7 +234,7 @@ impl CylinderIntersection {
 
     pub fn as_mesh(&self, config: &TorusMeshConfig) -> Mesh {
         Mesh::merge(self.ccurves.iter().map(|ccurve|
-            ccurve.discretize_full(config.linear_segments)
+            ccurve.discretize_full(config.resolution)
                 .as_mesh(config.radius, config.radial_segments)
         ).collect::<_>())
     }

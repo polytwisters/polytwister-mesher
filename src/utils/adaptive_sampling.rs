@@ -44,3 +44,31 @@ pub fn adaptive_sample<F : Fn (f64, f64) -> f64>(
 
     result
 }
+
+#[cfg(test)]
+mod test {
+    use nalgebra::Point2;
+    use crate::utils::adaptive_sample;
+
+    fn test_basic() {
+        let func = |x: f64| { x.sin() };
+        let distance_func = |t1, t2| {
+            let p1 = Point2::new(t1, func(t2));
+            let p2 = Point2::new(t2, func(t2));
+            na::distance(&p1, &p2)
+        };
+        let max_distance = 0.01;
+        let t = adaptive_sample(
+            distance_func,
+            max_distance,
+            10,
+            0.3,
+            3.0,
+            false
+        );
+        for i in 0..t.len() - 1 {
+            assert!(t[i] < t[i + 1]);
+            assert!(distance_func(t[i], t[i + 1]) < max_distance);
+        }
+    }
+}

@@ -583,7 +583,7 @@ mod test {
         };
         let curve_config = TorusMeshConfig {
             radius: 0.05,
-            linear_segments: 50,
+            resolution: 0.01,
             radial_segments: 10,
         };
         ColoredMesh {
