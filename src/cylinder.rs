@@ -1,7 +1,7 @@
 extern crate nalgebra as na;
 use core::f64;
 
-use na::{Affine3, Matrix2, Matrix3, Matrix4, Rotation3, Vector2, Vector3, Point3};
+use na::{Affine3, Matrix2, Matrix3, Matrix4, Point2, Point3, Rotation3, Vector2, Vector3};
 use crate::pipe_section::PipeSection;
 use crate::utils::{Ellipse, squared};
 use crate::ellipse_spacing::{warp_elliptic_angle, ellipse_circumference};
@@ -250,6 +250,11 @@ impl Cylinder {
         }
     }
 
+    pub fn ellipse_radii(&self) -> (f64, f64) {
+        let (major, minor) = self.ellipse_vertex_displacements();
+        (major.norm(), minor.norm())
+    }
+
     /**
      * Find the vertices of a cross-sectional ellipse.
      */
@@ -373,11 +378,65 @@ impl Cylinder {
         }
         Mesh::from_partial(&vertices, &faces)
     }
+
+    /**
+     * Perform nonuniform sampling of theta values, creating points spaced around an ellipse with a
+     * minimum distance. The minimum distance is not mathematically guaranteed but works fine in
+     * practice.
+     */
+    fn sample_theta(&self, min_distance: f64) -> Vec<f64> {
+        // I initially played with methods using inverse incomplete elliptic integrals to space
+        // points on an ellipse, but it was too annoying to fiddle with the dependencies needed to
+        // do that. This is a simple brute-force numerical solution.
+
+        // Evenly space points on a circle whose radius is the average fo the major and minor radii.
+        // Just a heuristic.
+        let (major_radius, minor_radius) = self.ellipse_radii();
+        let average_radius = (major_radius + minor_radius) / 2.0;
+        let initial_num_points = (
+            (average_radius * f64::consts::TAU / min_distance as f64) as usize
+        ).max(4);
+        let initial_thetas: Vec<_> = (0..initial_num_points).map(
+            |i| i as f64 / initial_num_points as f64 * f64::consts::TAU
+        ).collect();
+
+        // Walk through each line segment connecting pairs of points and check distances.
+
+        // Rough heuristic, assume the number of new points needed is about twice.
+        let mut result: Vec<f64> = Vec::with_capacity(initial_thetas.len() * 2);
+        for i1 in 0usize..initial_thetas.len() {
+            let i2 = (i1 + 1).rem_euclid(initial_thetas.len());
+            let theta1 = initial_thetas[i1];
+            let theta2 = initial_thetas[i2];
+            let p1 = Point2::new(major_radius * theta1.cos(), minor_radius * theta1.sin());
+            let p2 = Point2::new(major_radius * theta2.cos(), minor_radius * theta2.sin());
+            let d = na::distance(&p1, &p2);
+
+            result.push(theta1);
+
+            // If the distance between successive points is larger than the minimum, subdivide it
+            // into smaller segments.
+            if d > min_distance {
+                let subdivisions = (d / min_distance).ceil() as usize;
+                // Start with 1 here, as we already added theta1.
+                for i in 1..subdivisions {
+                    let t = i as f64 / subdivisions as f64;
+                    let theta = theta1 * (1.0 - t) + theta2 * t;
+                    result.push(theta);
+                }
+            }
+        }
+        result.shrink_to_fit();
+
+        result
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use crate::cylinder;
+
+use super::*;
     use approx::*;
 
     fn example_cylinder() -> Cylinder {
@@ -447,5 +506,19 @@ mod test {
         assert_abs_diff_eq!(u, u_out, epsilon = 1e-10);
         assert_abs_diff_eq!(r_out, 1.0, epsilon = 1e-10);
         assert_abs_diff_eq!(theta, theta_out, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_sample_theta() {
+        let cylinder = example_cylinder();
+        let min_distance = 0.05;
+        let thetas = cylinder.sample_theta(min_distance);
+        let u = 0.0;  // Doesn't matter.
+        for i1 in 0..thetas.len() {
+            let i2 = (i1 + 1).rem_euclid(thetas.len());
+            let p1 = cylinder.surface_coords_to_cartesian(u, thetas[i1]);
+            let p2 = cylinder.surface_coords_to_cartesian(u, thetas[i2]);
+            assert!(na::distance(&p1, &p2) <= min_distance);
+        }
     }
 }
