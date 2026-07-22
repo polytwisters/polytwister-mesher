@@ -21,7 +21,6 @@ mod cylinder;
 mod cylinder_curve;
 mod mesh;
 mod utils;
-mod ellipse_spacing;
 mod polyline;
 mod ring;
 mod uniform_polytwister;
