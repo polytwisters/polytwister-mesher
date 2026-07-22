@@ -29,8 +29,8 @@
             "radius": 0.04
         },
         "strips": {
+            "resolution": 0.02,
             "linear_segments": 200,
-            "radial_segments": 64,
             "radius": 0.02
         },
         "twisters": {

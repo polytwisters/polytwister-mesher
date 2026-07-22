@@ -31,15 +31,15 @@ impl Default for CylinderMeshConfig {
 pub struct TorusMeshConfig {
     #[serde(default = "TorusMeshConfig::default_radius")]
     pub radius: f64,
-    #[serde(default = "TorusMeshConfig::default_linear_segments")]
-    pub linear_segments: usize,
+    #[serde(default = "TorusMeshConfig::default_resolution")]
+    pub resolution: f64,
     #[serde(default = "TorusMeshConfig::default_radial_segments")]
     pub radial_segments: usize,
 }
 
 impl TorusMeshConfig {
     fn default_radius() -> f64 { 0.01 }
-    fn default_linear_segments() -> usize { 50usize }
+    fn default_resolution() -> f64 { 0.05 }
     fn default_radial_segments() -> usize { 16usize }
 }
 
@@ -47,7 +47,7 @@ impl Default for TorusMeshConfig {
     fn default() -> Self {
         Self {
             radius: Self::default_radius(),
-            linear_segments: Self::default_linear_segments(),
+            resolution: Self::default_resolution(),
             radial_segments: Self::default_radial_segments(),
         }
     }

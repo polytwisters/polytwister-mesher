@@ -3,8 +3,7 @@ use core::f64;
 
 use na::{Affine3, Matrix2, Matrix3, Matrix4, Point2, Point3, Rotation3, Vector2, Vector3};
 use crate::pipe_section::PipeSection;
-use crate::utils::adaptive_sampling::adaptive_sample;
-use crate::utils::{Ellipse, squared};
+use crate::utils::{Ellipse, squared, adaptive_sample};
 use crate::mesh::{Face, Mesh, Vertex};
 use crate::config::{CylinderMeshConfig};
 

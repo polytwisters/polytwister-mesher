@@ -5,7 +5,9 @@ use nalgebra::{Point2, Vector2, Vector4};
 mod unordered_triples;
 pub use unordered_triples::UnorderedTriples;
 
-pub mod adaptive_sampling;
+mod adaptive_sampling;
+pub use adaptive_sampling::adaptive_sample;
+
 
 pub fn squared(x: f64) -> f64 {
     x * x

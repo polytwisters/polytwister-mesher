@@ -125,7 +125,7 @@ impl ConvexPolytwister {
             let p_test = ccurve.at(t_test);
             let contains = self.section_contains_skip2(w, &p_test, skip_1, skip_2);
             if contains {
-                let polyline = ccurve.discretize_segment(t1, t2, config.linear_segments);
+                let polyline = ccurve.discretize_segment(t1, t2, config.resolution);
                 let mesh = polyline.as_mesh(config.radius, config.radial_segments);
                 meshes.push(mesh);
             }
