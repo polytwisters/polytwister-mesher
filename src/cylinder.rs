@@ -3,6 +3,7 @@ use core::f64;
 
 use na::{Affine3, Matrix2, Matrix3, Matrix4, Point2, Point3, Rotation3, Vector2, Vector3};
 use crate::pipe_section::PipeSection;
+use crate::utils::adaptive_sampling::adaptive_sample;
 use crate::utils::{Ellipse, squared};
 use crate::mesh::{Face, Mesh, Vertex};
 use crate::config::{CylinderMeshConfig};
@@ -397,38 +398,19 @@ impl Cylinder {
         let initial_num_points = (
             (average_radius * f64::consts::TAU / resolution as f64) as usize
         ).max(4);
-        let initial_thetas: Vec<_> = (0..initial_num_points).map(
-            |i| i as f64 / initial_num_points as f64 * f64::consts::TAU
-        ).collect();
 
-        // Walk through each line segment connecting pairs of points and check distances.
-
-        // Rough heuristic, assume the number of new points needed is about twice.
-        let mut result: Vec<f64> = Vec::with_capacity(initial_thetas.len() * 2);
-        for i1 in 0usize..initial_thetas.len() {
-            let i2 = (i1 + 1).rem_euclid(initial_thetas.len());
-            let theta1 = initial_thetas[i1];
-            let theta2 = initial_thetas[i2];
-            let p1 = Point2::new(major_radius * theta1.cos(), minor_radius * theta1.sin());
-            let p2 = Point2::new(major_radius * theta2.cos(), minor_radius * theta2.sin());
-            let d = na::distance(&p1, &p2);
-
-            result.push(theta1);
-
-            // If the distance between successive points is larger than the minimum, subdivide it
-            // into smaller segments.
-            if d > resolution {
-                let subdivisions = (d / resolution).ceil() as usize;
-                // Start with 1 here, as we already added theta1.
-                for i in 1..subdivisions {
-                    let t = i as f64 / subdivisions as f64;
-                    let theta = theta1 * (1.0 - t) + theta2 * t;
-                    result.push(theta);
-                }
-            }
-        }
-        result.shrink_to_fit();
-
+        let result = adaptive_sample(
+            |theta1, theta2| {
+                let p1 = Point2::new(major_radius * theta1.cos(), minor_radius * theta1.sin());
+                let p2 = Point2::new(major_radius * theta2.cos(), minor_radius * theta2.sin());
+                na::distance(&p1, &p2)
+            },
+            resolution,
+            initial_num_points,
+            0.0,
+            f64::consts::TAU,
+            true
+        );
         result
     }
 }
