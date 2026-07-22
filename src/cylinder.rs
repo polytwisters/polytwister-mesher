@@ -301,11 +301,14 @@ impl Cylinder {
     pub fn as_mesh_partial<F: Fn(&Point3<f64>) -> bool>(
         &self,
         predicate: F,
-        options: &CylinderMeshConfig
+        config: &CylinderMeshConfig
     ) -> Mesh {
-        let half_height = options.half_length;
-        let linear_segments = options.linear_segments;
-        let radial_segments = options.radial_segments;
+        let resolution = config.resolution;
+        let half_height = config.half_length;
+        let linear_segments = (half_height * 2.0 / resolution).ceil() as usize;
+
+        let thetas = self.sample_theta(resolution);
+        let radial_segments = thetas.len();
 
         // Vertex indices: i * radial_segments + j
         let mut vertices: Vec<Option<Vertex>> = vec![];
@@ -313,7 +316,7 @@ impl Cylinder {
             let i_unipolar = (i as f64) / (linear_segments as f64);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
             for j in 0..radial_segments {
-                let theta = (j as f64) * std::f64::consts::TAU / (radial_segments as f64);
+                let theta = thetas[j];
                 let u = i_bipolar * half_height; 
                 let point = self.surface_coords_to_cartesian(u, theta);
                 vertices.push(if predicate(&point) {

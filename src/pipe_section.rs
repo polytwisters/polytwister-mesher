@@ -98,11 +98,13 @@ impl PipeSection {
     }
 
     pub fn as_mesh(&self, config: &CylinderMeshConfig) -> Mesh {
+        let extent = config.half_length;
+        let linear_segments = (extent * 2.0 / config.resolution).ceil() as usize;
         if self.is_plane() {
             if let Some(z) = self.plane_z() {
                 Mesh::merge(vec![
-                    Mesh::plane(z, config.half_length, config.linear_segments),
-                    Mesh::plane(-z, config.half_length, config.linear_segments),
+                    Mesh::plane(z, extent, linear_segments),
+                    Mesh::plane(-z, extent, linear_segments),
                 ])
             } else {
                 Mesh::empty()
@@ -122,10 +124,12 @@ impl PipeSection {
         }
 
         if self.is_plane() {
+            let extent = config.half_length;
+            let linear_segments = (extent * 2.0 / config.resolution).ceil() as usize;
             if let Some(z) = self.plane_z() {
                 Mesh::merge(vec![
-                    Mesh::partial_plane(&predicate, z, config.half_length, config.linear_segments),
-                    Mesh::partial_plane(&predicate, -z, config.half_length, config.linear_segments),
+                    Mesh::partial_plane(&predicate, z, extent, linear_segments),
+                    Mesh::partial_plane(&predicate, -z, extent, linear_segments),
                 ])
             } else {
                 Mesh::empty()
@@ -242,6 +246,27 @@ impl TwisterSection {
         neighboring_pipe_sections: Vec<PipeSection>,
         filling: Vec<FillingRegion>,
     ) -> Self {
+        Self {
+            pipe_section,
+            filling_info: TwisterFillingInfo {
+                orthogonal_pipe_section,
+                neighboring_pipe_sections,
+                filling
+            }
+        }
+    }
+
+    pub fn convex(
+        pipe_section: PipeSection,
+        neighboring_pipe_sections: Vec<PipeSection>,
+    ) -> Self {
+        let orthogonal_pipe_section = PipeSection::new(1.0, 1.0, 0.0, 0.0, 0.0);
+        let filling = vec![
+            FillingRegion {
+                order: neighboring_pipe_sections.len() as u32,
+                mode: RegionMode::Both,
+            }
+        ];
         Self {
             pipe_section,
             filling_info: TwisterFillingInfo {
