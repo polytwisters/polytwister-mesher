@@ -250,11 +250,11 @@ impl Cell {
 
 impl Grid {
     pub fn ui_to_u(&self, ui: f64) -> f64 {
-        self.u_axis.index_to_value(ui)
+        self.u_axis.at(ui)
     }
 
     pub fn vi_to_v(&self, vi: f64) -> f64 {
-        self.v_axis.index_to_value(vi)
+        self.v_axis.at(vi)
     }
 
     fn vertex_coordinate(&self, vertex: MSPoint, isosurface: &impl Isosurface) -> (f64, f64) {
@@ -427,8 +427,8 @@ mod test {
     #[test]
     fn test_cylinder() {
         let grid = Grid {
-            u_axis: GridAxis::new_circular(20, f64::consts::TAU),
-            v_axis: GridAxis::new_linear(30, -2.0, 2.0),
+            u_axis: GridAxis::uniform_circular(20, f64::consts::TAU),
+            v_axis: GridAxis::uniform_linear(30, -2.0, 2.0),
         };
         let mesh = meshify(&ExampleIsosurface { }, grid);
         mesh.write_ply_file(&PathBuf::from("cylinder.ply"));
@@ -451,8 +451,8 @@ mod test {
     #[test]
     fn test_plane() {
         let grid = Grid {
-            u_axis: GridAxis::new_linear(20, -2.0, 2.0),
-            v_axis: GridAxis::new_linear(30, -2.0, 2.0),
+            u_axis: GridAxis::uniform_linear(20, -2.0, 2.0),
+            v_axis: GridAxis::uniform_linear(30, -2.0, 2.0),
         };
         let mesh = meshify(&ExampleIsosurface2 { }, grid);
         mesh.write_ply_file(&PathBuf::from("plane.ply"));
@@ -475,8 +475,8 @@ mod test {
     #[test]
     fn test_triangular_prism() {
         let grid = Grid {
-            u_axis: GridAxis::new_circular(3, f64::consts::TAU),
-            v_axis: GridAxis::new_linear(2, -2.0, 2.0),
+            u_axis: GridAxis::uniform_circular(3, f64::consts::TAU),
+            v_axis: GridAxis::uniform_linear(2, -2.0, 2.0),
         };
         let mesh = meshify(&ExampleIsosurface3 { }, grid);
         mesh.write_ply_file(&PathBuf::from("prism.ply"));

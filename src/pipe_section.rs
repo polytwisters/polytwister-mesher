@@ -259,8 +259,8 @@ impl TwisterSection {
         if self.pipe_section.is_plane() {
             if let Some(z) = self.pipe_section.plane_z() {
                 let grid = Grid {
-                    u_axis: GridAxis::new_linear(linear_segments, -extent, extent),
-                    v_axis: GridAxis::new_linear(linear_segments, -extent, extent),
+                    u_axis: GridAxis::uniform_linear(linear_segments, -extent, extent),
+                    v_axis: GridAxis::uniform_linear(linear_segments, -extent, extent),
                 };
                 let plane_1 = TwisterPlanarIsosurface {
                     z: z,
@@ -279,8 +279,8 @@ impl TwisterSection {
             }
         } else {
             let grid = Grid {
-                u_axis: GridAxis::new_linear(linear_segments, -extent, extent),
-                v_axis: GridAxis::new_circular(radial_segments, f64::consts::TAU),
+                u_axis: GridAxis::uniform_linear(linear_segments, -extent, extent),
+                v_axis: GridAxis::uniform_circular(radial_segments, f64::consts::TAU),
             };
             let surface = TwisterCylindricalIsosurface {
                 pipe_section: self.pipe_section,

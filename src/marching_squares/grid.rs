@@ -10,6 +10,13 @@ pub enum GridAxisTopology {
     Circular
 }
 
+/**
+ * A single axis of a one-dimensional grid, with support for non-uniform grid sampling and circular
+ * or linear topologies.
+ * 
+ * The grid axis's function is to convert from "grid coordinates" to "values." For example, a size-3
+ * uniform grid might have grid coordinates [0, 1, 2] mapped to values [0.0, 0.5, 1.0].
+ */
 #[derive(Clone, Debug)]
 pub struct GridAxis {
     topology: GridAxisTopology,
@@ -18,7 +25,7 @@ pub struct GridAxis {
 }
 
 impl GridAxis {
-    pub fn new_linear(size: usize, min: f64, max: f64) -> Self {
+    pub fn uniform_linear(size: usize, min: f64, max: f64) -> Self {
         Self {
             topology: GridAxisTopology::Linear,
             size,
@@ -29,7 +36,7 @@ impl GridAxis {
         }
     }
 
-    pub fn new_circular(size: usize, max: f64) -> Self {
+    pub fn uniform_circular(size: usize, max: f64) -> Self {
         Self {
             topology: GridAxisTopology::Circular,
             size,
@@ -37,7 +44,8 @@ impl GridAxis {
         }
     }
 
-    pub fn index_to_value(&self, index: f64) -> f64 {
+    /// Convert from grid coordinates to values.
+    pub fn at(&self, index: f64) -> f64 {
         match self.topology {
             GridAxisTopology::Circular => {
                 let index1 = self.wrap(index as usize);
