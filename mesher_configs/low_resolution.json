@@ -5,12 +5,11 @@
         "radius": 0.03
     },
     "strips": {
-        "linear_segments": 100,
+        "resolution": 0.05,
         "radial_segments": 32,
         "radius": 0.02
     },
     "twisters": {
-        "linear_segments": 100,
-        "radial_segments": 100
+        "resolution": 0.05
     }
 }
