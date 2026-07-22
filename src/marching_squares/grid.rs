@@ -54,8 +54,11 @@ impl GridAxis {
         }
     }
 
-    pub fn num_points(&self) -> usize {
-        self.size
+    pub fn num_segments(&self) -> usize {
+        match self.topology {
+            GridAxisTopology::Circular => self.size,
+            GridAxisTopology::Linear => self.size - 1,
+        }
     }
 
     /// For a linear GridAxis, do nothing. For a circular grid axis, take the index modulo the size

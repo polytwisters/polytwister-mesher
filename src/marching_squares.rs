@@ -336,7 +336,7 @@ impl MSVertices {
 
 impl MarchingSquares {
     fn new(grid: Grid) -> Self {
-        let capacity = grid.u_axis.num_points() * grid.v_axis.num_points();
+        let capacity = grid.u_axis.num_segments() * grid.v_axis.num_segments();
         MarchingSquares {
             grid,
             cells: Vec::with_capacity(capacity),
@@ -374,8 +374,8 @@ impl MarchingSquares {
 
     /// Sample the isosurface and produce a Mesh.
     fn mesh(&mut self, isosurface: &impl Isosurface) -> Mesh {
-        for ui in 0..self.grid.u_axis.num_points() {
-            for vi in 0..self.grid.v_axis.num_points() {
+        for ui in 0..self.grid.u_axis.num_segments() {
+            for vi in 0..self.grid.v_axis.num_segments() {
                 let square = Square::new(ui, vi);
                 self.cells.push(self.make_node(square, isosurface));
             }
