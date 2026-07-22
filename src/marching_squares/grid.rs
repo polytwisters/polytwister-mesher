@@ -26,22 +26,26 @@ pub struct GridAxis {
 
 impl GridAxis {
     pub fn uniform_linear(size: usize, min: f64, max: f64) -> Self {
-        Self {
-            topology: GridAxisTopology::Linear,
-            size,
-            values: (0..size).map(|i| {
-                let t = (i as f64) / (size - 1) as f64;
-                min + t * (max - min)
-            }).collect()
-        }
+        Self::linear((0..size).map(|i| {
+            let t = (i as f64) / (size - 1) as f64;
+            min + t * (max - min)
+        }).collect())
     }
 
     pub fn uniform_circular(size: usize, max: f64) -> Self {
-        Self {
-            topology: GridAxisTopology::Circular,
-            size,
-            values: (0..size).map(|i| (i as f64) / size as f64 * max).collect()
-        }
+        Self::circular(
+            (0..size).map(|i| (i as f64) / size as f64 * max).collect()
+        )
+    }
+
+    pub fn linear(values: Vec<f64>) -> Self {
+        let size = values.len();
+        Self { topology: GridAxisTopology::Linear, size, values }
+    }
+
+    pub fn circular(values: Vec<f64>) -> Self {
+        let size = values.len();
+        Self { topology: GridAxisTopology::Circular, size, values }
     }
 
     /// Convert from grid coordinate to values. If it is on an integer grid point, return the value
