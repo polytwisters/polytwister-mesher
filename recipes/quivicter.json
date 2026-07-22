@@ -38,8 +38,7 @@
         },
         "twisters": {
             "half_length": 2.0,
-            "linear_segments": 500,
-            "radial_segments": 500
+            "resolution": 0.005
         }
     }
 }
