@@ -162,8 +162,8 @@ impl Polytwister for ConvexPolytwister {
             let pipe_with_real_b = Pipe::new(pipe.vec.rotate_real_b());
             let pipe_section = pipe_with_real_b.cross_section(w);
             let grid = Grid {
-                u_axis: GridAxis::Linear(config.linear_segments, -config.half_length, config.half_length),
-                v_axis: GridAxis::Circular(config.radial_segments, f64::consts::TAU),
+                u_axis: GridAxis::new_linear(config.linear_segments, -config.half_length, config.half_length),
+                v_axis: GridAxis::new_circular(config.radial_segments, f64::consts::TAU),
             };
             let surface = ConvexTwisterSection {
                 pipe_section,
@@ -176,7 +176,7 @@ impl Polytwister for ConvexPolytwister {
                     }
                 ).collect::<_>()
             };
-            let mesh = meshify(&surface, &grid);
+            let mesh = meshify(&surface, grid);
             meshes.push(mesh);
         }
         meshes

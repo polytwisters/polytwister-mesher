@@ -259,8 +259,8 @@ impl TwisterSection {
         if self.pipe_section.is_plane() {
             if let Some(z) = self.pipe_section.plane_z() {
                 let grid = Grid {
-                    u_axis: GridAxis::Linear(linear_segments, -extent, extent),
-                    v_axis: GridAxis::Linear(linear_segments, -extent, extent),
+                    u_axis: GridAxis::new_linear(linear_segments, -extent, extent),
+                    v_axis: GridAxis::new_linear(linear_segments, -extent, extent),
                 };
                 let plane_1 = TwisterPlanarIsosurface {
                     z: z,
@@ -271,22 +271,22 @@ impl TwisterSection {
                     filling_info: self.filling_info.clone(),
                 };
                 Mesh::merge(vec![
-                    meshify(&plane_1, &grid),
-                    meshify(&plane_2, &grid),
+                    meshify(&plane_1, grid.clone()),
+                    meshify(&plane_2, grid),
                 ])
             } else {
                 Mesh::empty()
             }
         } else {
             let grid = Grid {
-                u_axis: GridAxis::Linear(linear_segments, -extent, extent),
-                v_axis: GridAxis::Circular(radial_segments, f64::consts::TAU),
+                u_axis: GridAxis::new_linear(linear_segments, -extent, extent),
+                v_axis: GridAxis::new_circular(radial_segments, f64::consts::TAU),
             };
             let surface = TwisterCylindricalIsosurface {
                 pipe_section: self.pipe_section,
                 filling_info: self.filling_info.clone(),
             };
-            meshify(&surface, &grid)
+            meshify(&surface, grid)
         }
     }
 }
