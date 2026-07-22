@@ -80,7 +80,7 @@ struct Args {
     #[arg(long)]
     merged: bool,
 
-    /// Output path.
+    /// Normally a directory unless --merged is specified.
     output_path: PathBuf,
 }
 
