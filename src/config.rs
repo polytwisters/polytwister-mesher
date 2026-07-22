@@ -1,7 +1,8 @@
+use std::default;
 use serde::Deserialize;
 
 
-#[derive(Deserialize, Clone, Copy, Debug, Default)]
+#[derive(Deserialize, Clone, Copy, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct CylinderMeshConfig {
     #[serde(default = "CylinderMeshConfig::default_half_length")]
@@ -18,7 +19,17 @@ impl CylinderMeshConfig {
     fn default_radial_segments() -> usize { 50usize }
 }
 
-#[derive(Deserialize, Clone, Copy, Debug, Default)]
+impl Default for CylinderMeshConfig {
+    fn default() -> Self {
+        Self {
+            half_length: Self::default_half_length(),
+            linear_segments: Self::default_linear_segments(),
+            radial_segments: Self::default_radial_segments(),
+        }
+    }
+}
+
+#[derive(Deserialize, Clone, Copy, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct TorusMeshConfig {
     #[serde(default = "TorusMeshConfig::default_radius")]
@@ -35,7 +46,17 @@ impl TorusMeshConfig {
     fn default_radial_segments() -> usize { 16usize }
 }
 
-#[derive(Deserialize, Clone, Copy, Debug, Default)]
+impl Default for TorusMeshConfig {
+    fn default() -> Self {
+        Self {
+            radius: Self::default_radius(),
+            linear_segments: Self::default_linear_segments(),
+            radial_segments: Self::default_radial_segments(),
+        }
+    }
+}
+
+#[derive(Deserialize, Clone, Copy, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct RingMeshConfig {
     #[serde(default = "RingMeshConfig::default_radius")]
@@ -50,6 +71,16 @@ impl RingMeshConfig {
     fn default_radius() -> f64 { 0.02 }
     fn default_longitudes() -> usize { 16 }
     fn default_latitudes() -> usize { 16 }
+}
+
+impl Default for RingMeshConfig {
+    fn default() -> Self {
+        Self {
+            radius: Self::default_radius(),
+            longitudes: Self::default_longitudes(),
+            latitudes: Self::default_latitudes(),
+        }
+    }
 }
 
 #[derive(Deserialize, Clone, Copy, Debug, Default)]

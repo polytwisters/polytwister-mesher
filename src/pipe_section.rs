@@ -8,10 +8,11 @@ use crate::cylinder_curve::{CCurve, CylinderIntersection};
 use crate::mesh::{Mesh};
 use crate::polyline::Polyline;
 use crate::{pipe_section, ring};
-use crate::polytwister::{FillingRegion, RegionMode};
+use crate::uniform_polytwister::{FillingRegion, RegionMode};
 use crate::ring::{RingSection, RingSectionResult};
 use crate::utils::{bisection_search, sort4, squared};
 use crate::marching_squares::{Isosurface, Grid, GridAxis, meshify};
+use crate::c2::C2;
 
 /**
  * A 3D cross section of a pipe. May be an affine-transformed cylinder, a pair of planes, or empty.
@@ -39,6 +40,10 @@ impl PipeSection {
             d: vector.w,
             w
         }
+    }
+    
+    pub fn from_c2(vector: &C2, w: f64) -> Self {
+        Self::from_vector4(&vector.to_vector4(), w)
     }
 
     /**
@@ -93,10 +98,6 @@ impl PipeSection {
     }
 
     pub fn as_mesh(&self, config: &CylinderMeshConfig) -> Mesh {
-        if self.d != 0.0 {
-            panic!("PipeSection::as_mesh does not yet work with d != 0");
-        }
-
         if self.is_plane() {
             if let Some(z) = self.plane_z() {
                 Mesh::merge(vec![
@@ -419,5 +420,34 @@ impl StripSection {
             }
         }).collect::<_>();
         Mesh::merge(meshes)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use approx::assert_abs_diff_eq;
+    use super::*;
+    use crate::c2::C2;
+    use crate::elements::{Fiber, Pipe};
+
+    #[test]
+    fn test_pipe_section_vs_inner_product() {
+        let pipe_c2 = C2::from_components(0.2, 0.1, 0.9, -0.4);
+        let fiber_c2 = C2::from_components(0.7, -0.3, 0.2, 0.5);
+        let pipe = Pipe::new(pipe_c2);
+        let fiber = Fiber::new(fiber_c2);
+        let w = 0.2;
+        let pipe_section = pipe.cross_section(w);
+        let fiber_section = fiber.cross_section(w);
+
+        let expected = pipe.scalar_field(&fiber_c2);
+        if let RingSectionResult::Points(point1, point2) = fiber_section.as_points() {
+            for point in [point1, point2] {
+                let actual = pipe_section.scalar_field(&point);
+                assert_abs_diff_eq!(expected, actual);
+            }
+        } else {
+            panic!("No intersection");
+        }
     }
 }

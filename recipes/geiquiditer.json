@@ -1,0 +1,45 @@
+{
+    "polytwister": "geiquiditer",
+    "w": 0.02,
+    "blender_config": {
+        "render": {
+            "camera_azimuth": 15.0,
+            "resolution": 1080
+        },
+        "materials": {
+            "rings": {
+                "Base Color": [0.5, 0.5, 0.5, 1],
+                "Roughness": 0.1
+            },
+            "strips": {
+                "Base Color": [1.0, 1.0, 1.0, 1],
+                "Roughness": 0.1
+            },
+            "twisters_1": {
+                "Base Color": "#c2255c",
+                "Roughness": 0.4
+            },
+            "twisters_2": {
+                "Base Color": "#339af0",
+                "Roughness": 0.4
+            }
+        }
+    },
+    "mesher_config": {
+        "rings": {
+            "latitudes": 64,
+            "longitudes": 64,
+            "radius": 0.02
+        },
+        "strips": {
+            "linear_segments": 200,
+            "radial_segments": 64,
+            "radius": 0.01
+        },
+        "twisters": {
+            "half_length": 2.0,
+            "linear_segments": 500,
+            "radial_segments": 500
+        }
+    }
+}

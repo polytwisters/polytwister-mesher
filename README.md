@@ -6,63 +6,58 @@ Command-line tool for creating 3D meshes of cross sections of [polytwisters](htt
 
 ### Building
 
-Polytwister Mesher is written in Rust, and its few dependencies are all cross-platform. To build it, install the Rust toolchain and run:
+Install the Rust toolchain and run: `cargo build --release`. The executable is now at `./target/release/polytwister_mesher` (file name `polytwister_mesher.exe` on Windows). This is abbreviated as `polytwister_mesher` from now on.
+
+The executable reads the database file at `./polytwisters.json` which has geometry and naming information on all polytwisters. It is assumed that your working directory contains `polytwisters.json`. If it doesn't, supply the `-d` option to the executable to set a custom location.
+
+### Quick start
+
+Mesh the tetratwister (defaulting to w = 0.1) and combine rings, strips, and twisters into a single mesh, then use MeshLab to inspect:
 
 ```
-cargo build --release
+polytwister_mesher tetter --merged out.ply
+meshlab out.ply
 ```
 
-The executable is now at `./target/release/polytwister_mesher` (file name `polytwister_mesher.exe` on Windows). I will abbreviate this as just `polytwister_mesher` from now on.
-
-The executable reads the database file at `./polytwisters.json` which has geometry and naming information on all polytwisters. It is assumed that your working directory contains `polytwisters.json` (if it doesn't, you can supply the `-d` option to the executable to set a custom location).
-
-### Single cross section, merged mesh
-
-For quick viewing of polytwisters, you can render a single cross section showing rings, strips, and twisters as a single PLY file:
-
-```
-polytwister_mesher tetter -w 0.1 --merged out.ply
-```
-
-MeshLab is a good tool for quick previewing of such files, because you can just run `meshlab out.ply`. All meshes have vertex normals, so make sure to configure MeshLab to shade using them.
+All meshes have vertex normals, so make sure to configure MeshLab to shade using them.
 
 In place of "tetter" you can use any Bowers acronym (`gaquapiditer`) or full name (`"cube twister"` or `cube-twister` or `cube_twister`) or index (`34`) or symbol `3.3`.
 
-### Single cross section, split meshes
-
-For production rendering, you usually want to produce individual PLY meshes for rings, strips, and twisters:
+### Single cross section
 
 ```
-polytwister_mesher section sadtadoditer -w 0.1 --split sadtadoditer_meshes/
+polytwister_mesher tetter -w 0.1 sadtadoditer_meshes/
 ```
 
 This command will create the directory `sadtadoditer_meshes/` and the following four files:
 
 ```
-sadtadoditer_meshes/rings.ply
-sadtadoditer_meshes/strips.ply
-sadtadoditer_meshes/twisters_1.ply
-sadtadoditer_meshes/twisters_2.ply
+sadtadoditer_meshes/
+    rings.ply
+    strips.ply
+    twisters_1.ply
+    twisters_2.ply
 ```
 
 `twisters_1` and `twisters_2` are the two orbits of the twisters. If the polytwister is regular, then it has only one twister orbit and `twisters_2` is an empty mesh.
 
 The directory `sadtadoditer_meshes` is referred to as a "section directory."
 
-**NOTE:** Any of the PLY files produced by Polytwister Mesher might be empty meshes, such as if the W coordinate in question happens to be an empty cross section. The PLY files are not empty files, but they have zero vertices. Blender produces an error when importing such PLY files, but it is harmless. This may be the case with other 3D software as well. (You don't need to worry about this with the Blender scripts discussed below as they check for empty meshes.)
+**NOTE:** Any of the PLY files produced by Polytwister Mesher might be empty, i.e. zero vertices. Blender produces an error when importing such PLY files, but it is harmless.
 
 ### Animation
 
-Render evenly spaced W values to a directory of meshes:
+Render 24 evenly spaced W values to a directory of meshes:
 
 ```
-polytwister_mesher animation sadtadoditer -n 24 out_dir
+polytwister_mesher sadtadoditer -n 24 out_dir/
 ```
 
 This creates `out_dir` and the following structure:
 
 ```
 out_dir/
+    animation_manifest.json
     section_0000/
         rings.ply
         strips.ply
@@ -77,6 +72,8 @@ out_dir/
 ```
 
 where there is one subdirectory for each frame. Each subdirectory is a section directory. The directory `out_dir` is referred to as an animation directory.
+
+The file `animation_manifest.json` contains the computed W values for each section.
 
 ### Configuration
 
@@ -115,10 +112,11 @@ python3 blender/make_video.py out_pngs_dir/ out.mp4  # requires ffmpeg
 
 ## Limitations
 
-* Only uniform polytwisters are supported.
+* The meshes generated are not manifold and are not yet usable for 3D printing.
+* Only polytwisters that are uniform OR convex are supported. Arbitrary self-intersecting polytwisters are not supported yet because the binary/solid filling algorithms become more difficult to implement for them.
 * Currently the discretization of twister cross sections is rather poor and especially has problems with twisters with spiky cross sections. This can be mitigated by cranking up the mesh resolution, but at the cost of a larger mesh and more compute time.
 * The above problem is especially bad if you decide to create a polytwister section without any visualization of ring or strip cross sections, because the rings and strips hide the cracks where the twisters meet. So currently, this mesher is just meant for ball-and-tube polytwister visualizations.
-* Overall, this is a research codebase, so it's a little janky.
+* This is a research codebase and many features were implemented quickly to meet a paper deadline, so expect some jank.
 
 ## Development
 
@@ -129,7 +127,7 @@ import subprocess
 from pathlib import Path
 
 subprocess.run([
-    "cargo", "run", "section", "tetratwister", "--merged", "out.ply"
+    "cargo", "run", "tetratwister", "--merged", "out.ply"
 ], check=True)
 
 subprocess.run([

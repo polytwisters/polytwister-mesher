@@ -2,6 +2,9 @@ use core::f64;
 use na::{Matrix2, Matrix4};
 use nalgebra::{Point2, Vector2, Vector4};
 
+mod unordered_triples;
+pub use unordered_triples::UnorderedTriples;
+
 pub fn squared(x: f64) -> f64 {
     x * x
 }
@@ -190,7 +193,7 @@ fn normalizing_su2_matrix(vec: &Vector4<f64>) -> Matrix4<f64> {
     ) / norm
 }
 
-fn rotate_real_w(vec: &Vector4<f64>) -> Vector4<f64> {
+fn rotate_w_zero(vec: &Vector4<f64>) -> Vector4<f64> {
     let tmp = vec.z.hypot(vec.w);
     // Matrix: [[a -b], [b a]] [z, w] = [k, 0]
     let a = vec.z / tmp;
@@ -206,7 +209,7 @@ fn rotate_real_w(vec: &Vector4<f64>) -> Vector4<f64> {
 pub fn torus_radius(pipe1: &Vector4<f64>, pipe2: &Vector4<f64>) -> f64 {
     let u = normalizing_su2_matrix(pipe2);
     let k = 1.0 / pipe2.norm();
-    let p1n = rotate_real_w(&(u * pipe1 * k));
+    let p1n = rotate_w_zero(&(u * pipe1 * k));
     return 1.0f64.hypot((p1n.x.hypot(p1n.y) + 1.0) / p1n.z.abs()) * k;
 }
 
@@ -226,8 +229,7 @@ mod test {
     #[test]
     fn test_rotate_real_w() {
         let vec = Vector4::new(-2.3, 0.3, 1.4, -0.6);
-        let result = rotate_real_w(&vec);
-        dbg!(result);
+        let result = rotate_w_zero(&vec);
         assert_abs_diff_eq!(vec.norm(), result.norm());
         assert_abs_diff_eq!(result.w, 0.0);
     }

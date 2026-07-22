@@ -97,12 +97,12 @@ def convert_spherical_to_cartesian(radius, latitude, longitude):
 # Render setup
 
 
-def set_up_camera(camera_azimuth):
-    """Add and return a camera object and set it to the primary camera of the scene. The input
-    longitude is given in radians. A longitude of 0 is located on the positive X-axis, pi/2 on the
-    positive Y-axis, etc.
+def set_up_camera(camera_azimuth, camera_elevation):
+    """Add and return a camera object and set it to the primary camera of the scene.
+    Azimuth and elevation are given in radians.
+    
+    An azimuth of 0 is located on the positive X-axis, pi/2 on the positive Y-axis, etc.
 
-    The camera is positioned about 15 degrees above the XY-plane and pointed directly at the origin.
     Its size in the viewport is also reduced.
 
     The camera is set to 85mm focal length, which is longer than Blender's default. This reduces
@@ -110,9 +110,8 @@ def set_up_camera(camera_azimuth):
     """
     camera_distance = 1.0
 
-    camera_latitude = math.radians(15)
     camera_location = convert_spherical_to_cartesian(
-        camera_distance, camera_latitude, camera_azimuth
+        camera_distance, camera_elevation, camera_azimuth
     )
     bpy.ops.object.camera_add(
         location=camera_location,
@@ -234,7 +233,10 @@ def set_up_for_render(config):
     camera_azimuth = math.radians(
         config.get("camera_azimuth", 10.0)
     )
-    camera = set_up_camera(camera_azimuth)
+    camera_elevation = math.radians(
+        config.get("camera_elevation", 15.0)
+    )
+    camera = set_up_camera(camera_azimuth, camera_elevation)
 
     set_up_environment(
         config.get("environment_strength", 0.3),

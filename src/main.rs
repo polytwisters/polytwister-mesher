@@ -6,8 +6,8 @@ use std::{any, fs};
 use std::error::Error;
 use std::path;
 use std::path::PathBuf;
-use std::{fs::File, io::Read};
-use serde::Deserialize;
+use std::{fs::File, io::Read, io::Write};
+use serde::{Deserialize, Serialize};
 extern crate nalgebra as na;
 use na::{Point3, Vector4};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -24,13 +24,24 @@ mod utils;
 mod ellipse_spacing;
 mod polyline;
 mod ring;
-mod polytwister;
+mod uniform_polytwister;
+mod c2;
+mod convex_polytwister;
 mod config;
 mod marching_squares;
+mod polytwister;
+mod elements;
+
 use crate::config::Config;
-use crate::polytwister::{Polytwister, PolytwisterDatabase};
+use crate::polytwister::Polytwister;
+use crate::uniform_polytwister::{UniformPolytwister, PolytwisterDatabase};
+use crate::convex_polytwister::{ConvexPolytwister, ConvexPolytwisterSpec};
 use crate::utils::linspace;
 use crate::mesh::{Mesh, MeshLike};
+
+
+const MAX_FRAMES: usize = 10_000;
+const DEFAULT_W: f64 = 0.1;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -39,94 +50,54 @@ struct Args {
     #[arg(short, long, value_name = "FILE")]
     config: Option<PathBuf>,
 
+    /// Name of the polytwister. You can use a full name, acronym, ID, or a JSON description of a
+    /// convex polytwister.
+    polytwister: String,
+
     /// Input polytwister database file.
     /// 
     /// A file is provided for you in the repo at "./polytwisters.json", which this defaults to,
     /// so you don't need to provide this option if your working directory contains that file.
     /// To get one of these files, use the "export-geometry" script in the Polytwisters JS app.
-    #[arg(short = 'g', long)]
+    #[arg(short = 'd', long)]
     database: Option<PathBuf>,
-    
-    #[command(subcommand)]
-    command: Commands,
+
+    /// W coordinate if exporting a single cross section.
+    /// 
+    /// It is an error to use -w and --frames together. If neither -w or --frames is specified, the
+    /// default is equivalent to -w 0.1.
+    #[arg(short)]
+    w: Option<f64>,
+
+    /// Number of animation frames. The W coordinates will be evenly spaced from -1 to +1 inclusive.
+    ///
+    /// It is an error to use -w and --frames together.
+    #[arg(short = 'n', long)]
+    frames: Option<usize>,
+
+    /// Output a single merged mesh with all rings, strips, and twisters instead of a directory of
+    /// meshes. This is used for quickly inspecting the result.
+    /// 
+    /// It is an error to use --merged and --frames together.
+    #[arg(long)]
+    merged: bool,
+
+    /// Output path.
+    output_path: PathBuf,
 }
 
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Export a series of cross section meshes to a directory for an animation.
-    /// 
-    /// The meshes are exported in a Stanford PLY format, separated by frame and element type as
-    /// follows:
-    /// 
-    /// ```
-    /// out_dir/frame_0000_rings.ply
-    /// out_dir/frame_0000_strips.ply
-    /// out_dir/frame_0000_twisters_1.ply
-    /// out_dir/frame_0000_twisters_2.ply
-    /// out_dir/frame_0001_rings.ply
-    /// out_dir/frame_0001_strips.ply
-    /// out_dir/frame_0001_twisters_1.ply
-    /// out_dir/frame_0001_twisters_2.ply
-    /// ```
-    /// 
-    /// and so forth. twisters_1 and twisters_2 are the two orbits of the twisters. If the
-    /// polytwister has only one orbit, all twisters_2 meshes will be empty.
-    Animation {
-        /// Name of the polytwister. Use full name, acronym, or ID.
-        polytwister: String,
-
-        /// Output directory.
-        /// 
-        /// The directory will be created. It is an error if the directory already exists.
-        output_dir: PathBuf,
-
-        /// Number of animation frames.
-        /// 
-        /// The W coordinates will be evenly spaced from -1 to +1.
-        #[arg(short = 'n', long, default_value_t = 24)]
-        frames: usize,
-    },
-
-    /// Export a single cross section of a polytwister as a mesh in the Stanford PLY format.
-    /// 
-    /// You can export the rings, strips, or individual twister orbits as meshes by providing the
-    /// relevant options. You can also use the `--merged` option to generate a mesh that merges them
-    /// all together with colors for visualization.
-    Section {
-        /// Name of the polytwister. Use full name, acronym, or ID.
-        polytwister: String,
-
-        /// W coordinate for the cross section.
-        #[arg(short, default_value_t = 0.1)]
-        w: f64,
- 
-        /// Output PLY mesh with everything: rings, strips, and twisters.
-        /// 
-        /// This is just for quickly loading the file to inspect in a mesh viewer, so there are not
-        /// a lot of customization options here.
-        #[arg(long = "merged")]
-        merged_path: Option<PathBuf>,
-
-        /// Output directory where ring, strip, and twister meshes are written separately.
-        #[arg(long = "split")]
-        split_path: Option<PathBuf>,
-
-        /// Output PLY mesh for ring cross sections.
-        #[arg(long = "rings")]
-        rings_path: Option<PathBuf>,
-
-        /// Output PLY mesh for strip cross sections.
-        #[arg(long = "strips")]
-        strips_path: Option<PathBuf>,
-
-        /// Output PLY mesh for cross sections of twisters in orbit 1.
-        #[arg(long = "twisters-1")]
-        twisters_path_1: Option<PathBuf>,
-
-        /// Output PLY mesh for cross sections twisters in orbit 2.
-        #[arg(long = "twisters-2")]
-        twisters_path_2: Option<PathBuf>,
+fn load_polytwister(polytwister_name: &String, database_path: &PathBuf) -> Result<Box<dyn Polytwister>, Box<dyn Error>> {
+    if polytwister_name.starts_with("{") {
+        let polytwister_spec: ConvexPolytwisterSpec = serde_json::from_str(polytwister_name)?;
+        let polytwister = polytwister_spec.to_convex_polytwister().normalize();
+        Ok(Box::new(polytwister))
+    } else {
+        let mut string = String::new();
+        let mut file = File::open(database_path)?;
+        file.read_to_string(&mut string)?;
+        let polytwister_database: PolytwisterDatabase = serde_json::from_str(&string)?;
+        let polytwister = polytwister_database.find(&polytwister_name)?.normalize();
+        Ok(Box::new(polytwister))
     }
 }
 
@@ -137,6 +108,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let args = Args::parse();
 
+    if let Some(_) = args.frames {
+        if let Some(_) = args.w {
+            return Err(String::from("-w and --frames cannot be used together").into());
+        }
+        if args.merged {
+            return Err(String::from("--merged and --frames cannot be used together").into());
+        }
+    }
+
     let config: Config = if let Some(config_path) = args.config {
         let mut string = String::new();
         let mut config_file = File::open(config_path)?;
@@ -146,84 +126,49 @@ fn main() -> Result<(), Box<dyn Error>> {
         Default::default()
     };
 
-    dbg!(config);
-
+    let polytwister_name = args.polytwister;
     let default_database_path = PathBuf::from("./polytwisters.json");
     let database_path = args.database.clone().unwrap_or(default_database_path);
+    let polytwister = load_polytwister(&polytwister_name, &database_path)?;
 
-    match &args.command {
-        Commands::Section {
-            polytwister: polytwister_name,
-            w,
-            merged_path,
-            split_path,
-            rings_path,
-            strips_path,
-            twisters_path_1,
-            twisters_path_2
-        } => {
-            let mut string = String::new();
-            let mut file = File::open(database_path)?;
-            file.read_to_string(&mut string)?;
-            let polytwister_database: PolytwisterDatabase = serde_json::from_str(&string)?;
-            let polytwister = polytwister_database.find(&polytwister_name)?.normalize();
+    let out_path = args.output_path;
 
-            let mut any_output = false;
-            let mesh = polytwister.as_meshes(*w, &config);
-            if let Some(path) = merged_path {
-                mesh.as_colored_mesh().write_ply_file_and_log(path, "Merged colored mesh");
-                any_output = true;
-            }
-            if let Some(path) = split_path {
-                std::fs::create_dir(&path);
-                mesh.write_plys(path);
-                any_output = true;
-            }
-            if let Some(path) = rings_path {
-                Mesh::merge(mesh.ring_meshes).write_ply_file_and_log(path, "Ring mesh");
-                any_output = true;
-            }
-            if let Some(path) = strips_path {
-                Mesh::merge(mesh.strip_meshes).write_ply_file_and_log(path, "Strip mesh");
-                any_output = true;
-            }
-            if let Some(path) = twisters_path_1 {
-                Mesh::merge(mesh.twister_meshes_orbit_1).write_ply_file_and_log(path, "Twister orbit 1 mesh");
-                any_output = true;
-            }
-            if let Some(path) = twisters_path_2 {
-                Mesh::merge(mesh.twister_meshes_orbit_2).write_ply_file_and_log(path, "Twister orbit 2 mesh");
-                any_output = true;
-            }
-            if !any_output {
-                warn!("No output mesh files provided. Try using --merged, --rings, --strips, --twisters-1, or --twisters-2.");
-            }
+    if let Some(frames) = args.frames {
+        if frames > MAX_FRAMES {
+            return Err(String::from("Too many frames").into());
+        }
+        std::fs::create_dir(&out_path)?;
+        let w_values = linspace(-1.0, 1.0, frames);
+        for (i, w_ref) in w_values.iter().enumerate() {
+            let w = *w_ref;
+            info!("Frame {i}/{frames}, w = {w}");
+            let section_dir = out_path.join(format!("section_{i:04}"));
+            let mesh = polytwister.as_meshes(w, &config);
+            std::fs::create_dir(&section_dir)?;
+            mesh.write_plys(&section_dir);
+        }
 
-            Ok(())
-        },
-        Commands::Animation {
-            polytwister: polytwister_name,
-            output_dir,
-            frames,
-        } => {
-            let mut string = String::new();
-            let mut file = File::open(database_path)?;
-            file.read_to_string(&mut string)?;
-            let polytwister_database: PolytwisterDatabase = serde_json::from_str(&string)?;
-            let polytwister = polytwister_database.find(&polytwister_name)?.normalize();
-
-            std::fs::create_dir(output_dir)?;
-
-            for (i, w) in linspace(-1.0, 1.0, *frames).into_iter().enumerate() {
-                let tmp = *frames;
-                info!("Frame {i}/{tmp}, w = {w}");
-                let section_dir = output_dir.join(format!("section_{i:04}"));
-                let mesh = polytwister.as_meshes(w, &config);
-                std::fs::create_dir(&section_dir)?;
-                mesh.write_plys(&section_dir);
-            }
-
-            Ok(())
+        let manifest_path = out_path.join("manifest.json");
+        let manifest = AnimationManifest { w_values };
+        let manifest_json = serde_json::to_string(&manifest)?;
+        {
+            let mut buffer = File::create(manifest_path)?;
+            buffer.write(manifest_json.as_bytes())?;
+        }
+    } else {
+        let w = args.w.unwrap_or(DEFAULT_W);
+        let mesh = polytwister.as_meshes(w, &config);
+        if args.merged {
+            mesh.as_colored_mesh().write_ply_file_and_log(&out_path, "Merged colored mesh");
+        } else {
+            std::fs::create_dir(&out_path)?;
+            mesh.write_plys(&out_path);
         }
     }
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct AnimationManifest {
+    w_values: Vec<f64>
 }
