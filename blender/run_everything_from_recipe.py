@@ -40,17 +40,15 @@ def main():
             "cargo", "run", "--release",
             "--",
             "--config", mesher_config_file,
-            "section",
             polytwister,
             "-w", str(w),
-            "--split", mesh_dir,
+            mesh_dir,
         ], check=True)
     else:
         subprocess.run([
             "cargo", "run", "--release",
             "--",
             "--config", mesher_config_file,
-            "animation",
             polytwister,
             "-n", str(frames),
             mesh_dir,
