@@ -11,12 +11,16 @@ pub struct CylinderMeshConfig {
     pub linear_segments: usize,
     #[serde(default = "CylinderMeshConfig::default_radial_segments")]
     pub radial_segments: usize,
+
+    #[serde(default = "CylinderMeshConfig::default_resolution")]
+    pub resolution: f64,
 }
 
 impl CylinderMeshConfig {
     fn default_half_length() -> f64 { 2.0 }
     fn default_linear_segments() -> usize { 50usize }
     fn default_radial_segments() -> usize { 50usize }
+    fn default_resolution() -> f64 { 0.05 }
 }
 
 impl Default for CylinderMeshConfig {
@@ -25,6 +29,7 @@ impl Default for CylinderMeshConfig {
             half_length: Self::default_half_length(),
             linear_segments: Self::default_linear_segments(),
             radial_segments: Self::default_radial_segments(),
+            resolution: Self::default_resolution(),
         }
     }
 }

@@ -380,11 +380,10 @@ impl Cylinder {
     }
 
     /**
-     * Perform nonuniform sampling of theta values, creating points spaced around an ellipse with a
-     * minimum distance. The minimum distance is not mathematically guaranteed but works fine in
-     * practice.
+     * Perform nonuniform sampling of theta values, creating points spaced around an ellipse so that
+     * no two consecutive points are closer together than the resolution.
      */
-    fn sample_theta(&self, min_distance: f64) -> Vec<f64> {
+    pub fn sample_theta(&self, resolution: f64) -> Vec<f64> {
         // I initially played with methods using inverse incomplete elliptic integrals to space
         // points on an ellipse, but it was too annoying to fiddle with the dependencies needed to
         // do that. This is a simple brute-force numerical solution.
@@ -394,7 +393,7 @@ impl Cylinder {
         let (major_radius, minor_radius) = self.ellipse_radii();
         let average_radius = (major_radius + minor_radius) / 2.0;
         let initial_num_points = (
-            (average_radius * f64::consts::TAU / min_distance as f64) as usize
+            (average_radius * f64::consts::TAU / resolution as f64) as usize
         ).max(4);
         let initial_thetas: Vec<_> = (0..initial_num_points).map(
             |i| i as f64 / initial_num_points as f64 * f64::consts::TAU
@@ -416,8 +415,8 @@ impl Cylinder {
 
             // If the distance between successive points is larger than the minimum, subdivide it
             // into smaller segments.
-            if d > min_distance {
-                let subdivisions = (d / min_distance).ceil() as usize;
+            if d > resolution {
+                let subdivisions = (d / resolution).ceil() as usize;
                 // Start with 1 here, as we already added theta1.
                 for i in 1..subdivisions {
                     let t = i as f64 / subdivisions as f64;

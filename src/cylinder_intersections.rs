@@ -581,6 +581,7 @@ mod test {
             half_length: 5.0,
             linear_segments: 50,
             radial_segments: 50,
+            resolution: 0.01,
         };
         let curve_config = TorusMeshConfig {
             radius: 0.05,

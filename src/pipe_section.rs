@@ -254,8 +254,8 @@ impl TwisterSection {
 
     pub fn as_mesh(&self, config: &CylinderMeshConfig) -> Mesh {
         let extent = config.half_length;
-        let linear_segments = config.linear_segments;
-        let radial_segments = config.radial_segments;
+        let resolution = config.resolution;
+        let linear_segments = (extent * 2.0 / resolution).ceil() as usize;
         if self.pipe_section.is_plane() {
             if let Some(z) = self.pipe_section.plane_z() {
                 let grid = Grid {
@@ -278,9 +278,13 @@ impl TwisterSection {
                 Mesh::empty()
             }
         } else {
+            let ellipse_axis = GridAxis::circular(
+                self.pipe_section.as_cylinder().sample_theta(config.resolution)
+            );
+
             let grid = Grid {
                 u_axis: GridAxis::uniform_linear(linear_segments, -extent, extent),
-                v_axis: GridAxis::uniform_circular(radial_segments, f64::consts::TAU),
+                v_axis: ellipse_axis,
             };
             let surface = TwisterCylindricalIsosurface {
                 pipe_section: self.pipe_section,
