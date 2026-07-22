@@ -21,7 +21,7 @@ pub fn adaptive_sample<F : Fn (f64, f64) -> f64>(
         result.push(x1);
 
         let mut i2 = i1 + 1;
-        if circular && i2 >= initial.len() {
+        if !circular && i2 >= initial.len() {
             break;
         }
         i2 = i2.rem_euclid(initial.len());

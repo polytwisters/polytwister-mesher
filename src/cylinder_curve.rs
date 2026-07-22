@@ -1,5 +1,4 @@
 use core::f64;
-use std::mem::Discriminant;
 
 use nalgebra as na;
 use crate::{config::{CylinderMeshConfig, TorusMeshConfig}, cylinder::Cylinder, mesh::Mesh, pipe_section::{self, PipeSection}, polyline::Polyline, utils::{adaptive_sample, bisection_search, linspace, sort2}};
@@ -191,12 +190,13 @@ impl CCurve {
     }
 
     pub fn discretize_segment(&self, tmin: f64, tmax: f64, resolution: f64) -> Polyline {
+        let initial_num_points = 100;  // guess
         let t_values = adaptive_sample(
             |t1, t2| {
                 na::distance(&self.at(t1), &self.at(t2))
             },
             resolution,
-            100,
+            initial_num_points,
             tmin,
             tmax,
             false
@@ -207,12 +207,13 @@ impl CCurve {
     }
 
     pub fn discretize_full(&self, resolution: f64) -> Polyline {
+        let initial_num_points = 100;  // guess
         let t_values = adaptive_sample(
             |t1, t2| {
                 na::distance(&self.at(t1), &self.at(t2))
             },
             resolution,
-            100,
+            initial_num_points,
             0.0,
             1.0,
             true
