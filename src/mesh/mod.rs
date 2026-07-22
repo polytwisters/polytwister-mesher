@@ -11,6 +11,9 @@ use log::{info};
 use na::{Point, Point3, Transform3, Vector3};
 use crate::pipe_section::{PipeSection};
 
+mod polyline;
+pub use polyline::Polyline;
+
 #[derive(Clone, Copy, Debug)]
 pub struct Vertex {
     pub p: Point3<f64>,

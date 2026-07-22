@@ -3,7 +3,7 @@ use core::f64;
 use na::{Complex, ComplexField};
 use nalgebra::{Point2, Point3, Vector4};
 use crate::c2::C2;
-use crate::polyline::{self, Polyline};
+use crate::mesh::Polyline;
 use crate::{mesh::Mesh, utils::angle};
 use crate::config::{RingMeshConfig};
 

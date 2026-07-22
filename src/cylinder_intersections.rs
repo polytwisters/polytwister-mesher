@@ -1,8 +1,9 @@
 use core::f64;
 use std::io::Empty;
 
-use crate::{cylinder::Cylinder, cylinder_curve::CylinderIntersection, pipe_section::{self, PipeSection}, polyline::Polyline, utils::{angle_vector, linspace}};
+use crate::{cylinder::Cylinder, cylinder_curve::CylinderIntersection, pipe_section::{self, PipeSection}, utils::{angle_vector, linspace}};
 use crate::cylinder_curve::{CCurve};
+use crate::mesh::Polyline;
 use na::{Matrix2, Point2, Point3, Vector2, Vector3, Affine3, Matrix4};
 use crate::utils::{squared, sort2, sort4, angle, unzip_circle};
 

@@ -1,7 +1,7 @@
 use core::f64;
 
 use nalgebra as na;
-use crate::{config::{CylinderMeshConfig, TorusMeshConfig}, cylinder::Cylinder, mesh::Mesh, pipe_section::{self, PipeSection}, polyline::Polyline, utils::{adaptive_sample, bisection_search, linspace, sort2}};
+use crate::{config::{CylinderMeshConfig, TorusMeshConfig}, cylinder::Cylinder, mesh::{Mesh, Polyline}, pipe_section::{self, PipeSection}, utils::{adaptive_sample, bisection_search, linspace, sort2}};
 use nalgebra::{Affine3, Point3, Point2};
 use crate::utils::{lerp, lerp_inverse};
 
