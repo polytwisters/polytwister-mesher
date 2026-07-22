@@ -1,6 +1,6 @@
 use core::f64;
 use serde::Deserialize;
-use crate::{c2::C2, elements::Pipe, mesh::Mesh, pipe_section::{self, PipeSection}, polytwister::Polytwister, ring::RingSection, utils::linspace};
+use crate::{c2::C2, elements::Pipe, mesh::Mesh, pipe_section::{self, PipeSection, TwisterSection}, polytwister::Polytwister, ring::RingSection, utils::linspace};
 use crate::config::{CylinderMeshConfig, RingMeshConfig, TorusMeshConfig};
 use crate::marching_squares::{Isosurface, meshify, Grid, GridAxis};
 use crate::cylinder_curve::CCurve;
@@ -156,27 +156,19 @@ impl Polytwister for ConvexPolytwister {
             return vec![];
         }
 
-        let config = config.twisters;
         let mut meshes = vec![];
         for (i, pipe) in self.logs.iter().enumerate() {
             let pipe_with_real_b = Pipe::new(pipe.vec.rotate_real_b());
             let pipe_section = pipe_with_real_b.cross_section(w);
-            let grid = Grid {
-                u_axis: GridAxis::Linear(config.linear_segments, -config.half_length, config.half_length),
-                v_axis: GridAxis::Circular(config.radial_segments, f64::consts::TAU),
-            };
-            let surface = ConvexTwisterSection {
-                pipe_section,
-                // Grab all log sections except the one we're currently on.
-                log_sections: self.logs.iter().enumerate().filter_map(|(j, log)|
-                    if (i == j) {
-                        None
-                    } else {
-                        Some(log.pipe().cross_section(w))
-                    }
-                ).collect::<_>()
-            };
-            let mesh = meshify(&surface, &grid);
+            let neighboring_pipe_sections = self.logs.iter().enumerate().filter_map(|(j, log)|
+                if (i == j) {
+                    None
+                } else {
+                    Some(log.pipe().cross_section(w))
+                }
+            ).collect::<_>();
+            let twister_section = TwisterSection::convex(pipe_section, neighboring_pipe_sections);
+            let mesh = twister_section.as_mesh(&config.twisters);
             meshes.push(mesh);
         }
         meshes

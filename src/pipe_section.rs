@@ -98,11 +98,13 @@ impl PipeSection {
     }
 
     pub fn as_mesh(&self, config: &CylinderMeshConfig) -> Mesh {
+        let extent = config.half_length;
+        let linear_segments = (extent * 2.0 / config.resolution).ceil() as usize;
         if self.is_plane() {
             if let Some(z) = self.plane_z() {
                 Mesh::merge(vec![
-                    Mesh::plane(z, config.half_length, config.linear_segments),
-                    Mesh::plane(-z, config.half_length, config.linear_segments),
+                    Mesh::plane(z, extent, linear_segments),
+                    Mesh::plane(-z, extent, linear_segments),
                 ])
             } else {
                 Mesh::empty()
@@ -122,10 +124,12 @@ impl PipeSection {
         }
 
         if self.is_plane() {
+            let extent = config.half_length;
+            let linear_segments = (extent * 2.0 / config.resolution).ceil() as usize;
             if let Some(z) = self.plane_z() {
                 Mesh::merge(vec![
-                    Mesh::partial_plane(&predicate, z, config.half_length, config.linear_segments),
-                    Mesh::partial_plane(&predicate, -z, config.half_length, config.linear_segments),
+                    Mesh::partial_plane(&predicate, z, extent, linear_segments),
+                    Mesh::partial_plane(&predicate, -z, extent, linear_segments),
                 ])
             } else {
                 Mesh::empty()
@@ -252,15 +256,36 @@ impl TwisterSection {
         }
     }
 
+    pub fn convex(
+        pipe_section: PipeSection,
+        neighboring_pipe_sections: Vec<PipeSection>,
+    ) -> Self {
+        let orthogonal_pipe_section = PipeSection::new(1.0, 1.0, 0.0, 0.0, 0.0);
+        let filling = vec![
+            FillingRegion {
+                order: neighboring_pipe_sections.len() as u32,
+                mode: RegionMode::Both,
+            }
+        ];
+        Self {
+            pipe_section,
+            filling_info: TwisterFillingInfo {
+                orthogonal_pipe_section,
+                neighboring_pipe_sections,
+                filling
+            }
+        }
+    }
+
     pub fn as_mesh(&self, config: &CylinderMeshConfig) -> Mesh {
         let extent = config.half_length;
-        let linear_segments = config.linear_segments;
-        let radial_segments = config.radial_segments;
+        let resolution = config.resolution;
+        let linear_segments = (extent * 2.0 / resolution).ceil() as usize;
         if self.pipe_section.is_plane() {
             if let Some(z) = self.pipe_section.plane_z() {
                 let grid = Grid {
-                    u_axis: GridAxis::Linear(linear_segments, -extent, extent),
-                    v_axis: GridAxis::Linear(linear_segments, -extent, extent),
+                    u_axis: GridAxis::uniform_linear(linear_segments, -extent, extent),
+                    v_axis: GridAxis::uniform_linear(linear_segments, -extent, extent),
                 };
                 let plane_1 = TwisterPlanarIsosurface {
                     z: z,
@@ -271,22 +296,26 @@ impl TwisterSection {
                     filling_info: self.filling_info.clone(),
                 };
                 Mesh::merge(vec![
-                    meshify(&plane_1, &grid),
-                    meshify(&plane_2, &grid),
+                    meshify(&plane_1, grid.clone()),
+                    meshify(&plane_2, grid),
                 ])
             } else {
                 Mesh::empty()
             }
         } else {
+            let ellipse_axis = GridAxis::circular(
+                self.pipe_section.as_cylinder().sample_theta(config.resolution)
+            );
+
             let grid = Grid {
-                u_axis: GridAxis::Linear(linear_segments, -extent, extent),
-                v_axis: GridAxis::Circular(radial_segments, f64::consts::TAU),
+                u_axis: GridAxis::uniform_linear(linear_segments, -extent, extent),
+                v_axis: ellipse_axis,
             };
             let surface = TwisterCylindricalIsosurface {
                 pipe_section: self.pipe_section,
                 filling_info: self.filling_info.clone(),
             };
-            meshify(&surface, &grid)
+            meshify(&surface, grid)
         }
     }
 }

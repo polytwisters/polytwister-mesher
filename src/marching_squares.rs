@@ -16,6 +16,9 @@ use na::{Point3, Vector3};
 use crate::mesh::{self, Face, Mesh, Vertex};
 use crate::utils::bisection_search;
 
+mod grid;
+pub use grid::{Grid, GridAxis};
+
 /// An isosurface comprises two functions: an explicit parametrization that converts surface
 /// coordinates (u, v) into a Vertex with a 3D location and normal, and an indicator function
 /// that returns whether the point (u, v) in surface coordinates is inside the shape.
@@ -29,26 +32,12 @@ pub trait Isosurface {
     }
 }
 
-/// Marching Squares mesher for *cylindrical* 2D space with coordinates (u, v). The grid cells
+/// Marching Squares mesher for 2D space with coordinates (u, v). The grid cells
 /// are stored in a 1D vector in a u-major order. For visualization we flatten out the grid and
 /// say that u is the vertical direction and v is the horizontal direction.
 pub struct MarchingSquares {
     grid: Grid,
     cells: Vec<Cell>,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct Grid {
-    pub u_axis: GridAxis,
-    pub v_axis: GridAxis,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum GridAxis {
-    // num segments, min, max
-    Linear(usize, f64, f64),
-    // num segments, max
-    Circular(usize, f64),
 }
 
 /// A cell in Marching Squares whose corners have been determined to be inside or outside the
@@ -86,39 +75,6 @@ struct MSTriangle {
 struct MSVertices {
     ms_vertex_to_mesh_vertex: HashMap<MSPoint, usize>,
     mesh_vertices: Vec<Vertex>,
-}
-
-impl GridAxis {
-    fn spacing(&self) -> f64 {
-        self.index_to_value(1.0)
-    }
-
-    fn index_to_value(&self, index: f64) -> f64 {
-        match self {
-            GridAxis::Circular(size, max) => {
-                (index / *size as f64).rem_euclid(1.0) * max
-            },
-            GridAxis::Linear(size, min, max) => {
-                min + index * (max - min) / *size as f64
-            },
-        }
-    }
-
-    fn num_points(&self) -> usize {
-        match self {
-            GridAxis::Circular(size, max) => *size,
-            GridAxis::Linear(size, min, max) => *size,
-        }
-    }
-
-    /// For a linear GridAxis, do nothing. For a circular grid axis, take the index modulo the size
-    /// of the grid.
-    fn wrap(&self, index: usize) -> usize {
-        match self {
-            GridAxis::Circular(size, max) => index.rem_euclid(*size),
-            GridAxis::Linear(size, min, max) => index,
-        }
-    }
 }
 
 impl Square {
@@ -293,20 +249,12 @@ impl Cell {
 }
 
 impl Grid {
-    pub fn u_spacing(&self) -> f64 {
-        self.u_axis.spacing()
-    }
-
-    pub fn v_spacing(&self) -> f64 {
-        self.v_axis.spacing()
-    }
-
     pub fn ui_to_u(&self, ui: f64) -> f64 {
-        self.u_axis.index_to_value(ui)
+        self.u_axis.at(ui)
     }
 
     pub fn vi_to_v(&self, vi: f64) -> f64 {
-        self.v_axis.index_to_value(vi)
+        self.v_axis.at(vi)
     }
 
     fn vertex_coordinate(&self, vertex: MSPoint, isosurface: &impl Isosurface) -> (f64, f64) {
@@ -388,9 +336,10 @@ impl MSVertices {
 
 impl MarchingSquares {
     fn new(grid: Grid) -> Self {
+        let capacity = grid.u_axis.num_segments() * grid.v_axis.num_segments();
         MarchingSquares {
             grid,
-            cells: Vec::with_capacity(grid.u_axis.num_points() * grid.v_axis.num_points()),
+            cells: Vec::with_capacity(capacity),
         }
     }
 
@@ -425,8 +374,8 @@ impl MarchingSquares {
 
     /// Sample the isosurface and produce a Mesh.
     fn mesh(&mut self, isosurface: &impl Isosurface) -> Mesh {
-        for ui in 0..self.grid.u_axis.num_points() {
-            for vi in 0..self.grid.v_axis.num_points() {
+        for ui in 0..self.grid.u_axis.num_segments() {
+            for vi in 0..self.grid.v_axis.num_segments() {
                 let square = Square::new(ui, vi);
                 self.cells.push(self.make_node(square, isosurface));
             }
@@ -446,8 +395,8 @@ impl MarchingSquares {
     }
 }
 
-pub fn meshify(isosurface: &impl Isosurface, grid: &Grid) -> Mesh {
-    let mut ms = MarchingSquares::new(*grid);
+pub fn meshify(isosurface: &impl Isosurface, grid: Grid) -> Mesh {
+    let mut ms = MarchingSquares::new(grid);
     ms.mesh(isosurface)
 }
 
@@ -478,10 +427,10 @@ mod test {
     #[test]
     fn test_cylinder() {
         let grid = Grid {
-            u_axis: GridAxis::Circular(20, f64::consts::TAU),
-            v_axis: GridAxis::Linear(30, -2.0, 2.0),
+            u_axis: GridAxis::uniform_circular(20, f64::consts::TAU),
+            v_axis: GridAxis::uniform_linear(30, -2.0, 2.0),
         };
-        let mesh = meshify(&ExampleIsosurface { }, &grid);
+        let mesh = meshify(&ExampleIsosurface { }, grid);
         mesh.write_ply_file(&PathBuf::from("cylinder.ply"));
     }
 
@@ -502,10 +451,10 @@ mod test {
     #[test]
     fn test_plane() {
         let grid = Grid {
-            u_axis: GridAxis::Linear(20, -2.0, 2.0),
-            v_axis: GridAxis::Linear(30, -2.0, 2.0),
+            u_axis: GridAxis::uniform_linear(20, -2.0, 2.0),
+            v_axis: GridAxis::uniform_linear(30, -2.0, 2.0),
         };
-        let mesh = meshify(&ExampleIsosurface2 { }, &grid);
+        let mesh = meshify(&ExampleIsosurface2 { }, grid);
         mesh.write_ply_file(&PathBuf::from("plane.ply"));
     }
 
@@ -526,10 +475,11 @@ mod test {
     #[test]
     fn test_triangular_prism() {
         let grid = Grid {
-            u_axis: GridAxis::Circular(3, f64::consts::TAU),
-            v_axis: GridAxis::Linear(1, -2.0, 2.0),
+            u_axis: GridAxis::uniform_circular(3, f64::consts::TAU),
+            v_axis: GridAxis::uniform_linear(2, -2.0, 2.0),
         };
-        let mesh = meshify(&ExampleIsosurface3 { }, &grid);
+        let mesh = meshify(&ExampleIsosurface3 { }, grid);
+        mesh.write_ply_file(&PathBuf::from("prism.ply"));
         // This should generate a triangular prism (with open caps) which has 6 vertices. If it has
         // 8 vertices, then something is wrong with how the circular axis is treated.
         assert_eq!(mesh.num_vertices(), 6);
