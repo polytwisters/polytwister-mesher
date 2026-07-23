@@ -394,7 +394,7 @@ def import_ply(
 ):
     # Blender creates an error importing an empty PLY file.
     if ply_is_empty(path):
-        return
+        return None
 
     deselect_all()
     bpy.ops.wm.ply_import(filepath=str(path))
@@ -428,26 +428,29 @@ def import_section(
     frame_number: Optional[int] = None,
 ):
     """Import PLY files for a single section."""
-    import_ply(
+    rings = import_ply(
         section_dir / "rings.ply",
         frame_number=frame_number,
         material_config=material_configs.rings,
     )
-    import_ply(
+    strips = import_ply(
         section_dir / "strips.ply",
         frame_number=frame_number,
         material_config=material_configs.strips,
     )
-    import_ply(
+    twisters_1 = import_ply(
         section_dir / "twisters_1.ply",
         frame_number=frame_number,
         material_config=material_configs.twisters_1,
     )
-    import_ply(
+    twisters_2 = import_ply(
         section_dir / "twisters_2.ply",
         frame_number=frame_number,
         material_config=material_configs.twisters_2,
     )
+    things = [rings, strips, twisters_1, twisters_2]
+    things = [thing for thing in things if thing is not None]
+    group_under_empty(things)
 
 
 def import_animation(root_dir: pathlib.Path, material_config: MaterialConfigs):
