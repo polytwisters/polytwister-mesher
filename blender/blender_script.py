@@ -54,7 +54,7 @@ def rotate_about_axis(axis, angle):
         )
 
 
-def group_under_empty(parts):
+def group_under_empty(parts, name=None):
     """Create an empty and group every object in parts as the child of
     that empty."""
     bpy.ops.object.empty_add(type="PLAIN_AXES")
@@ -66,6 +66,8 @@ def group_under_empty(parts):
     deselect_all()
     bpy.context.view_layer.objects.active = parent
     parent.select_set(True)
+    if name is not None:
+        parent.name = name
     return parent
 
 
@@ -157,10 +159,10 @@ def set_up_lights(camera_azimuth):
     # absolute.
     light_specs = [
         # Key light illuminates most of the front of the object
-        {"latitude": 10.0, "longitude": -80, "power": 300.0, "radius": 3.0},
+        {"latitude": 10.0, "longitude": -80, "power": 300.0, "radius": 3.0, "color": (0.9, 0.9, 1.0)},
         # Fill light gently illuminates the shadows left by the key light
         # Don't make this too strong, shadows are good
-        {"latitude": 0.0, "longitude": 50.0, "power": 30.0, "radius": 3.0},
+        {"latitude": 0.0, "longitude": 50.0, "power": 30.0, "radius": 3.0, "color": (1.0, 0.9, 1.0)},
         # I used to have a back light here but it didn't work too well. The HDRI is sufficient for
         # preventing really dark areas.
     ]
@@ -181,6 +183,7 @@ def set_up_lights(camera_azimuth):
             rotation=rotation_to_point_to_origin(location)
         )
         bpy.context.object.data.energy = light_spec["power"] * power_multiplier
+        bpy.context.object.data.color = light_spec["color"]
 
 
 def set_transparent_background():
@@ -404,21 +407,6 @@ def import_ply(
     bpy.ops.mesh.customdata_custom_splitnormals_clear()
     do_scale(DEFAULT_SCALE)
 
-    if frame_number is not None:
-        # To animate the sections, drivers are added so that the object appears only for its
-        # assigned frame, both in the viewport and in the render.
-        #
-        # I decided not to use keyframes because the hide_viewport property can't be animated, which
-        # is annoying. Drivers are fairly similar to keyframes in Blender and I haven't noticed any
-        # performance issues in the viewport.
-        driver = bpy.context.object.driver_add("hide_viewport").driver
-        driver.type = "SCRIPTED"
-        driver.expression = f"frame != {frame_number}"
-
-        driver = bpy.context.object.driver_add("hide_render").driver
-        driver.type = "SCRIPTED"
-        driver.expression = f"frame != {frame_number}"
-
     return bpy.context.active_object
 
 
@@ -430,27 +418,44 @@ def import_section(
     """Import PLY files for a single section."""
     rings = import_ply(
         section_dir / "rings.ply",
-        frame_number=frame_number,
         material_config=material_configs.rings,
     )
     strips = import_ply(
         section_dir / "strips.ply",
-        frame_number=frame_number,
         material_config=material_configs.strips,
     )
     twisters_1 = import_ply(
         section_dir / "twisters_1.ply",
-        frame_number=frame_number,
         material_config=material_configs.twisters_1,
     )
     twisters_2 = import_ply(
         section_dir / "twisters_2.ply",
-        frame_number=frame_number,
         material_config=material_configs.twisters_2,
     )
     things = [rings, strips, twisters_1, twisters_2]
     things = [thing for thing in things if thing is not None]
-    group_under_empty(things)
+
+    name = f"Polytwister section frame #{frame_number}" if frame_number is not None else "Polytwister section"
+    section = group_under_empty(things, name)
+
+    if frame_number is not None:
+        # To animate the sections, drivers are added so that the object appears only for its
+        # assigned frame, both in the viewport and in the render.
+        #
+        # I decided not to use keyframes because the hide_viewport property can't be animated, which
+        # is annoying. Drivers are fairly similar to keyframes in Blender and I haven't noticed any
+        # performance issues in the viewport.
+        expression = f"frame != {frame_number}"
+
+        viewport_driver = bpy.context.object.driver_add("hide_viewport").driver
+        viewport_driver.type = "SCRIPTED"
+        viewport_driver.expression = expression
+
+        render_driver = bpy.context.object.driver_add("hide_render").driver
+        render_driver.type = "SCRIPTED"
+        render_driver.expression = expression
+    
+    return section
 
 
 def import_animation(root_dir: pathlib.Path, material_config: MaterialConfigs):
@@ -469,20 +474,25 @@ def import_animation(root_dir: pathlib.Path, material_config: MaterialConfigs):
     num_frames = num_proper_frames + 2
     bpy.context.scene.frame_end = num_frames
 
+    sections = []
     for i in range(num_proper_frames):
         # +1 to convert 0-indexing to 1-indexing, another +1 for the initial empty frame.
         frame_number = i + 2
-        import_section(
+        section = import_section(
             section_dirs[i],
             material_configs=material_config,
             frame_number=frame_number,
         )
+        sections.append(section)
+    animation = group_under_empty(section, "Polytwister sections")
     
     # To make things a bit more convenient when opening the .blend file interactively, navigate to
     # a frame where there is a visible mesh and align with the camera.
     bpy.context.scene.frame_set(num_proper_frames // 2)
     area = next(area for area in bpy.context.screen.areas if area.type == "VIEW_3D")
     area.spaces[0].region_3d.view_perspective = "CAMERA"
+
+    return animation
 
 
 def is_animation_dir(root_dir: pathlib.Path) -> bool:
@@ -551,6 +561,8 @@ def main():
         import_animation(directory, materials_config)
     else:
         import_section(directory, materials_config)
+    
+    bpy.ops.transform.rotate(value=math.radians(config.get("rotate_z", 0.0)), orient_axis="Z")
 
     if args.output:
         # save_as_mainfile doesn't like relative paths, convert to absolute.
