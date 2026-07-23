@@ -249,14 +249,6 @@ impl Cell {
 }
 
 impl Grid {
-    pub fn ui_to_u(&self, ui: f64) -> f64 {
-        self.u_axis.at(ui)
-    }
-
-    pub fn vi_to_v(&self, vi: f64) -> f64 {
-        self.v_axis.at(vi)
-    }
-
     fn vertex_coordinate(&self, vertex: MSPoint, isosurface: &impl Isosurface) -> (f64, f64) {
         match vertex {
             MSPoint::Corner(square) => (

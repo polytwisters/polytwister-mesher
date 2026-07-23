@@ -4,6 +4,16 @@ pub struct Grid {
     pub v_axis: GridAxis,
 }
 
+impl Grid {
+    pub fn ui_to_u(&self, ui: f64) -> f64 {
+        self.u_axis.at(ui)
+    }
+
+    pub fn vi_to_v(&self, vi: f64) -> f64 {
+        self.v_axis.at(vi)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum GridAxisTopology {
     Linear,
