@@ -3,7 +3,8 @@ use core::f64;
 
 use na::{Affine3, Matrix2, Matrix3, Matrix4, Point2, Point3, Rotation3, Vector2, Vector3};
 use crate::pipe_section::PipeSection;
-use crate::utils::{Ellipse, squared, adaptive_sample};
+use crate::utils::{Ellipse, squared};
+use crate::utils::adaptive_sampling::{self, AdaptiveSamplingConfig, Topology1D, adaptive_sample};
 use crate::mesh::{Face, Mesh, Vertex};
 use crate::config::{CylinderMeshConfig};
 
@@ -394,7 +395,7 @@ impl Cylinder {
         // Just a heuristic.
         let (major_radius, minor_radius) = self.ellipse_radii();
         let average_radius = (major_radius + minor_radius) / 2.0;
-        let initial_num_points = (
+        let guess_num_points = (
             (average_radius * f64::consts::TAU / resolution as f64) as usize
         ).max(4);
 
@@ -404,11 +405,12 @@ impl Cylinder {
                 let p2 = Point2::new(major_radius * theta2.cos(), minor_radius * theta2.sin());
                 na::distance(&p1, &p2)
             },
-            resolution,
-            initial_num_points,
-            0.0,
-            f64::consts::TAU,
-            true
+            Topology1D::Circular,
+            &AdaptiveSamplingConfig {
+                target_distance: resolution,
+                t_range: (0.0, f64::consts::TAU),
+                guess_num_points,
+            },
         );
         result
     }

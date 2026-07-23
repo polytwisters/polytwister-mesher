@@ -1,90 +1,171 @@
+use crate::utils::{bisection_search, lerp, lerp_inverse, linspace};
+
+pub enum Topology1D {
+    Circular,
+    Linear
+}
+
+fn binary_search(array: &Vec<f64>, target: f64) -> usize {
+    let len = array.len();
+    assert!(len >= 2);
+    let mut min = 0;
+    let mut max = array.len() - 1;
+    loop {
+        if target < array[min] {
+            return min;
+        }
+        if target >= array[max] {
+            return max.min(len - 2);
+        }
+        if !(min + 1 < max) {
+            break;
+        }
+        let midpoint_index = min + (max - min) / 2;
+        if midpoint_index == min || midpoint_index == max {
+            break;
+        }
+        let midpoint_value = array[midpoint_index];
+        if midpoint_value <= target {
+            min = midpoint_index;
+        } else {
+            max = midpoint_index;
+        }
+    }
+    min
+}
+
+fn linear_interpolate(t: &Vec<f64>, f: &Vec<f64>, t_in: f64) -> f64 {
+    let i1 = binary_search(t, t_in);
+    let i2 = i1 + 1;
+    let (t1, t2) = (t[i1], t[i2]);
+    let (f1, f2) = (f[i1], f[i2]);
+    let frac = lerp_inverse(t1, t2, t_in);
+    lerp(f1, f2, frac)
+}
+
+pub struct AdaptiveSamplingConfig {
+    pub target_distance: f64,
+    pub t_range: (f64, f64),
+    pub guess_num_points: usize,
+}
+
 /**
- * Given a distance function d(t1, t2) and an interval on the real line, produce a list of t values
- * in that interval such that d(t1, t2) is almost always less than a given maximum distance. The
- * list of t values may be linear (interval is closed and the output contains both endpoints), or
- * circular (interval is half-open).
+ * Given a distance function d(t1, t2), produce a list of t values such that:
  * 
- * This works by first evenly spacing initial_num_points in the interval, and for each pair of
- * consecutive t1, t2, if d(t1, t2) > max_distance then subdivide the interval [t1, t2] into
- * ceil(max_distance / d(t1, t2)) segments. This does not formally guarantee that the maximum
- * distance is adhered to but in practice it basically always works if the curve is reasonably
- * smooth and the number of initial points is sufficient.
+ * * The first value is t_range.0.
+ * * All values are in increasing order.
+ * * If the topology is linear, then the final value is t_range.1.
+ * * The values are roughly evenly spaced and their distance is roughly target_distance.
+ * * If the topology is circular, all values are less than t_range.1, and the distance between the
+ * last and first points is accounted for.
+ * 
+ * If the topology is circular then it is assumed that d(t_range.0, t_range.1) is 0.
  */
 pub fn adaptive_sample<F : Fn (f64, f64) -> f64>(
     distance_func: F,
-    max_distance: f64,
-    initial_num_points: usize,
-    min: f64,
-    max: f64,
-    circular: bool
+    topology: Topology1D,
+    config: &AdaptiveSamplingConfig,
 ) -> Vec<f64> {
-    // Start with an evenly spaced number of points. In the circular case, they are evenly spaced
-    // including min but excluding max. In the linear case, they are evenly spaced including both,
-    // hence the conditional.
-    let evenly_spaced: Vec<_> = (0..initial_num_points).map(|i| {
-        let t = i as f64 / (if circular { initial_num_points } else { initial_num_points - 1 }) as f64;
-        min + (max - min) * t
+    let (min, max) = config.t_range;
+    let max_distance = config.target_distance;
+    let guess_num_points = config.guess_num_points;
+
+    // Start with an evenly spaced number of points. Even in the circular case we want to include
+    // the max point.
+    let evenly_spaced_ts = linspace(min, max, guess_num_points);
+
+    // Compute distances between consecutive points and take the cumulative sum of them to produce
+    // the full arc length.
+    let (cumulative_arc_lengths, total_arc_length) = {
+        let mut result = Vec::with_capacity(evenly_spaced_ts.len());
+        let mut cumulative_arc_length = 0.0;
+        for i1 in 0..evenly_spaced_ts.len() - 1 {
+            let i2 = i1 + 1;
+            let arc_length = distance_func(evenly_spaced_ts[i1], evenly_spaced_ts[i2]);
+            result.push(cumulative_arc_length);
+            cumulative_arc_length += arc_length;
+        }
+        (result, cumulative_arc_length)
+    };
+
+    // There needs to be at least one segment. Three is a nicer minimum because for a closed 3D
+    // polyline, you want at least three points.
+    let num_segments = (
+        (total_arc_length / max_distance).ceil() as usize
+    ).max(3);
+    let num_points = match topology {
+        Topology1D::Circular => num_segments,
+        Topology1D::Linear => num_segments + 1,
+    };
+
+    let result: Vec<_> = (0..num_points).map(|j| {
+        let arc_length = j as f64 / num_segments as f64 * total_arc_length;
+        linear_interpolate(&cumulative_arc_lengths, &evenly_spaced_ts, arc_length)
     }).collect();
-
-    // Walk through each line segment connecting pairs of points and check distances.
-    // Heuristic to reduce unnecessary reallocations: assume the final number of points needed is
-    // about twice the initial num points.
-    let mut result: Vec<f64> = Vec::with_capacity(evenly_spaced.len() * 2);
-    for i1 in 0usize..evenly_spaced.len() {
-        // Always add the point from the original.
-        let x1 = evenly_spaced[i1];
-        result.push(x1);
-
-        let mut i2 = i1 + 1;
-        // In the linear case, the final segment is ignored.
-        if !circular && i2 >= evenly_spaced.len() {
-            break;
-        }
-        i2 = i2.rem_euclid(evenly_spaced.len());
-
-        let x2 = evenly_spaced[i2];
-        // If the distance between successive points is larger than the minimum, subdivide it
-        // into smaller segments.
-        let d = distance_func(x1, x2);
-        if d > max_distance {
-            let subdivisions = (d / max_distance).ceil() as usize;
-            // Start with 1 here, as we already added theta1.
-            for i in 1..subdivisions {
-                let t = i as f64 / subdivisions as f64;
-                let x = x1 * (1.0 - t) + x2 * t;
-                result.push(x);
-            }
-        }
-    }
-    result.shrink_to_fit();
 
     result
 }
 
+
 #[cfg(test)]
 mod test {
-    use nalgebra::Point2;
-    use crate::utils::adaptive_sample;
+    use core::f64;
+use std::cmp::max;
 
-    fn test_basic() {
-        let func = |x: f64| { x.sin() };
-        let distance_func = |t1, t2| {
-            let p1 = Point2::new(t1, func(t2));
-            let p2 = Point2::new(t2, func(t2));
-            na::distance(&p1, &p2)
+use nalgebra::Point2;
+    use super::*;
+
+    /**
+     * Using an arbitrary 2D plane curve as an example, verify that the points are in range, are
+     * close to each other, and points with spacing close to the target distance.
+     */
+    #[test]
+    fn test_linear() {
+        let func = |t: f64| {
+            Point2::new(t.sin(), (t * 3.0).cos())
         };
-        let max_distance = 0.01;
-        let t = adaptive_sample(
-            distance_func,
-            max_distance,
-            10,
-            0.3,
-            3.0,
-            false
-        );
+        let distance_func = |t1, t2| {
+            na::distance(&func(t1), &func(t2))
+        };
+        let target_distance = 0.1;
+        let t_range = (0.3, 3.0);
+        let config = AdaptiveSamplingConfig {
+            target_distance,
+            guess_num_points: 100,
+            t_range,
+        };
+        let t = adaptive_sample(distance_func, Topology1D::Linear, &config);
+        let mut min_distance = f64::INFINITY;
+        let mut max_distance = f64::NEG_INFINITY;
+        assert!(t.len() > 2);
+        assert!(t.iter().all(|&t| t_range.0 <= t && t < t_range.1));
         for i in 0..t.len() - 1 {
             assert!(t[i] < t[i + 1]);
-            assert!(distance_func(t[i], t[i + 1]) < max_distance);
+            let distance = distance_func(t[i], t[i + 1]);
+            min_distance = distance.min(min_distance);
+            max_distance = distance.max(max_distance);
         }
+        let min_distance_ratio = min_distance / target_distance;
+        let max_distance_ratio = max_distance / target_distance;
+        let relative_window_size = 0.5;
+        assert!(min_distance_ratio > 1.0 - relative_window_size);
+        assert!(max_distance_ratio < 1.0 + relative_window_size);
+    }
+
+    /// If the overall arc length is very short, make sure at least two points are returned.
+    #[test]
+    fn test_very_short() {
+        let distance_func = |t1: f64, t2: f64| {
+            (t2 - t1).abs()
+        };
+        let target_distance = 0.1;
+        let t_range = (0.0, 0.01);
+        let config = AdaptiveSamplingConfig {
+            target_distance,
+            guess_num_points: 100,
+            t_range,
+        };
+        let t = adaptive_sample(distance_func, Topology1D::Linear, &config);
+        assert!(t.len() > 2);
     }
 }

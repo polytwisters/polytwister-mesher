@@ -1,7 +1,8 @@
 use core::f64;
 
 use nalgebra as na;
-use crate::{config::{CylinderMeshConfig, TorusMeshConfig}, cylinder::Cylinder, mesh::{Mesh, Polyline}, pipe_section::{self, PipeSection}, utils::{adaptive_sample, bisection_search, linspace, sort2}};
+use crate::{config::{CylinderMeshConfig, TorusMeshConfig}, cylinder::Cylinder, mesh::{Mesh, Polyline}, pipe_section::{self, PipeSection}, utils::{adaptive_sampling::Topology1D, bisection_search, linspace, sort2}};
+use crate::utils::adaptive_sampling::{self, AdaptiveSamplingConfig, adaptive_sample};
 use nalgebra::{Affine3, Point3, Point2};
 use crate::utils::{lerp, lerp_inverse};
 
@@ -191,15 +192,16 @@ impl CCurve {
 
     pub fn discretize_segment(&self, tmin: f64, tmax: f64, resolution: f64) -> Polyline {
         let initial_num_points = 100;  // guess
-        let t_values = adaptive_sample(
+        let t_values = adaptive_sampling::adaptive_sample(
             |t1, t2| {
                 na::distance(&self.at(t1), &self.at(t2))
             },
-            resolution,
-            initial_num_points,
-            tmin,
-            tmax,
-            false
+            Topology1D::Linear,
+            &AdaptiveSamplingConfig {
+                target_distance: resolution,
+                t_range: (tmin, tmax),
+                guess_num_points: 100,
+            },
         );
         dbg!(&t_values);
         let points = t_values.into_iter().map(|t| self.at(t)).collect();
@@ -207,16 +209,16 @@ impl CCurve {
     }
 
     pub fn discretize_full(&self, resolution: f64) -> Polyline {
-        let initial_num_points = 100;  // guess
-        let t_values = adaptive_sample(
+        let t_values = adaptive_sampling::adaptive_sample(
             |t1, t2| {
                 na::distance(&self.at(t1), &self.at(t2))
             },
-            resolution,
-            initial_num_points,
-            0.0,
-            1.0,
-            true
+            Topology1D::Circular,
+            &AdaptiveSamplingConfig {
+                target_distance: resolution,
+                t_range: (0.0, 1.0),
+                guess_num_points: 100,
+            }
         );
         let points = t_values.into_iter().map(|t| self.at(t)).collect();
         Polyline { points, closed: true }
