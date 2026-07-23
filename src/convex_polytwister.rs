@@ -313,7 +313,6 @@ mod test {
 
     /// Issue #11, fails because ConvexPolytwister does not correctly handle L(0, 1).
     #[test]
-    #[ignore]
     fn test_cross_section_meshing() {
         let dyster = dyster_with_plane();
         let meshes = dyster.as_meshes(0.3, &Config::default());
