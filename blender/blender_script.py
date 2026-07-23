@@ -407,37 +407,6 @@ def import_ply(
     bpy.ops.mesh.customdata_custom_splitnormals_clear()
     do_scale(DEFAULT_SCALE)
 
-    return bpy.context.active_object
-
-
-def import_section(
-    section_dir: pathlib.Path,
-    material_configs: MaterialConfigs,
-    frame_number: Optional[int] = None,
-):
-    """Import PLY files for a single section."""
-    rings = import_ply(
-        section_dir / "rings.ply",
-        material_config=material_configs.rings,
-    )
-    strips = import_ply(
-        section_dir / "strips.ply",
-        material_config=material_configs.strips,
-    )
-    twisters_1 = import_ply(
-        section_dir / "twisters_1.ply",
-        material_config=material_configs.twisters_1,
-    )
-    twisters_2 = import_ply(
-        section_dir / "twisters_2.ply",
-        material_config=material_configs.twisters_2,
-    )
-    things = [rings, strips, twisters_1, twisters_2]
-    things = [thing for thing in things if thing is not None]
-
-    name = f"Polytwister section frame #{frame_number}" if frame_number is not None else "Polytwister section"
-    section = group_under_empty(things, name)
-
     if frame_number is not None:
         # To animate the sections, drivers are added so that the object appears only for its
         # assigned frame, both in the viewport and in the render.
@@ -454,6 +423,41 @@ def import_section(
         render_driver = bpy.context.object.driver_add("hide_render").driver
         render_driver.type = "SCRIPTED"
         render_driver.expression = expression
+
+    return bpy.context.active_object
+
+
+def import_section(
+    section_dir: pathlib.Path,
+    material_configs: MaterialConfigs,
+    frame_number: Optional[int] = None,
+):
+    """Import PLY files for a single section."""
+    rings = import_ply(
+        section_dir / "rings.ply",
+        material_config=material_configs.rings,
+        frame_number=frame_number,
+    )
+    strips = import_ply(
+        section_dir / "strips.ply",
+        material_config=material_configs.strips,
+        frame_number=frame_number,
+    )
+    twisters_1 = import_ply(
+        section_dir / "twisters_1.ply",
+        material_config=material_configs.twisters_1,
+        frame_number=frame_number,
+    )
+    twisters_2 = import_ply(
+        section_dir / "twisters_2.ply",
+        material_config=material_configs.twisters_2,
+        frame_number=frame_number,
+    )
+    things = [rings, strips, twisters_1, twisters_2]
+    things = [thing for thing in things if thing is not None]
+
+    name = f"Polytwister section frame #{frame_number}" if frame_number is not None else "Polytwister section"
+    section = group_under_empty(things, name)
     
     return section
 
