@@ -34,7 +34,7 @@
         },
         "twisters": {
             "half_length": 2.0,
-            "resolution": 0.005
+            "resolution": 0.02
         }
     }
 }
