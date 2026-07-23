@@ -50,11 +50,13 @@ struct Cell {
 /// A unit-size square in Marching Squares.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct Square {
+    /// u index of the top left corner.
     pub ui: usize,
+    /// v index of the top left corner.
     pub vi: usize,
 }
 
-/// A point on the grid which is either a corner or on the edge of a QSquare. If it's on an edge,
+/// A point on the grid which is either a corner or on the edge of a Square. If it's on an edge,
 /// we do not know at this time where it is on the edge -- that will be computed later.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum MSPoint {
