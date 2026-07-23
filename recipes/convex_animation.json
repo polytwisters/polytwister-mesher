@@ -1,0 +1,41 @@
+{
+    "polytwister": {"logs": [[0.2, -0.2, 1.1, 0.2], [0.2, 0.9, 0.6, -0.5], [-0.3, 0.0, -1.0, -0.1], [-0.7, -0.5, -0.3, 0.4], [-0.1, 0.9, -0.4, 0.2], [0.1, -0.6, -0.8, -0.4], [-0.9, -0.2, -0.1, 0.5], [0.3, -0.6, -0.1, 0.7], [-0.5, 0.6, 0.5, 0.3], [-0.1, 0.5, 0.7, 0.7], [0.2, -0.8, 0.0, 0.4], [0.2, 0.2, 0.4, -0.6], [-0.2, -0.5, 0.7, -0.2], [-0.1, 0.6, 0.5, 0.2], [0.0, 0.5, 0.7, -0.5]]},
+    "frames": 20,
+    "blender_config": {
+        "rotate_z": 95.2,
+        "render": {
+            "camera_azimuth": 135.0,
+            "resolution": 1920
+        },
+        "materials": {
+            "rings": {
+                "Base Color": [0.5, 0.5, 0.5, 1],
+                "Roughness": 0.1
+            },
+            "strips": {
+                "Base Color": [1.0, 1.0, 1.0, 1],
+                "Roughness": 0.1
+            },
+            "twisters_1": {
+                "Base Color": "#ff0000",
+                "Roughness": 0.4
+            }
+        }
+    },
+    "mesher_config": {
+        "rings": {
+            "latitudes": 64,
+            "longitudes": 64,
+            "radius": 0.04
+        },
+        "strips": {
+            "resolution": 0.02,
+            "radial_segments": 64,
+            "radius": 0.02
+        },
+        "twisters": {
+            "half_length": 2.0,
+            "resolution": 0.02
+        }
+    }
+}
