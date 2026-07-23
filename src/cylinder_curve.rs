@@ -203,7 +203,6 @@ impl CCurve {
                 guess_num_points: 100,
             },
         );
-        dbg!(&t_values);
         let points = t_values.into_iter().map(|t| self.at(t)).collect();
         Polyline { points, closed: false }
     }
