@@ -1,28 +1,50 @@
+#[derive(Clone, Copy, Debug)]
+pub enum Topology1D {
+    Linear,
+    Circular
+}
+
+pub const TOLERANCE: f64 = 0.3;
+
+pub struct AdaptiveSamplingConfig {
+    pub max_distance: f64,
+    pub distance_relative_tolerance: f64,
+    pub t_range: (f64, f64),
+    pub guess_num_points: usize,
+    pub topology: Topology1D,
+}
+
+impl AdaptiveSamplingConfig {
+    fn min_distance(&self) -> f64 {
+        self.max_distance * (1.0 - self.distance_relative_tolerance)
+    }
+}
+
 /**
  * Given a distance function d(t1, t2) and an interval on the real line, produce a list of t values
- * in that interval such that d(t1, t2) is almost always less than a given maximum distance. The
- * list of t values may be linear (interval is closed and the output contains both endpoints), or
- * circular (interval is half-open).
- * 
- * This works by first evenly spacing initial_num_points in the interval, and for each pair of
- * consecutive t1, t2, if d(t1, t2) > max_distance then subdivide the interval [t1, t2] into
- * ceil(max_distance / d(t1, t2)) segments. This does not formally guarantee that the maximum
- * distance is adhered to but in practice it basically always works if the curve is reasonably
- * smooth and the number of initial points is sufficient.
+ * in that interval such that for all consecutive t1, t2 we have d_min <= d(t1, t2) <= d_max. The
+ * list of t values may be linear (range interval is closed and the output contains both endpoints),
+ * or circular (interval is half-open).
  */
 pub fn adaptive_sample<F : Fn (f64, f64) -> f64>(
     distance_func: F,
-    max_distance: f64,
-    initial_num_points: usize,
-    min: f64,
-    max: f64,
-    circular: bool
+    config: &AdaptiveSamplingConfig
 ) -> Vec<f64> {
+    let (min, max) = config.t_range;
+    let distance = config.max_distance;
+    let min_distance = config.min_distance();
+    let max_distance = config.max_distance;
+    let topology = config.topology;
+    let guess_num_points = config.guess_num_points;
+
     // Start with an evenly spaced number of points. In the circular case, they are evenly spaced
     // including min but excluding max. In the linear case, they are evenly spaced including both,
     // hence the conditional.
-    let evenly_spaced: Vec<_> = (0..initial_num_points).map(|i| {
-        let t = i as f64 / (if circular { initial_num_points } else { initial_num_points - 1 }) as f64;
+    let evenly_spaced: Vec<_> = (0..guess_num_points).map(|i| {
+        let t = i as f64 / (match topology {
+            Topology1D::Circular => guess_num_points,
+            Topology1D::Linear => guess_num_points - 1,
+        }) as f64;
         min + (max - min) * t
     }).collect();
 
@@ -37,7 +59,7 @@ pub fn adaptive_sample<F : Fn (f64, f64) -> f64>(
 
         let mut i2 = i1 + 1;
         // In the linear case, the final segment is ignored.
-        if !circular && i2 >= evenly_spaced.len() {
+        if matches!(topology, Topology1D::Linear) && i2 >= evenly_spaced.len() {
             break;
         }
         i2 = i2.rem_euclid(evenly_spaced.len());
@@ -64,27 +86,27 @@ pub fn adaptive_sample<F : Fn (f64, f64) -> f64>(
 #[cfg(test)]
 mod test {
     use nalgebra::Point2;
-    use crate::utils::adaptive_sample;
+    use super::*;
 
     fn test_basic() {
-        let func = |x: f64| { x.sin() };
-        let distance_func = |t1, t2| {
-            let p1 = Point2::new(t1, func(t2));
-            let p2 = Point2::new(t2, func(t2));
-            na::distance(&p1, &p2)
+        let func = |t: f64| {
+            Point2::new(t.sin(), (t * 3.0).cos())
         };
-        let max_distance = 0.01;
-        let t = adaptive_sample(
-            distance_func,
-            max_distance,
-            10,
-            0.3,
-            3.0,
-            false
-        );
+        let distance_func = |t1, t2| {
+            na::distance(&func(t1), &func(t2))
+        };
+        let distance = 0.01;
+        let config = AdaptiveSamplingConfig {
+            max_distance: distance,
+            distance_relative_tolerance: 0.1,
+            guess_num_points: 10,
+            t_range: (0.3, 3.0),
+            topology: Topology1D::Linear,
+        };
+        let t = adaptive_sample(distance_func, &config);
         for i in 0..t.len() - 1 {
             assert!(t[i] < t[i + 1]);
-            assert!(distance_func(t[i], t[i + 1]) < max_distance);
+            assert!(distance_func(t[i], t[i + 1]) < config.max_distance);
         }
     }
 }
