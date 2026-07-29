@@ -33,6 +33,8 @@ def main():
         json.dump(config_root["mesher_config"], f)
     
     mesh_dir = out_dir / "meshes"
+    render_dir = out_dir / "render"
+    render_dir.mkdir()
     blend = out_dir / "section.blend"
 
     if w is not None:
@@ -66,7 +68,7 @@ def main():
             "--background",
             str(blend),
             "--render-output",
-            out_dir / "render",
+            out_dir / "render" / "out.png",
             "--render-format", "PNG",
             "--render-frame", "1",
         ])
@@ -76,7 +78,7 @@ def main():
             "--background",
             str(blend),
             "--render-output",
-            out_dir / "render_####.png",
+            out_dir / "render" / "render_####.png",
             "--render-format",
             "PNG",
             "--render-anim",
