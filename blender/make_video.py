@@ -2,22 +2,32 @@ import argparse
 from pathlib import Path
 import subprocess
 
-from common import FFMPEG
+from common import FFMPEG, IMAGEMAGICK_IDENTIFY
 
 
 def make_mp4(in_dir, out_file):
     fps = 24
-    # It would be better to get this from the file, but I'm not sure how.
-    size = 1080
+
+    color = "white"
+
+    result = subprocess.run([
+        IMAGEMAGICK_IDENTIFY,
+        "-ping",
+        "-format",
+        "%w %h",
+        next(in_dir.glob("*.png"))
+    ], check=True, capture_output=True, encoding="ascii")
+    width, height = [str(x) for x in result.stdout.split(" ")]
+
     # The x264 codec does not support transparent video and the alpha channel will be automatically
     # removed from transparent images. However, this causes some weird jaggies in the output. To
     # get around that we have to explicitly add a black background.
     command = [
         FFMPEG,
         "-r", f"{fps}",
-        # Create a solid black image.
+        # Create a solid color image.
         "-f", "lavfi",
-        "-i", f"color=black:s={size}x{size}",
+        "-i", f"color={color}:s={width}x{height}",
         # Load in input frames.
         "-i", in_dir / "render_%04d.png",
         # Superimpose input video on black image.
