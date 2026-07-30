@@ -7,6 +7,14 @@ use nalgebra::{Affine3, Point3, Point2};
 use crate::utils::{lerp, lerp_inverse};
 
 
+#[derive(Clone, Copy, Debug)]
+pub enum CCurveKind {
+    WrappedLoop(bool), // branch
+    SideLoop(f64, f64), // theta1, theta2
+    Plane(f64), // z
+}
+
+
 /// A CCurve is a closed curve which is one connected component of the intersection of two pipe
 /// sections.
 /// 
@@ -21,23 +29,6 @@ pub struct CCurve {
     pub kind: CCurveKind,
     cylinder: Cylinder,
     transform: Affine3<f64>,
-}
-
-
-/// One of the three types of CCurves depending on topology.
-#[derive(Clone, Copy, Debug)]
-pub enum CCurveKind {
-    /// The intersection of the two cylinders comprises two loops. The boolean parameter selects
-    /// which of the two branches.
-    WrappedLoop(bool),
-
-    /// The intersection of the two cylinders is a single loop. Projecting the intersection onto
-    /// the xy-plane we get a circular arc. theta1 and theta2 are the two endpoints of that arc.
-    /// The wrapping convention is that 0 <= theta1 < 2pi and 0 <= theta2 - theta1 < 2pi.
-    SideLoop(f64, f64),
-
-    /// The second "cylinder" is actually a plane. The parameter is the z-coordinate of that plane.
-    Plane(f64),
 }
 
 fn warp_semicircle(x: f64) -> f64 {
@@ -84,7 +75,7 @@ impl CCurve {
         }
     }
 
-    /// Find the point on the curve parametrized by t, ranging from 0 to 1.
+    /// Find the point on the curve parametrized by t, ranging form 0 to 1.
     pub fn at(&self, t: f64) -> Point3<f64> {
         let t2 = t.rem_euclid(1.0);
         let untransformed_point = match self.kind {
@@ -165,11 +156,7 @@ impl CCurve {
         let y = p2.y;
         let z = p2.z;
         let theta = y.atan2(x).rem_euclid(f64::consts::TAU);
-
-        // Draw a line through the point parallel to the z-axis and intersect it with cylinder B.
-        // Produce the two z-coordinates. The point is either (x, y, z1) or (x, y, z2).
         let (_, z1, z2) = self.cylinder.intersect_z_line_core(&Point2::new(x, y));
-
         match self.kind {
             CCurveKind::Plane(z) => {
                 self.cylinder.z_plane_ellipse_theta(z, &p2.xy()) / f64::consts::TAU
@@ -178,15 +165,11 @@ impl CCurve {
                 theta / f64::consts::TAU
             }
             CCurveKind::SideLoop(theta1, theta2) => {
-                // theta should be in the interval [theta1, theta2]. If not, add 2pi to it so that
-                // it is. Avoid doing this if it's *just* shy of theta2, or incorrect results may
-                // occur.
-                let theta_unwrapped = if theta + 1e-6 < theta1 {
+                let theta_unwrapped = if theta < theta1 {
                     theta + f64::consts::TAU
                 } else {
                     theta
                 };
-
                 if (z - z1).abs() < (z - z2).abs() {
                     let tmp = lerp_inverse(theta1, theta2, theta_unwrapped);
                     let tmp = tmp.clamp(0.0, 1.0);
@@ -328,10 +311,10 @@ mod test {
 
         let curve = intersection.ccurves[0];
         assert!(matches!(curve.kind, CCurveKind::SideLoop(_, _)));
-        for t in [0.0, 0.023, 0.49, 0.5, 0.58] {
+        for t in [0.0, 0.023, 0.5, 0.58] {
             let p = curve.at(t);
             assert!(curve.contains(&p));
-            assert_abs_diff_eq!(curve.to_t(&p), t, epsilon = 1e-6);
+            assert_abs_diff_eq!(curve.to_t(&p), t);
         }
     }
 

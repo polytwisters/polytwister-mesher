@@ -209,7 +209,7 @@ mod test {
         let m = x.normalizing_su2_matrix();
         let actual = m * x.vec;
         let expected = Vector2::new(Complex::new(x.abs(), 0.0), Complex::ZERO);
-        assert_abs_diff_eq!((actual - expected).norm(), 0.0, epsilon = 1e-6);
+        assert_abs_diff_eq!((actual - expected).norm(), 0.0);
     }
 
     #[test]

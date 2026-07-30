@@ -378,12 +378,12 @@ impl MeshLike for Mesh {
         write!(buffer, "property list uchar int vertex_index\n")?;
         write!(buffer, "end_header\n")?;
         for vertex in &self.vertices {
-            buffer.write(&(vertex.p.x as f64).to_le_bytes())?;
-            buffer.write(&(vertex.p.y as f64).to_le_bytes())?;
-            buffer.write(&(vertex.p.z as f64).to_le_bytes())?;
-            buffer.write(&(vertex.n.x as f64).to_le_bytes())?;
-            buffer.write(&(vertex.n.y as f64).to_le_bytes())?;
-            buffer.write(&(vertex.n.z as f64).to_le_bytes())?;
+            buffer.write(&(vertex.p.x as f32).to_le_bytes())?;
+            buffer.write(&(vertex.p.y as f32).to_le_bytes())?;
+            buffer.write(&(vertex.p.z as f32).to_le_bytes())?;
+            buffer.write(&(vertex.n.x as f32).to_le_bytes())?;
+            buffer.write(&(vertex.n.y as f32).to_le_bytes())?;
+            buffer.write(&(vertex.n.z as f32).to_le_bytes())?;
         }
         for face in &self.faces {
             buffer.write(&[3u8])?;
@@ -426,12 +426,12 @@ impl MeshLike for ColoredMesh {
         write!(buffer, "end_header\n")?;
         for (mesh, color) in &self.meshes {
             for vertex in &mesh.vertices {
-                buffer.write(&(vertex.p.x as f64).to_le_bytes())?;
-                buffer.write(&(vertex.p.y as f64).to_le_bytes())?;
-                buffer.write(&(vertex.p.z as f64).to_le_bytes())?;
-                buffer.write(&(vertex.n.x as f64).to_le_bytes())?;
-                buffer.write(&(vertex.n.y as f64).to_le_bytes())?;
-                buffer.write(&(vertex.n.z as f64).to_le_bytes())?;
+                buffer.write(&(vertex.p.x as f32).to_le_bytes())?;
+                buffer.write(&(vertex.p.y as f32).to_le_bytes())?;
+                buffer.write(&(vertex.p.z as f32).to_le_bytes())?;
+                buffer.write(&(vertex.n.x as f32).to_le_bytes())?;
+                buffer.write(&(vertex.n.y as f32).to_le_bytes())?;
+                buffer.write(&(vertex.n.z as f32).to_le_bytes())?;
                 buffer.write(&[color.red])?;
                 buffer.write(&[color.green])?;
                 buffer.write(&[color.blue])?;

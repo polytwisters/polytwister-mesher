@@ -484,7 +484,7 @@ def import_animation(root_dir: pathlib.Path, material_config: MaterialConfigs):
             frame_number=frame_number,
         )
         sections.append(section)
-    animation = group_under_empty(sections, "Polytwister sections")
+    animation = group_under_empty(section, "Polytwister sections")
     
     # To make things a bit more convenient when opening the .blend file interactively, navigate to
     # a frame where there is a visible mesh and align with the camera.

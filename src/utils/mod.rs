@@ -225,7 +225,7 @@ mod test {
         let vec = Vector4::new(-2.3, 0.3, 1.4, -0.6);
         let u = normalizing_su2_matrix(&vec);
         assert_abs_diff_eq!(u * u.transpose(), Matrix4::identity());
-        assert_abs_diff_eq!(u * vec, Vector4::new(vec.norm(), 0.0, 0.0, 0.0), epsilon = 1e-6);
+        assert_abs_diff_eq!(u * vec, Vector4::new(vec.norm(), 0.0, 0.0, 0.0), epsilon = 1e-10);
     }
 
     #[test]
