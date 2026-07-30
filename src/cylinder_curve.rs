@@ -1,4 +1,4 @@
-use core::f64;
+use core::f32;
 
 use nalgebra as na;
 use crate::{config::{CylinderMeshConfig, TorusMeshConfig}, cylinder::Cylinder, mesh::{Mesh, Polyline}, pipe_section::{self, PipeSection}, utils::{adaptive_sampling::Topology1D, bisection_search, linspace, sort2}};
@@ -10,8 +10,8 @@ use crate::utils::{lerp, lerp_inverse};
 #[derive(Clone, Copy, Debug)]
 pub enum CCurveKind {
     WrappedLoop(bool), // branch
-    SideLoop(f64, f64), // theta1, theta2
-    Plane(f64), // z
+    SideLoop(f32, f32), // theta1, theta2
+    Plane(f32), // z
 }
 
 
@@ -28,15 +28,15 @@ pub enum CCurveKind {
 pub struct CCurve {
     pub kind: CCurveKind,
     cylinder: Cylinder,
-    transform: Affine3<f64>,
+    transform: Affine3<f32>,
 }
 
-fn warp_semicircle(x: f64) -> f64 {
-    (1.0 - (x * f64::consts::PI).cos()) / 2.0
+fn warp_semicircle(x: f32) -> f32 {
+    (1.0 - (x * f32::consts::PI).cos()) / 2.0
 }
 
-fn unwarp_semicircle(x: f64) -> f64 {
-    (1.0 - x * 2.0).acos() * f64::consts::FRAC_1_PI
+fn unwarp_semicircle(x: f32) -> f32 {
+    (1.0 - x * 2.0).acos() * f32::consts::FRAC_1_PI
 }
 
 impl CCurve {
@@ -48,7 +48,7 @@ impl CCurve {
         } 
     }
 
-    pub fn side_loop(cylinder: Cylinder, theta1: f64, theta2: f64) -> Self {
+    pub fn side_loop(cylinder: Cylinder, theta1: f32, theta2: f32) -> Self {
         Self {
             kind: CCurveKind::SideLoop(theta1, theta2),
             cylinder,
@@ -56,7 +56,7 @@ impl CCurve {
         } 
     }
 
-    pub fn plane(cylinder: Cylinder, z: f64) -> Self {
+    pub fn plane(cylinder: Cylinder, z: f32) -> Self {
         Self {
             kind: CCurveKind::Plane(z),
             cylinder,
@@ -66,7 +66,7 @@ impl CCurve {
         } 
     }
 
-    pub fn transform(self, transform: &Affine3<f64>) -> Self {
+    pub fn transform(self, transform: &Affine3<f32>) -> Self {
         Self {
             kind: self.kind,
             cylinder: self.cylinder,
@@ -76,15 +76,15 @@ impl CCurve {
     }
 
     /// Find the point on the curve parametrized by t, ranging form 0 to 1.
-    pub fn at(&self, t: f64) -> Point3<f64> {
+    pub fn at(&self, t: f32) -> Point3<f32> {
         let t2 = t.rem_euclid(1.0);
         let untransformed_point = match self.kind {
             CCurveKind::Plane(z) => {
-                let theta = t2 * f64::consts::TAU;
+                let theta = t2 * f32::consts::TAU;
                 self.cylinder.intersect_z_plane_parametrized(z, theta)
             },
             CCurveKind::WrappedLoop(branch) => {
-                let theta = t2 * f64::consts::TAU;
+                let theta = t2 * f32::consts::TAU;
                 let (p1, p2) = self.cylinder.intersect_z_line_theta(theta);
                 if branch { p1 } else { p2 }
             }
@@ -111,13 +111,13 @@ impl CCurve {
     }
 
     /// Return true if the given 3D point is on the curve.
-    pub fn contains(&self, p: &Point3<f64>) -> bool {
+    pub fn contains(&self, p: &Point3<f32>) -> bool {
         let tolerance = 1e-5;
         let p2 = self.transform.inverse_transform_point(p);
         let x = p2.x;
         let y = p2.y;
         let z = p2.z;
-        let theta = y.atan2(x).rem_euclid(f64::consts::TAU);
+        let theta = y.atan2(x).rem_euclid(f32::consts::TAU);
         let (_, z1, z2) = self.cylinder.intersect_z_line_core(&Point2::new(x, y));
         match self.kind {
             CCurveKind::Plane(plane_z) => {
@@ -133,7 +133,7 @@ impl CCurve {
             }
             CCurveKind::SideLoop(theta1, theta2) => {
                 let unwrapped_theta = if theta <= theta1 - tolerance {
-                    theta + f64::consts::TAU
+                    theta + f32::consts::TAU
                 } else {
                     theta
                 };
@@ -150,23 +150,23 @@ impl CCurve {
     }
 
     /// Given a point p in 3D space, find a value of t so that curve.at(t) is close to p.
-    pub fn to_t(&self, p: &Point3<f64>) -> f64 {
+    pub fn to_t(&self, p: &Point3<f32>) -> f32 {
         let p2 = self.transform.inverse_transform_point(p);
         let x = p2.x;
         let y = p2.y;
         let z = p2.z;
-        let theta = y.atan2(x).rem_euclid(f64::consts::TAU);
+        let theta = y.atan2(x).rem_euclid(f32::consts::TAU);
         let (_, z1, z2) = self.cylinder.intersect_z_line_core(&Point2::new(x, y));
         match self.kind {
             CCurveKind::Plane(z) => {
-                self.cylinder.z_plane_ellipse_theta(z, &p2.xy()) / f64::consts::TAU
+                self.cylinder.z_plane_ellipse_theta(z, &p2.xy()) / f32::consts::TAU
             },
             CCurveKind::WrappedLoop(branch) => {
-                theta / f64::consts::TAU
+                theta / f32::consts::TAU
             }
             CCurveKind::SideLoop(theta1, theta2) => {
                 let theta_unwrapped = if theta < theta1 {
-                    theta + f64::consts::TAU
+                    theta + f32::consts::TAU
                 } else {
                     theta
                 };
@@ -190,7 +190,7 @@ impl CCurve {
         }
     }
 
-    pub fn discretize_segment(&self, tmin: f64, tmax: f64, resolution: f64) -> Polyline {
+    pub fn discretize_segment(&self, tmin: f32, tmax: f32, resolution: f32) -> Polyline {
         let initial_num_points = 100;  // guess
         let t_values = adaptive_sampling::adaptive_sample(
             |t1, t2| {
@@ -207,7 +207,7 @@ impl CCurve {
         Polyline { points, closed: false }
     }
 
-    pub fn discretize_full(&self, resolution: f64) -> Polyline {
+    pub fn discretize_full(&self, resolution: f32) -> Polyline {
         let t_values = adaptive_sampling::adaptive_sample(
             |t1, t2| {
                 na::distance(&self.at(t1), &self.at(t2))
@@ -241,7 +241,7 @@ impl CylinderIntersection {
         ).collect::<_>())
     }
 
-    pub fn transform(&self, transform: &Affine3<f64>) -> Self {
+    pub fn transform(&self, transform: &Affine3<f32>) -> Self {
         Self {
             ccurves: self.ccurves.iter().map(|ccurve|
                 ccurve.transform(&transform)

@@ -9,7 +9,7 @@
 //! This is not the full 3D Marching Cubes algorithm, but rather the simpler 2D version of it,
 //! which happens to be on a surface that is in 3D space and possibly curved.
 
-use core::f64;
+use core::f32;
 use std::collections::HashMap;
 use na::{Point3, Vector3};
 
@@ -23,11 +23,11 @@ pub use grid::{Grid, GridAxis};
 /// coordinates (u, v) into a Vertex with a 3D location and normal, and an indicator function
 /// that returns whether the point (u, v) in surface coordinates is inside the shape.
 pub trait Isosurface {
-    fn surface_coords_to_point(&self, u: f64, v: f64) -> Point3<f64>;
-    fn surface_coords_to_normal(&self, u: f64, v: f64) -> Vector3<f64>;
-    fn contains_point(&self, p: &Point3<f64>) -> bool;
+    fn surface_coords_to_point(&self, u: f32, v: f32) -> Point3<f32>;
+    fn surface_coords_to_normal(&self, u: f32, v: f32) -> Vector3<f32>;
+    fn contains_point(&self, p: &Point3<f32>) -> bool;
 
-    fn contains_surface_coord(&self, u: f64, v: f64) -> bool {
+    fn contains_surface_coord(&self, u: f32, v: f32) -> bool {
         self.contains_point(&self.surface_coords_to_point(u, v))
     }
 }
@@ -251,15 +251,15 @@ impl Cell {
 }
 
 impl Grid {
-    fn vertex_coordinate(&self, vertex: MSPoint, isosurface: &impl Isosurface) -> (f64, f64) {
+    fn vertex_coordinate(&self, vertex: MSPoint, isosurface: &impl Isosurface) -> (f32, f32) {
         match vertex {
             MSPoint::Corner(square) => (
-                self.ui_to_u(square.ui as f64),
-                self.vi_to_v(square.vi as f64)
+                self.ui_to_u(square.ui as f32),
+                self.vi_to_v(square.vi as f32)
             ),
             MSPoint::HorizontalEdge(square) => {
-                let ui = square.ui as f64;
-                let vi = square.vi as f64;
+                let ui = square.ui as f32;
+                let vi = square.vi as f32;
                 // TODO fix code dupe ewww
                 let t = bisection_search(|t|
                     isosurface.contains_surface_coord(
@@ -273,8 +273,8 @@ impl Grid {
                 )
             },
             MSPoint::VerticalEdge(square) => {
-                let ui = square.ui as f64;
-                let vi = square.vi as f64;
+                let ui = square.ui as f32;
+                let vi = square.vi as f32;
                 // TODO fix code dupe ewww
                 let t = bisection_search(|t|
                     isosurface.contains_surface_coord(
@@ -348,10 +348,10 @@ impl MarchingSquares {
         let vi1 = square.vi;
         let vi2 = square.vi + 1;
 
-        let u1 = self.grid.ui_to_u(ui1 as f64);
-        let u2 = self.grid.ui_to_u(ui2 as f64);
-        let v1 = self.grid.vi_to_v(vi1 as f64);
-        let v2 = self.grid.vi_to_v(vi2 as f64);
+        let u1 = self.grid.ui_to_u(ui1 as f32);
+        let u2 = self.grid.ui_to_u(ui2 as f32);
+        let v1 = self.grid.vi_to_v(vi1 as f32);
+        let v2 = self.grid.vi_to_v(vi2 as f32);
 
         let corners = (
             isosurface.contains_surface_coord(u1, v1),
@@ -396,7 +396,7 @@ pub fn meshify(isosurface: &impl Isosurface, grid: Grid) -> Mesh {
 
 #[cfg(test)]
 mod test {
-    use core::f64;
+    use core::f32;
     use std::path::PathBuf;
 
     use na::Point2;
@@ -407,13 +407,13 @@ mod test {
     struct ExampleIsosurface;
 
     impl Isosurface for ExampleIsosurface {
-        fn surface_coords_to_point(&self, u: f64, v: f64) -> Point3<f64> {
+        fn surface_coords_to_point(&self, u: f32, v: f32) -> Point3<f32> {
             Point3::new(-u.cos(), u.sin(), v)
         }
-        fn surface_coords_to_normal(&self, u: f64, v: f64) -> Vector3<f64> {
+        fn surface_coords_to_normal(&self, u: f32, v: f32) -> Vector3<f32> {
             Vector3::new(-u.cos(), u.sin(), 0.0)
         }
-        fn contains_point(&self, p: &Point3<f64>) -> bool {
+        fn contains_point(&self, p: &Point3<f32>) -> bool {
             p.z < (p.x * 8.0).sin() * 0.5
         }
     }
@@ -421,7 +421,7 @@ mod test {
     #[test]
     fn test_cylinder() {
         let grid = Grid {
-            u_axis: GridAxis::uniform_circular(20, f64::consts::TAU),
+            u_axis: GridAxis::uniform_circular(20, f32::consts::TAU),
             v_axis: GridAxis::uniform_linear(30, -2.0, 2.0),
         };
         let mesh = meshify(&ExampleIsosurface { }, grid);
@@ -431,13 +431,13 @@ mod test {
     struct ExampleIsosurface2;
 
     impl Isosurface for ExampleIsosurface2 {
-        fn surface_coords_to_point(&self, u: f64, v: f64) -> Point3<f64> {
+        fn surface_coords_to_point(&self, u: f32, v: f32) -> Point3<f32> {
             Point3::new(u, v, 0.0)
         }
-        fn surface_coords_to_normal(&self, u: f64, v: f64) -> Vector3<f64> {
+        fn surface_coords_to_normal(&self, u: f32, v: f32) -> Vector3<f32> {
             Vector3::new(0.0, 0.0, 1.0)
         }
-        fn contains_point(&self, p: &Point3<f64>) -> bool {
+        fn contains_point(&self, p: &Point3<f32>) -> bool {
             p.x.hypot(p.y) < 1.0
         }
     }
@@ -455,13 +455,13 @@ mod test {
     struct ExampleIsosurface3;
 
     impl Isosurface for ExampleIsosurface3 {
-        fn surface_coords_to_point(&self, u: f64, v: f64) -> Point3<f64> {
+        fn surface_coords_to_point(&self, u: f32, v: f32) -> Point3<f32> {
             Point3::new(u.cos(), u.sin(), v)
         }
-        fn surface_coords_to_normal(&self, u: f64, v: f64) -> Vector3<f64> {
+        fn surface_coords_to_normal(&self, u: f32, v: f32) -> Vector3<f32> {
             Vector3::new(u.cos(), u.sin(), 0.0)
         }
-        fn contains_point(&self, p: &Point3<f64>) -> bool {
+        fn contains_point(&self, p: &Point3<f32>) -> bool {
             true
         }
     }
@@ -469,7 +469,7 @@ mod test {
     #[test]
     fn test_triangular_prism() {
         let grid = Grid {
-            u_axis: GridAxis::uniform_circular(3, f64::consts::TAU),
+            u_axis: GridAxis::uniform_circular(3, f32::consts::TAU),
             v_axis: GridAxis::uniform_linear(2, -2.0, 2.0),
         };
         let mesh = meshify(&ExampleIsosurface3 { }, grid);

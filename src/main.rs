@@ -1,7 +1,7 @@
 #![allow(unused)]
 extern crate approx;
 
-use core::f64;
+use core::f32;
 use std::{any, fs};
 use std::error::Error;
 use std::path;
@@ -39,7 +39,7 @@ use crate::mesh::{Mesh, MeshLike};
 
 
 const MAX_FRAMES: usize = 10_000;
-const DEFAULT_W: f64 = 0.1;
+const DEFAULT_W: f32 = 0.1;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -65,7 +65,7 @@ struct Args {
     /// It is an error to use -w and --frames together. If neither -w or --frames is specified, the
     /// default is equivalent to -w 0.1.
     #[arg(short)]
-    w: Option<f64>,
+    w: Option<f32>,
 
     /// Number of animation frames. The W coordinates will be evenly spaced from -1 to +1 inclusive.
     ///
@@ -168,5 +168,5 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 #[derive(Serialize)]
 struct AnimationManifest {
-    w_values: Vec<f64>
+    w_values: Vec<f32>
 }

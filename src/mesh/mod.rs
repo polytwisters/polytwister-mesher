@@ -1,7 +1,7 @@
 #[macro_use]
 use nalgebra as na;
 
-use core::{f64, num};
+use core::{f32, num};
 use std::io::{Write};
 use std::path::PathBuf;
 use std::fs::{File};
@@ -16,17 +16,17 @@ pub use polyline::Polyline;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Vertex {
-    pub p: Point3<f64>,
-    pub n: Vector3<f64>,
+    pub p: Point3<f32>,
+    pub n: Vector3<f32>,
 }
 
 impl Vertex {
-    pub fn new(p: Point3<f64>, n: Vector3<f64>) -> Self {
+    pub fn new(p: Point3<f32>, n: Vector3<f32>) -> Self {
         Vertex { p, n }
     }
 }
 
-/// Triangular face with three vertex indices. Vector3<f64> indices start with 0.
+/// Triangular face with three vertex indices. Vector3<f32> indices start with 0.
 #[derive(Clone, Copy, Debug)]
 pub struct Face {
     pub v1: usize,
@@ -124,16 +124,16 @@ impl Mesh {
     }
 
     /// Make a spherical mesh.
-    pub fn uv_sphere(center: &Point3<f64>, radius: f64, segments: usize, rings: usize) -> Self {
-        // Point3<f64> indices: i * segments + j
+    pub fn uv_sphere(center: &Point3<f32>, radius: f32, segments: usize, rings: usize) -> Self {
+        // Point3<f32> indices: i * segments + j
         // i is the segment index, j is in the ring index.
         let mut vertices: Vec<Vertex> = vec![];
         for i in 0..rings {
-            let i_unipolar = (i as f64 + 1.0) / (rings as f64 + 1.0);
+            let i_unipolar = (i as f32 + 1.0) / (rings as f32 + 1.0);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
-            let elevation = i_bipolar * f64::consts::FRAC_PI_2;
+            let elevation = i_bipolar * f32::consts::FRAC_PI_2;
             for j in 0..segments {
-                let azimuth = j as f64 / segments as f64 * f64::consts::TAU;
+                let azimuth = j as f32 / segments as f32 * f32::consts::TAU;
                 let normal = Vector3::new(
                     azimuth.cos() * elevation.cos(),
                     azimuth.sin() * elevation.cos(),
@@ -216,22 +216,22 @@ impl Mesh {
     }
 
     /// Make a plane parallel to the xy-plane at coordinate z.
-    pub fn plane(z: f64, half_length: f64, segments: usize) -> Self {
+    pub fn plane(z: f32, half_length: f32, segments: usize) -> Self {
         Self::partial_plane(|_| true, z, half_length, segments)
     }
 
     /// Make a plane parallel to the xy-plane at coordinate z, but filter the vertices using a
     /// predicate.
-    pub fn partial_plane<F: Fn(&Point3<f64>) -> bool>(predicate: F, z: f64, half_length: f64, segments: usize) -> Self {
+    pub fn partial_plane<F: Fn(&Point3<f32>) -> bool>(predicate: F, z: f32, half_length: f32, segments: usize) -> Self {
         let sign = z.signum();
 
-        // Point3<f64> indices: i * (segments + 1) + j
+        // Point3<f32> indices: i * (segments + 1) + j
         let mut vertices: Vec<Option<Vertex>> = vec![];
         for i in 0..=segments {
-            let i_unipolar = (i as f64) / (segments as f64);
+            let i_unipolar = (i as f32) / (segments as f32);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
             for j in 0..=segments {
-                let j_unipolar = (j as f64) / (segments as f64);
+                let j_unipolar = (j as f32) / (segments as f32);
                 let j_bipolar = j_unipolar * 2.0 - 1.0;
                 // Sign flip for negative z to fix handedness of triangles. (It's easier to flip it
                 // here than when building the triangles.)
@@ -331,7 +331,7 @@ impl Mesh {
      * Given a predicate on vertex locations, return a new Mesh that removes all vertices that do
      * not satisfy that predicate, and any faces that are connected to said vertices.
      */
-    pub fn filter_vertices<F: Fn(&Point3<f64>) -> bool>(&self, predicate: F) -> Self {
+    pub fn filter_vertices<F: Fn(&Point3<f32>) -> bool>(&self, predicate: F) -> Self {
         let new_vertices = self.vertices.iter().map(|v|
             if (predicate(&v.p)) { Some(v.clone()) } else { None }
         ).collect::<Vec<_>>();

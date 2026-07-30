@@ -75,9 +75,9 @@ pub struct FillingRegion {
 #[serde(rename_all="camelCase")]
 pub struct UniformPolytwister {
     polyhedron: Polyhedron,
-    pipes: Vec<Vector4<f64>>,
-    orthogonal_pipes: Vec<Vector4<f64>>,
-    rings: Vec<Vector4<f64>>,
+    pipes: Vec<Vector4<f32>>,
+    orthogonal_pipes: Vec<Vector4<f32>>,
+    rings: Vec<Vector4<f32>>,
     twister_fillings: Vec<Vec<FillingRegion>>,
     bloated: bool,
 }
@@ -112,7 +112,7 @@ impl Polyhedron {
 
 impl UniformPolytwister {
     /// Return a new polytwister which is geometrically scaled by the given ratio.
-    fn scale(&self, ratio: f64) -> Self {
+    fn scale(&self, ratio: f32) -> Self {
         return UniformPolytwister {
             polyhedron: self.polyhedron.clone(),
             pipes: self.pipes.iter().map(|vec| vec / ratio).collect::<_>(),
@@ -124,7 +124,7 @@ impl UniformPolytwister {
     }
 
     /// Return the polytwister's maximum distance from the origin.
-    fn radius(&self) -> f64 {
+    fn radius(&self) -> f32 {
         if self.bloated {
             let index = 0;
             let index_2 = self.polyhedron.adjacent_face_indices(index)[0];
@@ -142,19 +142,19 @@ impl UniformPolytwister {
         self.scale(scale)
     }
 
-    fn ring_section(&self, index: usize, w: f64) -> RingSection {
+    fn ring_section(&self, index: usize, w: f32) -> RingSection {
         RingSection::from_vector4(&self.rings[index], w)
     }
 
-    fn pipe_section(&self, index: usize, w: f64) -> PipeSection {
+    fn pipe_section(&self, index: usize, w: f32) -> PipeSection {
         PipeSection::from_vector4(&self.pipes[index], w)
     }
 
-    fn orthogonal_pipe_section(&self, index: usize, w: f64) -> PipeSection {
+    fn orthogonal_pipe_section(&self, index: usize, w: f32) -> PipeSection {
         PipeSection::from_vector4(&self.orthogonal_pipes[index], w)
     }
 
-    pub fn twister_section(&self, index: usize, w: f64) -> TwisterSection {
+    pub fn twister_section(&self, index: usize, w: f32) -> TwisterSection {
         let face_orbit = self.polyhedron.faces[index].orbit;
         let filling = self.twister_fillings[face_orbit as usize].clone();
         let pipe_section = self.pipe_section(index, w);
@@ -170,31 +170,31 @@ impl UniformPolytwister {
         )
     }
 
-    fn pipe_sections(&self, w: f64) -> Vec<PipeSection> {
+    fn pipe_sections(&self, w: f32) -> Vec<PipeSection> {
         (0..self.pipes.len()).map(|i| { self.pipe_section(i, w) }).collect::<Vec<_>>()
     }
 
-    fn orthogonal_pipe_sections(&self, w: f64) -> Vec<PipeSection> {
+    fn orthogonal_pipe_sections(&self, w: f32) -> Vec<PipeSection> {
         (0..self.pipes.len()).map(|i| { self.orthogonal_pipe_section(i, w) }).collect::<Vec<_>>()
     }
 
-    fn ring_sections(&self, w: f64) -> Vec<RingSection> {
+    fn ring_sections(&self, w: f32) -> Vec<RingSection> {
         (0..self.rings.len()).map(|i| { self.ring_section(i, w) }).collect::<Vec<_>>()
     }
 
-    pub fn twister_sections(&self, w: f64) -> Vec<TwisterSection> {
+    pub fn twister_sections(&self, w: f32) -> Vec<TwisterSection> {
         (0..self.pipes.len()).map(|i| { self.twister_section(i, w) }).collect::<Vec<_>>()
     }
 
-    pub fn twister_orbit_as_mesh(&self, w: f64, orbit: u8, config: &Config) -> Mesh {
+    pub fn twister_orbit_as_mesh(&self, w: f32, orbit: u8, config: &Config) -> Mesh {
         Mesh::merge(self.twister_orbit_as_meshes(w, orbit, config))
     }
 
-    pub fn rings_as_mesh(&self, w: f64, config: &Config) -> Mesh {
+    pub fn rings_as_mesh(&self, w: f32, config: &Config) -> Mesh {
         Mesh::merge(self.rings_as_meshes(w, config))
     }
 
-    pub fn strip_section(&self, index: usize, w: f64) -> StripSection {
+    pub fn strip_section(&self, index: usize, w: f32) -> StripSection {
         let edge = &self.polyhedron.edges[index];
         let adjacent_face_indices = self.polyhedron.edge_adjacent_face_indices(index);
         if adjacent_face_indices.len() != 2 {
@@ -215,13 +215,13 @@ impl UniformPolytwister {
         )
     }
 
-    pub fn strips_as_mesh(&self, w: f64, config: &Config) -> Mesh {
+    pub fn strips_as_mesh(&self, w: f32, config: &Config) -> Mesh {
         Mesh::merge(self.strips_as_meshes(w, config))
     }
 }
 
 impl Polytwister for UniformPolytwister {
-    fn twister_orbit_as_meshes(&self, w: f64, orbit: u8, config: &Config) -> Vec<Mesh> {
+    fn twister_orbit_as_meshes(&self, w: f32, orbit: u8, config: &Config) -> Vec<Mesh> {
         let twister_sections = self.twister_sections(w);
         let mut meshes = vec![];
         for (index, twister_section) in twister_sections.iter().enumerate() {
@@ -233,7 +233,7 @@ impl Polytwister for UniformPolytwister {
         meshes
     }
 
-    fn rings_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh> {
+    fn rings_as_meshes(&self, w: f32, config: &Config) -> Vec<Mesh> {
         let ring_sections = self.ring_sections(w);
         let mut meshes = vec![];
         for ring_section in ring_sections {
@@ -243,7 +243,7 @@ impl Polytwister for UniformPolytwister {
         meshes
     }
 
-    fn strips_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh> {
+    fn strips_as_meshes(&self, w: f32, config: &Config) -> Vec<Mesh> {
         (0..self.polyhedron.edges.len()).map(|edge_index| {
             self.strip_section(edge_index, w).as_mesh(&config.strips)
         }).collect::<Vec<_>>()
