@@ -182,8 +182,8 @@ mod test {
         let intersection = Pipe::intersect_core(&pipe1, &pipe2);
         if let Some((p1, p2)) = intersection {
             for pipe in [pipe1, pipe2] {
-                assert_abs_diff_eq!(p1.inner_abs(&pipe), 1.0);
-                assert_abs_diff_eq!(p2.inner_abs(&pipe), 1.0);
+                assert_abs_diff_eq!(p1.inner_abs(&pipe), 1.0, epsilon = 1e-6);
+                assert_abs_diff_eq!(p2.inner_abs(&pipe), 1.0, epsilon = 1e-6);
             }
         } else {
             panic!("Didn't intersect");

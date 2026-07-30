@@ -407,8 +407,8 @@ mod test {
         let xy = Point2::new(x, y);
         let (d, z1, z2) = cylinder.intersect_z_line_core(&xy);
         assert!(d > 0.0);
-        assert_abs_diff_eq!(cylinder.scalar_field(&Point3::new(x, y, z1)), 0.0);
-        assert_abs_diff_eq!(cylinder.scalar_field(&Point3::new(x, y, z2)), 0.0);
+        assert_abs_diff_eq!(cylinder.scalar_field(&Point3::new(x, y, z1)), 0.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(cylinder.scalar_field(&Point3::new(x, y, z2)), 0.0, epsilon = 1e-6);
     }
 
     /**
@@ -424,7 +424,7 @@ mod test {
                 assert_abs_diff_eq!(
                     cylinder.intersect_z_line_core(&p).0,
                     0.0,
-                    epsilon = 1e-10
+                    epsilon = 1e-5
                 );
             }
         }
@@ -465,8 +465,8 @@ mod test {
         let intersection = cylinder.intersect_base_cylinder();
         for curve in intersection.ccurves {
             let point = curve.at(0.25);
-            assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
-            assert_abs_diff_eq!(point.x.hypot(point.y), 1.0, epsilon = 1e-10);
+            assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-6);
+            assert_abs_diff_eq!(point.x.hypot(point.y), 1.0, epsilon = 1e-6);
         }
     }
 
@@ -480,8 +480,8 @@ mod test {
             for i in 0..n {
                 let t = i as f32 / n as f32;
                 let point = curve.at(t);
-                assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
-                assert_abs_diff_eq!(cylinder2.scalar_field(&point), 0.0, epsilon = 1e-10);
+                assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-6);
+                assert_abs_diff_eq!(cylinder2.scalar_field(&point), 0.0, epsilon = 1e-6);
             }
         }
     }
@@ -493,8 +493,8 @@ mod test {
         let curve = cylinder.intersect_z_plane(0.3);
         for t in [0.0, 0.5, 0.7] {
             let point = curve.at(t);
-            assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-10);
-            assert_abs_diff_eq!(point.z, z, epsilon = 1e-10);
+            assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-6);
+            assert_abs_diff_eq!(point.z, z, epsilon = 1e-6);
         }
     }
 

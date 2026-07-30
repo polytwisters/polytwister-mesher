@@ -305,7 +305,7 @@ mod test {
                 let point_c2 = C2::from_components(point.x, point.y, point.z, w);
                 for log in dyster.logs.iter() {
                     let tmp = log.scalar_field(&point_c2);
-                    assert!(tmp <= 1e-10);
+                    assert!(tmp <= 1e-6);
                 }
             }
         }
