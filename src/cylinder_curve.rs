@@ -7,14 +7,6 @@ use nalgebra::{Affine3, Point3, Point2};
 use crate::utils::{lerp, lerp_inverse};
 
 
-#[derive(Clone, Copy, Debug)]
-pub enum CCurveKind {
-    WrappedLoop(bool), // branch
-    SideLoop(f32, f32), // theta1, theta2
-    Plane(f32), // z
-}
-
-
 /// A CCurve is a closed curve which is one connected component of the intersection of two pipe
 /// sections.
 /// 
@@ -29,6 +21,22 @@ pub struct CCurve {
     pub kind: CCurveKind,
     cylinder: Cylinder,
     transform: Affine3<f32>,
+}
+
+
+/// One of the three types of CCurves depending on topology.
+#[derive(Clone, Copy, Debug)]
+pub enum CCurveKind {
+    /// The intersection of the two cylinders comprises two loops. The boolean parameter selects
+    /// which of the two branches.
+    WrappedLoop(bool),
+
+    /// The intersection of the two cylinders is a single loop. Projecting the intersection onto
+    /// the xy-plane we get a circular arc. theta1 and theta2 are the two endpoints of that arc.
+    SideLoop(f32, f32),
+
+    /// The second "cylinder" is actually a plane. The parameter is the z-coordinate of that plane.
+    Plane(f32),
 }
 
 fn warp_semicircle(x: f32) -> f32 {
@@ -75,7 +83,7 @@ impl CCurve {
         }
     }
 
-    /// Find the point on the curve parametrized by t, ranging form 0 to 1.
+    /// Find the point on the curve parametrized by t, ranging from 0 to 1.
     pub fn at(&self, t: f32) -> Point3<f32> {
         let t2 = t.rem_euclid(1.0);
         let untransformed_point = match self.kind {
