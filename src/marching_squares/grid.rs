@@ -26,6 +26,9 @@ pub enum GridAxisTopology {
  * 
  * The grid axis's function is to convert from "grid coordinates" to "values." For example, a size-3
  * uniform grid might have grid coordinates [0, 1, 2] mapped to values [0.0, 0.5, 1.0].
+ * 
+ * For a circular topology, you need N + 1 values where N is the number of grid segments. For
+ * example, if you have uniform sampling on the interval [0, 1], then you must include 1 at the end.
  */
 #[derive(Clone, Debug)]
 pub struct GridAxis {
@@ -43,6 +46,7 @@ impl GridAxis {
     }
 
     pub fn uniform_circular(size: usize, max: f64) -> Self {
+        // Sorry, this is subtly wrong with the change
         Self::circular(
             (0..size).map(|i| (i as f64) / size as f64 * max).collect()
         )
@@ -64,7 +68,7 @@ impl GridAxis {
         match self.topology {
             GridAxisTopology::Circular => {
                 let index1 = self.wrap(index as usize);
-                let index2 = self.wrap(index as usize + 1);
+                let index2 = index1 + 1;
                 let t = index.fract();
                 self.values[index1] * (1.0 - t) + self.values[index2] * t
             },
@@ -78,17 +82,14 @@ impl GridAxis {
     }
 
     pub fn num_segments(&self) -> usize {
-        match self.topology {
-            GridAxisTopology::Circular => self.size,
-            GridAxisTopology::Linear => self.size - 1,
-        }
+        self.size - 1
     }
 
     /// For a linear GridAxis, do nothing. For a circular grid axis, take the index modulo the size
     /// of the grid.
     pub fn wrap(&self, index: usize) -> usize {
         match self.topology {
-            GridAxisTopology::Circular => index.rem_euclid(self.size),
+            GridAxisTopology::Circular => index.rem_euclid(self.num_segments()),
             GridAxisTopology::Linear => index,
         }
     }

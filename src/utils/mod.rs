@@ -177,7 +177,9 @@ pub fn bisection_search<F: Fn(f64) -> bool>(f: F) -> f64 {
             x_min = x;
         }
     }
-    (x_min + x_max) / 2.0
+    let result = (x_min + x_max) / 2.0;
+    assert!(0.0 <= result && result <= 1.0);
+    result
 }
 
 fn normalizing_su2_matrix(vec: &Vector4<f64>) -> Matrix4<f64> {

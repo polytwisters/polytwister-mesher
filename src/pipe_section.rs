@@ -302,9 +302,9 @@ impl TwisterSection {
                 Mesh::empty()
             }
         } else {
-            let ellipse_axis = GridAxis::circular(
-                self.pipe_section.as_cylinder().sample_theta(config.resolution)
-            );
+            let mut ellipse_spacing = self.pipe_section.as_cylinder().sample_theta(config.resolution);
+            ellipse_spacing.push(f64::consts::TAU);
+            let ellipse_axis = GridAxis::circular(ellipse_spacing);
 
             let grid = Grid {
                 u_axis: GridAxis::uniform_linear(linear_segments, -extent, extent),
