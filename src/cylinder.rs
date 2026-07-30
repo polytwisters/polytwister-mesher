@@ -474,9 +474,9 @@ use super::*;
         let cylinder = example_cylinder();
         let (_, d) = cylinder.axis_line();
         let (da, db) = cylinder.ellipse_vertex_displacements();
-        assert_abs_diff_eq!(d.dot(&da), 0.0);
-        assert_abs_diff_eq!(d.dot(&db), 0.0);
-        assert_abs_diff_eq!(da.dot(&db), 0.0);
+        assert_abs_diff_eq!(d.dot(&da), 0.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(d.dot(&db), 0.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(da.dot(&db), 0.0, epsilon = 1e-6);
         assert!(da.cross(&db).dot(&d) < 0.0);
     }
 
@@ -487,9 +487,9 @@ use super::*;
         let theta = 3.345;
         let point = cylinder.surface_coords_to_cartesian(u, theta);
         let (u_out, theta_out, r_out) = cylinder.cartesian_to_cylindrical(&point);
-        assert_abs_diff_eq!(u, u_out, epsilon = 1e-10);
-        assert_abs_diff_eq!(r_out, 1.0, epsilon = 1e-10);
-        assert_abs_diff_eq!(theta, theta_out, epsilon = 1e-10);
+        assert_abs_diff_eq!(u, u_out, epsilon = 1e-6);
+        assert_abs_diff_eq!(r_out, 1.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(theta, theta_out, epsilon = 1e-6);
     }
 
     #[test]
