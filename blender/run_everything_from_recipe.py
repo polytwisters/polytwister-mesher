@@ -56,7 +56,7 @@ def main():
             mesh_dir,
         ], check=True)
 
-    meshes_to_blend.export_mesh_directory_as_multiple_blends(
+    meshes_to_blends.export_mesh_directory_as_multiple_blends(
         mesh_dir,
         blend,
         config=config_root["blender_config"]
