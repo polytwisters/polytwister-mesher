@@ -87,9 +87,15 @@ pub trait MeshLike {
 
 
 impl Mesh {
+    pub fn new(vertices: Vec<Vertex>, faces: Vec<Face>) -> Self {
+        let result = Mesh { vertices, faces };
+        result.check();
+        result
+    }
+
     /// Make a new empty mesh.
     pub fn empty() -> Self {
-        Mesh { vertices: vec![], faces: vec![] }
+        Mesh::new(vec![], vec![])
     }
 
     /// A "partial mesh" is one where some vertices may be None. Converting a partial mesh to a mesh
@@ -97,7 +103,7 @@ impl Mesh {
     pub fn from_partial(vertices: &Vec<Option<Vertex>>, faces: &Vec<Face>) -> Self {
         let mut new_vertices = vec![];
         let mut new_index = 0usize;
-        // Vector of vertex indices whose length is equal to self.vertices.len() such that
+        // Vector of vertex indices whose length is equal to self.vertices.len() such tha, t
         // old_to_new_indices[old_index] is Some(new_vertex_index) if the vertex exists, and None
         // otherwise.
         let mut old_to_new_indices: Vec<Option<usize>> = vec![];
@@ -212,7 +218,7 @@ impl Mesh {
             });
         }
 
-        Mesh { vertices, faces }
+        Mesh::new(vertices, faces)
     }
 
     /// Make a plane parallel to the xy-plane at coordinate z.
@@ -304,6 +310,18 @@ impl Mesh {
         Mesh::from_partial(&vertices, &faces)
     }
 
+
+    fn check(&self) {
+        let num_vertices = self.num_vertices();
+        for (face_index, face) in self.faces.iter().enumerate() {
+            for index in [face.v1, face.v2, face.v3] {
+                if index >= num_vertices {
+                    panic!("In face index {face_index}, vertex index is {index} but mesh has {num_vertices} vertices");
+                }
+            }
+        } 
+    }
+
     fn offset_indices(faces: Vec<Face>, offset: usize) -> Vec<Face> {
         faces.into_iter().map(|face| {
             Face {
@@ -324,7 +342,7 @@ impl Mesh {
             vertices.extend(mesh.vertices);
             offset += num_vertices;
         }
-        Mesh { vertices, faces }
+        Mesh::new(vertices, faces)
     }
 
     /**
