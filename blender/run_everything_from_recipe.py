@@ -34,6 +34,10 @@ def main():
     with open(mesher_config_file, "w") as f:
         json.dump(config_root["mesher_config"], f)
     
+    blender_config_file = out_dir / "blender_config.json"
+    with open(mesher_config_file, "w") as f:
+        json.dump(config_root["blender_config"], f)
+    
     mesh_dir = out_dir / "meshes"
     blend_dir = out_dir / "blends"
 
@@ -56,7 +60,7 @@ def main():
             mesh_dir,
         ], check=True)
 
-    meshes_to_blend.export_mesh_directory_as_multiple_blends(
+    meshes_to_blends.export_mesh_directory_as_multiple_blends(
         mesh_dir,
         blend,
         config=config_root["blender_config"]
