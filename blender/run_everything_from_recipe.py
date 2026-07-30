@@ -62,7 +62,7 @@ def main():
 
     meshes_to_blends.export_mesh_directory_as_multiple_blends(
         mesh_dir,
-        blend,
+        blend_dir,
         config=blender_config_file
     )
 

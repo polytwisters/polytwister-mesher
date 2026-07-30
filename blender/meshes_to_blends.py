@@ -29,7 +29,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("in_dir", type=str)
     parser.add_argument("out_blend", type=str)
-    parser.add_argument("--config-file", type=str)
+    parser.add_argument("-c", "--config-file", type=str)
     args = parser.parse_args()
 
     in_dir = pathlib.Path(args.in_dir)
