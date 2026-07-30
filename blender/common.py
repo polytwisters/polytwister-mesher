@@ -23,6 +23,8 @@ else:
     PYTHON = ["python3"]
     FFMPEG = "ffmpeg"
 
+IMAGEMAGICK_IDENTIFY = "identify"
+
 BLENDER_SCRIPT = SCRIPT_ROOT / "blender_script.py"
 
 

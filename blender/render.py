@@ -24,7 +24,7 @@ def render_blend(in_file, out_png):
 def render_blends(in_dir, out_dir):
     out_dir.mkdir()
     for in_blend in in_dir.glob("*.blend"):
-        out_png = out_dir / (in_blend.stem + ".png")
+        out_png = out_dir / (in_blend.stem + "_")
         render_blend(in_blend, out_png)
 
 
