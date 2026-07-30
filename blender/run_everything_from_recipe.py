@@ -6,6 +6,7 @@ import pathlib
 import common
 import meshes_to_blends
 import render
+import make_video
 
 def main():
     parser = argparse.ArgumentParser()
@@ -40,6 +41,7 @@ def main():
     
     mesh_dir = out_dir / "meshes"
     blend_dir = out_dir / "blends"
+    render_dir = out_dir / "render"
 
     if is_animation:
         subprocess.run([
@@ -66,18 +68,12 @@ def main():
         config_file=blender_config_file
     )
 
-    if w is not None:
-        subprocess.run([
-            common.BLENDER,
-            "--background",
-            str(blend),
-            "--render-output",
-            out_dir / "render",
-            "--render-format", "PNG",
-            "--render-frame", "1",
-        ])
-    else:
-        raise ValueError("too lazy to fix this")
+    render.render_blends(
+        blend_dir,
+        render_dir,
+    )
+
+    make_video.make_mp4(render_dir, out_dir / "out.mp4")
 
 if __name__ == "__main__":
     main()
