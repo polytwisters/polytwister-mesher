@@ -519,14 +519,9 @@ def main():
         help="If provided, saves a .blend file to the given location.",
     )
     parser.add_argument(
-        "-f",
+        "-c",
         "--config-file",
         help="A JSON config file",
-    )
-    parser.add_argument(
-        "-c",
-        "--config-string",
-        help="If provided, a JSON config string.",
     )
 
     argv = sys.argv
@@ -546,9 +541,7 @@ def main():
 
     if args.config_file is not None:
         with open(args.config_file) as f:
-            config = json.load(args.config_file)
-    elif args.config_string is not None:
-        config = json.loads(args.config_string)
+            config = json.load(f)
     else:
         config = {}
 

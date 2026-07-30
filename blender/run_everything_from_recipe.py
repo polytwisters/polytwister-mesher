@@ -35,7 +35,7 @@ def main():
         json.dump(config_root["mesher_config"], f)
     
     blender_config_file = out_dir / "blender_config.json"
-    with open(mesher_config_file, "w") as f:
+    with open(blender_config_file, "w") as f:
         json.dump(config_root["blender_config"], f)
     
     mesh_dir = out_dir / "meshes"
@@ -63,7 +63,7 @@ def main():
     meshes_to_blends.export_mesh_directory_as_multiple_blends(
         mesh_dir,
         blend,
-        config=config_root["blender_config"]
+        config=blender_config_file
     )
 
     if w is not None:
