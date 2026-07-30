@@ -4,7 +4,8 @@ import json
 import pathlib
 
 import common
-import meshes_to_blend
+import meshes_to_blends
+import render
 
 def main():
     parser = argparse.ArgumentParser()
@@ -27,24 +28,16 @@ def main():
 
     w = config_root.get("w", None)
     frames = config_root.get("frames", None)
+    is_animation = frames is not None
 
     mesher_config_file = out_dir / "mesher_config.json"
     with open(mesher_config_file, "w") as f:
         json.dump(config_root["mesher_config"], f)
     
     mesh_dir = out_dir / "meshes"
-    blend = out_dir / "section.blend"
+    blend_dir = out_dir / "blends"
 
-    if w is not None:
-        subprocess.run([
-            "cargo", "run", "--release",
-            "--",
-            "--config", mesher_config_file,
-            polytwister,
-            "-w", str(w),
-            mesh_dir,
-        ], check=True)
-    else:
+    if is_animation:
         subprocess.run([
             "cargo", "run", "--release",
             "--",
@@ -53,8 +46,17 @@ def main():
             "-n", str(frames),
             mesh_dir,
         ], check=True)
+    else:
+        subprocess.run([
+            "cargo", "run", "--release",
+            "--",
+            "--config", mesher_config_file,
+            polytwister,
+            "-w", str(w),
+            mesh_dir,
+        ], check=True)
 
-    meshes_to_blend.export_mesh_directory_as_blend(
+    meshes_to_blend.export_mesh_directory_as_multiple_blends(
         mesh_dir,
         blend,
         config=config_root["blender_config"]
@@ -71,16 +73,7 @@ def main():
             "--render-frame", "1",
         ])
     else:
-        subprocess.run([
-            common.BLENDER,
-            "--background",
-            str(blend),
-            "--render-output",
-            out_dir / "render_####.png",
-            "--render-format",
-            "PNG",
-            "--render-anim",
-        ])
+        raise ValueError("too lazy to fix this")
 
 if __name__ == "__main__":
     main()
