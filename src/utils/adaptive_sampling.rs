@@ -5,7 +5,7 @@ pub enum Topology1D {
     Linear
 }
 
-fn binary_search(array: &Vec<f32>, target: f32) -> usize {
+fn binary_search(array: &Vec<f64>, target: f64) -> usize {
     let len = array.len();
     assert!(len >= 2);
     let mut min = 0;
@@ -34,7 +34,7 @@ fn binary_search(array: &Vec<f32>, target: f32) -> usize {
     min
 }
 
-fn linear_interpolate(t: &Vec<f32>, f: &Vec<f32>, t_in: f32) -> f32 {
+fn linear_interpolate(t: &Vec<f64>, f: &Vec<f64>, t_in: f64) -> f64 {
     let i1 = binary_search(t, t_in);
     let i2 = i1 + 1;
     let (t1, t2) = (t[i1], t[i2]);
@@ -44,8 +44,8 @@ fn linear_interpolate(t: &Vec<f32>, f: &Vec<f32>, t_in: f32) -> f32 {
 }
 
 pub struct AdaptiveSamplingConfig {
-    pub target_distance: f32,
-    pub t_range: (f32, f32),
+    pub target_distance: f64,
+    pub t_range: (f64, f64),
     pub guess_num_points: usize,
 }
 
@@ -61,11 +61,11 @@ pub struct AdaptiveSamplingConfig {
  * 
  * If the topology is circular then it is assumed that d(t_range.0, t_range.1) is 0.
  */
-pub fn adaptive_sample<F : Fn (f32, f32) -> f32>(
+pub fn adaptive_sample<F : Fn (f64, f64) -> f64>(
     distance_func: F,
     topology: Topology1D,
     config: &AdaptiveSamplingConfig,
-) -> Vec<f32> {
+) -> Vec<f64> {
     let (min, max) = config.t_range;
     let max_distance = config.target_distance;
     let guess_num_points = config.guess_num_points;
@@ -99,7 +99,7 @@ pub fn adaptive_sample<F : Fn (f32, f32) -> f32>(
     };
 
     let result: Vec<_> = (0..num_points).map(|j| {
-        let arc_length = j as f32 / num_segments as f32 * total_arc_length;
+        let arc_length = j as f64 / num_segments as f64 * total_arc_length;
         linear_interpolate(&cumulative_arc_lengths, &evenly_spaced_ts, arc_length)
     }).collect();
 
@@ -109,7 +109,7 @@ pub fn adaptive_sample<F : Fn (f32, f32) -> f32>(
 
 #[cfg(test)]
 mod test {
-    use core::f32;
+    use core::f64;
 use std::cmp::max;
 
 use nalgebra::Point2;
@@ -121,7 +121,7 @@ use nalgebra::Point2;
      */
     #[test]
     fn test_linear() {
-        let func = |t: f32| {
+        let func = |t: f64| {
             Point2::new(t.sin(), (t * 3.0).cos())
         };
         let distance_func = |t1, t2| {
@@ -135,8 +135,8 @@ use nalgebra::Point2;
             t_range,
         };
         let t = adaptive_sample(distance_func, Topology1D::Linear, &config);
-        let mut min_distance = f32::INFINITY;
-        let mut max_distance = f32::NEG_INFINITY;
+        let mut min_distance = f64::INFINITY;
+        let mut max_distance = f64::NEG_INFINITY;
         assert!(t.len() > 2);
         assert!(t.iter().all(|&t| t_range.0 <= t && t < t_range.1));
         for i in 0..t.len() - 1 {
@@ -155,7 +155,7 @@ use nalgebra::Point2;
     /// If the overall arc length is very short, make sure at least two points are returned.
     #[test]
     fn test_very_short() {
-        let distance_func = |t1: f32, t2: f32| {
+        let distance_func = |t1: f64, t2: f64| {
             (t2 - t1).abs()
         };
         let target_distance = 0.1;

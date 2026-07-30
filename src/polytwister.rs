@@ -3,11 +3,11 @@ use crate::config::Config;
 use crate::mesh::{Mesh, MeshLike, ColoredMesh, Color};
 
 pub trait Polytwister {
-    fn rings_as_meshes(&self, w: f32, config: &Config) -> Vec<Mesh>;
-    fn strips_as_meshes(&self, w: f32, config: &Config) -> Vec<Mesh>;
-    fn twister_orbit_as_meshes(&self, w: f32, orbit: u8, config: &Config) -> Vec<Mesh>;
+    fn rings_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh>;
+    fn strips_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh>;
+    fn twister_orbit_as_meshes(&self, w: f64, orbit: u8, config: &Config) -> Vec<Mesh>;
 
-    fn as_meshes(&self, w: f32, config: &Config) -> PolytwisterMeshes {
+    fn as_meshes(&self, w: f64, config: &Config) -> PolytwisterMeshes {
         PolytwisterMeshes {
             ring_meshes: self.rings_as_meshes(w, config),
             strip_meshes: self.strips_as_meshes(w, config),
@@ -15,7 +15,7 @@ pub trait Polytwister {
             twister_meshes_orbit_2: self.twister_orbit_as_meshes(w, 1, config),
         }
     }
-    fn as_colored_mesh(&self, w: f32, config: &Config) -> ColoredMesh {
+    fn as_colored_mesh(&self, w: f64, config: &Config) -> ColoredMesh {
         self.as_meshes(w, config).as_colored_mesh()
     }
 }

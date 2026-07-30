@@ -1,5 +1,5 @@
 extern crate nalgebra as na;
-use core::f32;
+use core::f64;
 
 use na::{Affine3, Matrix2, Matrix3, Matrix4, Point2, Point3, Rotation3, Vector2, Vector3};
 use crate::pipe_section::PipeSection;
@@ -14,14 +14,14 @@ use crate::config::{CylinderMeshConfig};
  */
 #[derive(Clone, Copy, Debug)]
 pub struct Cylinder {
-    pub m11: f32,
-    pub m12: f32,
-    pub m13: f32,
-    pub m14: f32,
-    pub m21: f32,
-    pub m22: f32,
-    pub m23: f32,
-    pub m24: f32,
+    pub m11: f64,
+    pub m12: f64,
+    pub m13: f64,
+    pub m14: f64,
+    pub m21: f64,
+    pub m22: f64,
+    pub m23: f64,
+    pub m24: f64,
 }
 
 
@@ -47,7 +47,7 @@ impl Cylinder {
      * Given a 4x4 matrix, use its top two rows as the cylinder's matrix. It is not checked that the
      * bottom half is the same as the bottom half of an identity matrix.
      */
-    pub fn from_matrix_unchecked(matrix: Matrix4<f32>) -> Self {
+    pub fn from_matrix_unchecked(matrix: Matrix4<f64>) -> Self {
         Cylinder {
             m11: matrix.m11,
             m12: matrix.m12,
@@ -70,7 +70,7 @@ impl Cylinder {
      * is outside the cylinder, and F(x, y, z) = -1 is on the cylinder's symmetry
      * axis (plane of symmetry if a = b = 0).
      */
-    pub fn scalar_field(&self, point: &Point3<f32>) -> f32 {
+    pub fn scalar_field(&self, point: &Point3<f64>) -> f64 {
         squared(self.m11 * point.x + self.m12 * point.y + self.m13 * point.z + self.m14)
         + squared(self.m21 * point.x + self.m22 * point.y + self.m23 * point.z + self.m24)
         - 1.0
@@ -79,7 +79,7 @@ impl Cylinder {
     /**
      * Gradient of the scalar field.
      */
-    pub fn scalar_field_gradient(&self, point: &Point3<f32>) -> Vector3<f32> {
+    pub fn scalar_field_gradient(&self, point: &Point3<f64>) -> Vector3<f64> {
         let tmp1 = self.m11 * point.x + self.m12 * point.y + self.m13 * point.z + self.m14;
         let tmp2 = self.m21 * point.x + self.m22 * point.y + self.m23 * point.z - self.m24;
         Vector3::new(
@@ -90,11 +90,11 @@ impl Cylinder {
     }
 
     /// Return true if the point is on the boundary or interior of this cylinder.
-    pub fn interior_contains(&self, point: &Point3<f32>) -> bool {
+    pub fn interior_contains(&self, point: &Point3<f64>) -> bool {
         self.scalar_field(point) <= 0.0
     }
 
-    pub fn intersect_axis_line_z_plane(&self, z: f32) -> Point3<f32> {
+    pub fn intersect_axis_line_z_plane(&self, z: f64) -> Point3<f64> {
         // Solve M(x, y, z, 1) = 0 with z fixed. Ignore bottom two rows and use block matrix
         // inversion:
         //     (x, y) = -inv_top_left * top_right (z, 1)
@@ -110,7 +110,7 @@ impl Cylinder {
      * This method assumes that the cylinder intersects the plane z = 0. This holds for all pipe
      * cross sections but not necessarily all affine transformations.
      */
-    pub fn axis_line(&self) -> (Point3<f32>, Vector3<f32>) {
+    pub fn axis_line(&self) -> (Point3<f64>, Vector3<f64>) {
         let point1 = self.intersect_axis_line_z_plane(0.0);
         let point2 = self.intersect_axis_line_z_plane(1.0);
         let d = (point2 - point1).normalize();
@@ -129,7 +129,7 @@ impl Cylinder {
      * 
      * which defines the cylinder as |M(x, y, z, 1)|^2 = 1.
      */
-    pub fn matrix(&self) -> Matrix4<f32> {
+    pub fn matrix(&self) -> Matrix4<f64> {
         Matrix4::new(
             self.m11, self.m12, self.m13, self.m14,
             self.m21, self.m22, self.m23, self.m24,
@@ -141,7 +141,7 @@ impl Cylinder {
     /**
      * Top left 2x2 entries of M.
      */
-    pub fn top_left_matrix(&self) -> Matrix2<f32> {
+    pub fn top_left_matrix(&self) -> Matrix2<f64> {
         let m = self.matrix();
         Matrix2::new(
             m[(0, 0)], m[(0, 1)],
@@ -153,14 +153,14 @@ impl Cylinder {
      * The inverse of the top left 2x2 entries of M, defined in Cylinder::matrix(). Reused in
      * several places.
      */
-    pub fn inv_top_left_matrix(&self) -> Matrix2<f32> {
+    pub fn inv_top_left_matrix(&self) -> Matrix2<f64> {
         self.top_left_matrix().try_inverse().unwrap()
     }
 
     /**
      * Top right 2x2 entries of M, defined in Cylinder::matrix(). Reused in several places.
      */
-    fn top_right_matrix(&self) -> Matrix2<f32> {
+    fn top_right_matrix(&self) -> Matrix2<f64> {
         let m = self.matrix();
         Matrix2::new(
             m[(0, 2)], m[(0, 3)],
@@ -171,7 +171,7 @@ impl Cylinder {
     /**
      * Inverse of Cylinder::matrix.
      */
-    pub fn inv_matrix(&self) -> Matrix4<f32> {
+    pub fn inv_matrix(&self) -> Matrix4<f64> {
         // Split M into [[A B] [0 I]] where 0 is a 2x2 zero matrix and I is a 2x2 identity matrix.
         // Block matrix inversion gives M^-1 = [[A^-1 -A^-1 B] [0 I]].
         // Thus only a 2x2 matrix inversion is needed, fortunately.
@@ -189,7 +189,7 @@ impl Cylinder {
      * Define the base cylinder C = {(x, y, z): x^2 + y^2 = 1, z in R}. Return the affine
      * transformation T such that T(C) is this cylinder section.
      */
-    pub fn transformation_from_base_cylinder(&self) -> Affine3<f32> {
+    pub fn transformation_from_base_cylinder(&self) -> Affine3<f64> {
         Affine3::from_matrix_unchecked(self.inv_matrix())
     }
 
@@ -197,13 +197,13 @@ impl Cylinder {
      * Define the base cylinder C = {(x, y, z): x^2 + y^2 = 1, z in R}. Return the affine
      * transformation T such that applying T to this cylinder section produces C.
      */
-    pub fn transformation_to_base_cylinder(&self) -> Affine3<f32> {
+    pub fn transformation_to_base_cylinder(&self) -> Affine3<f64> {
         Affine3::from_matrix_unchecked(self.matrix())
     }
     /**
      * The inverse of the top left 3x3 entries of M, defined in Cylinder::matrix().
      */
-    pub fn top_left_matrix_3(&self) -> Matrix3<f32> {
+    pub fn top_left_matrix_3(&self) -> Matrix3<f64> {
         let m = self.matrix();
         // Sorry about repetitive code -- I can NOT figure out how to take a static slice of a
         // Matrix4.
@@ -226,12 +226,12 @@ impl Cylinder {
      * vectors whose lengths are equal to the radius of the circle, and which are orthogonal to each
      * other and to the axis.
      */
-    pub fn ellipse_vertex_displacements(&self) -> (Vector3<f32>, Vector3<f32>) {
+    pub fn ellipse_vertex_displacements(&self) -> (Vector3<f64>, Vector3<f64>) {
         let (_, direction) = self.axis_line();
         // 3D rotation turning the z-axis into the axial line.
         let rotation = Rotation3::rotation_between(&Vector3::z(), &direction).unwrap_or(Rotation3::identity());
         // Rotation to the base cylinder. Translation is ignored.
-        let t: Matrix3<f32> = self.top_left_matrix_3() * rotation;
+        let t: Matrix3<f64> = self.top_left_matrix_3() * rotation;
         // The top left 2x2 of the matrix gives the coefficient of an ellipse.
         let ellipse = Ellipse {
             matrix: Matrix2::new(
@@ -250,7 +250,7 @@ impl Cylinder {
         }
     }
 
-    pub fn ellipse_radii(&self) -> (f32, f32) {
+    pub fn ellipse_radii(&self) -> (f64, f64) {
         let (major, minor) = self.ellipse_vertex_displacements();
         (major.norm(), minor.norm())
     }
@@ -258,7 +258,7 @@ impl Cylinder {
     /**
      * Find the vertices of a cross-sectional ellipse.
      */
-    fn ellipse_vertices(&self) -> (Point3<f32>, Point3<f32>) {
+    fn ellipse_vertices(&self) -> (Point3<f64>, Point3<f64>) {
         let (start, _) = self.axis_line();
         let (da, db) = self.ellipse_vertex_displacements();
         (start + da, start + db)
@@ -268,7 +268,7 @@ impl Cylinder {
     /// by a factor of du moves the point parallel to the cylinder's axis by a distance of du, and
     /// the range of u is the entire real line. Changing theta moves the point in an elliptical loop
     /// orthogonal to the cylinder's axis, ranging from 0 to 2pi.
-    pub fn surface_coords_to_cartesian(&self, u: f32, theta: f32) -> Point3<f32> {
+    pub fn surface_coords_to_cartesian(&self, u: f64, theta: f64) -> Point3<f64> {
         let (start, direction) = self.axis_line();
         let (da, db) = self.ellipse_vertex_displacements();
         let cx = theta.cos();
@@ -278,7 +278,7 @@ impl Cylinder {
 
     /// Convert Cartesian coordinates to cylindrical coordinates (u, theta, r). If r = 1 then this
     /// is the inverse of Cylinder::surface_coords_to_cartesian.
-    pub fn cartesian_to_cylindrical(&self, point: &Point3<f32>) -> (f32, f32, f32) {
+    pub fn cartesian_to_cylindrical(&self, point: &Point3<f64>) -> (f64, f64, f64) {
         let (start, direction_normalized) = self.axis_line();
         let (da, db) = self.ellipse_vertex_displacements();
         let tmp = point - start;
@@ -286,7 +286,7 @@ impl Cylinder {
         let cos_theta = tmp.dot(&da) / da.norm_squared();
         let sin_theta = tmp.dot(&db) / db.norm_squared();
         let r = cos_theta.hypot(sin_theta);
-        let theta = sin_theta.atan2(cos_theta).rem_euclid(f32::consts::TAU);
+        let theta = sin_theta.atan2(cos_theta).rem_euclid(f64::consts::TAU);
         (u, theta, r)
     }
 
@@ -298,7 +298,7 @@ impl Cylinder {
 
     /// Discretize this cylinder as a mesh, but only include the points for
     /// which the predicate returns true.
-    pub fn as_mesh_partial<F: Fn(&Point3<f32>) -> bool>(
+    pub fn as_mesh_partial<F: Fn(&Point3<f64>) -> bool>(
         &self,
         predicate: F,
         config: &CylinderMeshConfig
@@ -313,7 +313,7 @@ impl Cylinder {
         // Vertex indices: i * radial_segments + j
         let mut vertices: Vec<Option<Vertex>> = vec![];
         for i in 0..=linear_segments {
-            let i_unipolar = (i as f32) / (linear_segments as f32);
+            let i_unipolar = (i as f64) / (linear_segments as f64);
             let i_bipolar = i_unipolar * 2.0 - 1.0;
             for j in 0..radial_segments {
                 let theta = thetas[j];
@@ -386,7 +386,7 @@ impl Cylinder {
      * Perform nonuniform sampling of theta values, creating points spaced around an ellipse so that
      * no two consecutive points are closer together than the resolution.
      */
-    pub fn sample_theta(&self, resolution: f32) -> Vec<f32> {
+    pub fn sample_theta(&self, resolution: f64) -> Vec<f64> {
         // I initially played with methods using inverse incomplete elliptic integrals to space
         // points on an ellipse, but it was too annoying to fiddle with the dependencies needed to
         // do that. This is a simple brute-force numerical solution.
@@ -396,7 +396,7 @@ impl Cylinder {
         let (major_radius, minor_radius) = self.ellipse_radii();
         let average_radius = (major_radius + minor_radius) / 2.0;
         let guess_num_points = (
-            (average_radius * f32::consts::TAU / resolution as f32) as usize
+            (average_radius * f64::consts::TAU / resolution as f64) as usize
         ).max(4);
 
         let result = adaptive_sample(
@@ -408,7 +408,7 @@ impl Cylinder {
             Topology1D::Circular,
             &AdaptiveSamplingConfig {
                 target_distance: resolution,
-                t_range: (0.0, f32::consts::TAU),
+                t_range: (0.0, f64::consts::TAU),
                 guess_num_points,
             },
         );

@@ -1,5 +1,5 @@
 extern crate nalgebra as na;
-use core::f32;
+use core::f64;
 
 use na::{Complex, Point3, Vector3, Vector4};
 use crate::cylinder::{Cylinder};
@@ -18,20 +18,20 @@ use crate::c2::C2;
  */
 #[derive(Clone, Copy, Debug)]
 pub struct PipeSection {
-    pub a: f32,
-    pub b: f32,
-    pub c: f32,
-    pub d: f32,
-    pub w: f32,
+    pub a: f64,
+    pub b: f64,
+    pub c: f64,
+    pub d: f64,
+    pub w: f64,
 }
 
 
 impl PipeSection {
-    pub fn new(a: f32, b: f32, c: f32, d: f32, w: f32) -> Self {
+    pub fn new(a: f64, b: f64, c: f64, d: f64, w: f64) -> Self {
         PipeSection { a, b, c, d, w }
     }
 
-    pub fn from_vector4(vector: &Vector4<f32>, w: f32) -> Self {
+    pub fn from_vector4(vector: &Vector4<f64>, w: f64) -> Self {
         PipeSection {
             a: vector.x,
             b: vector.y,
@@ -41,7 +41,7 @@ impl PipeSection {
         }
     }
     
-    pub fn from_c2(vector: &C2, w: f32) -> Self {
+    pub fn from_c2(vector: &C2, w: f64) -> Self {
         Self::from_vector4(&vector.to_vector4(), w)
     }
 
@@ -54,19 +54,19 @@ impl PipeSection {
      * F(x, y, z) < 0 then the point is inside the pipe, F(x, y, z) > 0 is outside the pipe, and
      * F(x, y, z) = -1 is on the pipe's symmetry axis (plane of symmetry if a = b = 0).
      */
-    pub fn scalar_field(&self, point: &Point3<f32>) -> f32 {
+    pub fn scalar_field(&self, point: &Point3<f64>) -> f64 {
         squared(self.a * point.x + self.b * point.y + self.c * point.z + self.d * self.w)
         + squared(self.b * point.x - self.a * point.y + self.d * point.z - self.c * self.w)
         - 1.0
     }
 
     /// Return true if the point is on the boundary or interior of the log.
-    pub fn interior_contains(&self, point: &Point3<f32>) -> bool {
+    pub fn interior_contains(&self, point: &Point3<f64>) -> bool {
         self.scalar_field(point) <= 0.0
     }
 
     /// Return true if the point is on the boundary with the given tolerance.
-    pub fn boundary_contains(&self, point: &Point3<f32>, tolerance: f32) -> bool {
+    pub fn boundary_contains(&self, point: &Point3<f64>, tolerance: f64) -> bool {
         self.scalar_field(point).abs() <= tolerance
     }
 
@@ -87,7 +87,7 @@ impl PipeSection {
         self.a == 0.0 && self.b == 0.0
     }
 
-    pub fn plane_z(&self) -> Option<f32> {
+    pub fn plane_z(&self) -> Option<f64> {
         let tmp = 1.0 / squared(self.c) - squared(self.w);
         if tmp <= 0.0 {
             None
@@ -113,7 +113,7 @@ impl PipeSection {
         }
     }
 
-    pub fn as_mesh_partial<F: Fn(&Point3<f32>) -> bool>(
+    pub fn as_mesh_partial<F: Fn(&Point3<f64>) -> bool>(
         &self,
         predicate: F,
         config: &CylinderMeshConfig
@@ -190,12 +190,12 @@ pub struct TwisterCylindricalIsosurface {
 }
 
 pub struct TwisterPlanarIsosurface {
-    pub z: f32,
+    pub z: f64,
     pub filling_info: TwisterFillingInfo,
 }
 
 impl TwisterFillingInfo {
-    pub fn contains_point(&self, point: &Point3<f32>) -> bool {
+    pub fn contains_point(&self, point: &Point3<f64>) -> bool {
         let inner = self.orthogonal_pipe_section.interior_contains(point);
         let outer = !inner;
         let order: u32 = self.neighboring_pipe_sections.iter().map(|ps|
@@ -213,13 +213,13 @@ impl TwisterFillingInfo {
 }
 
 impl Isosurface for TwisterCylindricalIsosurface {
-    fn contains_point(&self, p: &Point3<f32>) -> bool {
+    fn contains_point(&self, p: &Point3<f64>) -> bool {
         self.filling_info.contains_point(p)
     }
-    fn surface_coords_to_point(&self, u: f32, theta: f32) -> Point3<f32> {
+    fn surface_coords_to_point(&self, u: f64, theta: f64) -> Point3<f64> {
         self.pipe_section.as_cylinder().surface_coords_to_cartesian(u, theta)
     }
-    fn surface_coords_to_normal(&self, u: f32, theta: f32) -> Vector3<f32> {
+    fn surface_coords_to_normal(&self, u: f64, theta: f64) -> Vector3<f64> {
         self.pipe_section.as_cylinder().scalar_field_gradient(
             &self.pipe_section.as_cylinder().surface_coords_to_cartesian(u, theta)
         )
@@ -227,13 +227,13 @@ impl Isosurface for TwisterCylindricalIsosurface {
 }
 
 impl Isosurface for TwisterPlanarIsosurface {
-    fn contains_point(&self, p: &Point3<f32>) -> bool {
+    fn contains_point(&self, p: &Point3<f64>) -> bool {
         self.filling_info.contains_point(p)
     }
-    fn surface_coords_to_point(&self, u: f32, v: f32) -> Point3<f32> {
+    fn surface_coords_to_point(&self, u: f64, v: f64) -> Point3<f64> {
         Point3::new(u, v, self.z)
     }
-    fn surface_coords_to_normal(&self, u: f32, v: f32) -> Vector3<f32> {
+    fn surface_coords_to_normal(&self, u: f64, v: f64) -> Vector3<f64> {
         Vector3::z()
     }
 }
@@ -333,8 +333,8 @@ pub struct StripSection {
 enum StripIntervals {
     None,
     All,
-    OneInterval((f32, f32)),
-    TwoIntervals((f32, f32), (f32, f32)),
+    OneInterval((f64, f64)),
+    TwoIntervals((f64, f64), (f64, f64)),
 }
 
 impl StripSection {
@@ -358,7 +358,7 @@ impl StripSection {
 
     /// Given a point that is on the torus cross section, return whether it is also on the strip
     /// cross section by checking it against the orthogonal pipe section.
-    pub fn contains_point_on_torus(&self, point: &Point3<f32>) -> bool {
+    pub fn contains_point_on_torus(&self, point: &Point3<f64>) -> bool {
         !self.orthogonal_pipe_section.interior_contains(point) == self.bloated
     }
 
@@ -396,24 +396,24 @@ impl StripSection {
                 // Stupid. Just discretize the strip with a combined grid/bisection search.
                 let resolution = 1000;
                 for i in 0..resolution {
-                    let t1 = i as f32 / resolution as f32;
-                    let t2 = (i + 1) as f32 / resolution as f32;
+                    let t1 = i as f64 / resolution as f64;
+                    let t2 = (i + 1) as f64 / resolution as f64;
                     let p1 = ccurve.at(t1);
                     let p2 = ccurve.at(t2);
                     if self.contains_point_on_torus(&p1) != self.contains_point_on_torus(&p2) {
                         let t_frac = bisection_search(|t_frac| {
                             self.contains_point_on_torus(
-                                &ccurve.at((i as f32 + t_frac) / resolution as f32)
+                                &ccurve.at((i as f64 + t_frac) / resolution as f64)
                             )
                         });
-                        t_values.push((i as f32 + t_frac) / resolution as f32);
+                        t_values.push((i as f64 + t_frac) / resolution as f64);
                     }
                 }
             }
 
             // t-values are in the range [0, 1], treated circularly. To reduce casework we have them
             // in increasing order.
-            t_values.sort_by(f32::total_cmp);
+            t_values.sort_by(f64::total_cmp);
 
             if t_values.len() == 0 {
                 // If there are no ring cross sections on this CCurve, then either the entire CCurve

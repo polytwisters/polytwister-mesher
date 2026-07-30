@@ -4,7 +4,7 @@ use crate::c2::C2;
 use crate::pipe_section::PipeSection;
 use crate::ring::RingSection;
 
-const EPSILON: f32 = 1e-5;
+const EPSILON: f64 = 1e-5;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Fiber {
@@ -13,24 +13,24 @@ pub struct Fiber {
 
 impl Fiber {
     pub fn new(vec: C2) -> Self { Self { vec } }
-    pub fn from_vector4(vec4: &Vector4<f32>) -> Self { Self::new(C2::from_vector4(vec4)) }
-    pub fn to_vector4(&self) -> Vector4<f32> { self.vec.to_vector4() }
+    pub fn from_vector4(vec4: &Vector4<f64>) -> Self { Self::new(C2::from_vector4(vec4)) }
+    pub fn to_vector4(&self) -> Vector4<f64> { self.vec.to_vector4() }
 
     pub fn zero() -> Self { Self { vec: C2::zero() } }
 
-    pub fn radius(&self) -> f32 {
+    pub fn radius(&self) -> f64 {
         self.vec.abs()
     }
 
-    pub fn scale(&self, k: f32) -> Self {
+    pub fn scale(&self, k: f64) -> Self {
         Self::new(&self.vec * k)
     }
 
-    pub fn similarity(&self, other: &Self) -> f32 {
+    pub fn similarity(&self, other: &Self) -> f64 {
         self.vec.similarity(&other.vec)
     }
 
-    pub fn deduplicate(fibers: &Vec<Self>, epsilon: f32) -> Vec<Self> {
+    pub fn deduplicate(fibers: &Vec<Self>, epsilon: f64) -> Vec<Self> {
         let epsilon = 1e-5;
         let mut result = vec![];
         for fiber in fibers.iter() {
@@ -41,7 +41,7 @@ impl Fiber {
         result
     }
 
-    pub fn cross_section(&self, w: f32) -> RingSection {
+    pub fn cross_section(&self, w: f64) -> RingSection {
         RingSection::from_vector4(&self.to_vector4(), w)
     }
 }
@@ -53,28 +53,28 @@ pub struct Pipe {
 
 impl Pipe {
     pub fn new(vec: C2) -> Self { Self { vec } }
-    pub fn from_vector4(vec4: &Vector4<f32>) -> Self { Self::new(C2::from_vector4(vec4)) }
-    pub fn to_vector4(&self) -> Vector4<f32> { self.vec.to_vector4() }
+    pub fn from_vector4(vec4: &Vector4<f64>) -> Self { Self::new(C2::from_vector4(vec4)) }
+    pub fn to_vector4(&self) -> Vector4<f64> { self.vec.to_vector4() }
 
-    pub fn cross_section(&self, w: f32) -> PipeSection {
+    pub fn cross_section(&self, w: f64) -> PipeSection {
         PipeSection::from_vector4(&self.to_vector4(), w)
     }
 
-    pub fn scale(&self, k: f32) -> Self {
+    pub fn scale(&self, k: f64) -> Self {
         Self::new(&self.vec / k)
     }
 
-    pub fn inner_abs(&self, fiber: &Fiber) -> f32 {
+    pub fn inner_abs(&self, fiber: &Fiber) -> f64 {
         self.vec.inner_abs(&fiber.vec)
     }
 
     /// For pipe P(y), compute |<y, x>|^2 - 1. This is 0 on the pipe, negative inside, and positive
     /// outside.
-    pub fn scalar_field(&self, point: &C2) -> f32 {
+    pub fn scalar_field(&self, point: &C2) -> f64 {
         self.vec.inner_abs_squared(point) - 1.0
     }
 
-    pub fn contains(&self, point: &C2, epsilon: f32) -> bool {
+    pub fn contains(&self, point: &C2, epsilon: f64) -> bool {
         self.scalar_field(point).abs() < epsilon
     }
 
@@ -146,21 +146,21 @@ pub struct Log {
 
 impl Log {
     pub fn new(vec: C2) -> Self { Self { vec } }
-    pub fn from_vector4(vec4: &Vector4<f32>) -> Self { Self::new(C2::from_vector4(vec4)) }
-    pub fn to_vector4(&self) -> Vector4<f32> { self.vec.to_vector4() }
+    pub fn from_vector4(vec4: &Vector4<f64>) -> Self { Self::new(C2::from_vector4(vec4)) }
+    pub fn to_vector4(&self) -> Vector4<f64> { self.vec.to_vector4() }
 
-    pub fn scale(&self, k: f32) -> Self {
+    pub fn scale(&self, k: f64) -> Self {
         Self::new(&self.vec / k)
     }
 
     /// For log L(y), compute |<y, x>|^2 - 1. This is 0 on the boundary of the log, negative in its
     /// interior, and positive in the exterior of the log.
-    pub fn scalar_field(&self, point: &C2) -> f32 {
+    pub fn scalar_field(&self, point: &C2) -> f64 {
         self.vec.inner_abs_squared(point) - 1.0
     }
 
     /// Return true if this log contains the given point.
-    pub fn contains(&self, point: &C2, epsilon: f32) -> bool {
+    pub fn contains(&self, point: &C2, epsilon: f64) -> bool {
         self.scalar_field(&point) < epsilon
     }
 

@@ -1,4 +1,4 @@
-use core::f32;
+use core::f64;
 
 use na::{Complex, ComplexField};
 use nalgebra::{Point2, Point3, Vector4};
@@ -9,15 +9,15 @@ use crate::config::{RingMeshConfig};
 
 #[derive(Clone, Copy, Debug)]
 pub struct RingSection {
-    pub a: f32,
-    pub b: f32,
-    pub c: f32,
-    pub d: f32,
-    pub w: f32,
+    pub a: f64,
+    pub b: f64,
+    pub c: f64,
+    pub d: f64,
+    pub w: f64,
 }
 
 impl RingSection {
-    pub fn from_vector4(vector: &Vector4<f32>, w: f32) -> Self {
+    pub fn from_vector4(vector: &Vector4<f64>, w: f64) -> Self {
         RingSection {
             a: vector.x,
             b: vector.y,
@@ -27,7 +27,7 @@ impl RingSection {
         }
     }
 
-    pub fn from_c2(c2: &C2, w: f32) -> Self {
+    pub fn from_c2(c2: &C2, w: f64) -> Self {
         RingSection::from_vector4(&c2.to_vector4(), w)
     }
 
@@ -47,7 +47,7 @@ impl RingSection {
         }
         let theta = angle(&Point2::new(self.c, self.d));
         let phi1 = discriminant.asin();
-        let phi2 = std::f32::consts::PI - phi1;
+        let phi2 = std::f64::consts::PI - phi1;
         let k1 = Complex::from_polar(1.0, phi1 - theta);
         let k2 = Complex::from_polar(1.0, phi2 - theta);
         let point1_c2 = (
@@ -64,7 +64,7 @@ impl RingSection {
         )
     }
 
-    pub fn add_points_to_vec(&self, vec: &mut Vec<Point3<f32>>) {
+    pub fn add_points_to_vec(&self, vec: &mut Vec<Point3<f64>>) {
         if let RingSectionResult::Points(p1, p2) = self.as_points() {
             vec.push(p1);
             vec.push(p2);
@@ -86,8 +86,8 @@ impl RingSection {
                 let resolution = 500;
                 let polyline = Polyline {
                     points: (0..resolution).map(|i| {
-                        let t = i as f32 / resolution as f32;
-                        let theta = t * f32::consts::TAU;
+                        let t = i as f64 / resolution as f64;
+                        let theta = t * f64::consts::TAU;
                         Point3::new(theta.cos(), theta.sin(), 0.0) * radius
                     }).collect::<_>(),
                     closed: true,
@@ -100,9 +100,9 @@ impl RingSection {
 
 pub enum RingSectionResult {
     Empty,
-    Points(Point3<f32>, Point3<f32>),
+    Points(Point3<f64>, Point3<f64>),
     XYCircle {
-        radius: f32
+        radius: f64
     },
 }
 

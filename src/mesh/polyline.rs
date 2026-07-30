@@ -2,13 +2,13 @@ use nalgebra as na;
 use na::{Affine3, Point3, Vector3};
 use crate::mesh::{self, Face, Mesh, Vertex};
 use core::num;
-use std::f32;
+use std::f64;
 
 /**
  * A polyline in 3D space.
  */
 pub struct Polyline {
-    pub points: Vec<Point3<f32>>,
+    pub points: Vec<Point3<f64>>,
     pub closed: bool,
 }
 
@@ -19,7 +19,7 @@ impl Polyline {
 
     /// Return the point at index i. If this is a closed polyline, negative or out-of-bounds
     /// values of i are wrapped.
-    fn point(&self, i: isize) -> Point3<f32> {
+    fn point(&self, i: isize) -> Point3<f64> {
         if self.closed {
             let index = i.rem_euclid(self.num_points() as isize) as usize;
             self.points[index]
@@ -28,7 +28,7 @@ impl Polyline {
         }
     }
 
-    fn plane(&self, i: usize) -> (Vector3<f32>, Vector3<f32>) {
+    fn plane(&self, i: usize) -> (Vector3<f64>, Vector3<f64>) {
         // Index of the polygon we're using to estimate the curvature vector.
         let j = if self.closed {
             i
@@ -53,7 +53,7 @@ impl Polyline {
 
     pub fn as_mesh(
         &self,
-        thickness: f32,
+        thickness: f64,
         radial_segments: usize,
     ) -> Mesh {
         let num_points = self.num_points();
@@ -68,7 +68,7 @@ impl Polyline {
             let point = self.points[i];
             let (x, y) = self.plane(i);
             for radial_index in 0..radial_segments {
-                let angle = radial_index as f32 / radial_segments as f32 * f32::consts::TAU;
+                let angle = radial_index as f64 / radial_segments as f64 * f64::consts::TAU;
                 let cos = angle.cos();
                 let sin = angle.sin();
                 let normal = x * cos + y * sin;
@@ -117,7 +117,7 @@ impl Polyline {
         Mesh { vertices, faces }
     }
 
-    pub fn transform(self, transform: &Affine3<f32>) -> Polyline {
+    pub fn transform(self, transform: &Affine3<f64>) -> Polyline {
         let closed = self.closed;
         let points = self.points.into_iter().map(|vertex|
             transform.transform_point(&vertex)

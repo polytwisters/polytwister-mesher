@@ -1,4 +1,4 @@
-use core::f32;
+use core::f64;
 use na::{Matrix2, Matrix4};
 use nalgebra::{Point2, Vector2, Vector4};
 
@@ -7,34 +7,34 @@ pub use unordered_triples::UnorderedTriples;
 
 pub mod adaptive_sampling;
 
-pub fn squared(x: f32) -> f32 {
+pub fn squared(x: f64) -> f64 {
     x * x
 }
 
-pub fn angle(point: &Point2<f32>) -> f32 {
-    f32::atan2(point.y, point.x).rem_euclid(f32::consts::TAU)
+pub fn angle(point: &Point2<f64>) -> f64 {
+    f64::atan2(point.y, point.x).rem_euclid(f64::consts::TAU)
 }
 
-pub fn angle_vector(v: &Vector2<f32>) -> f32 {
-    f32::atan2(v.y, v.x).rem_euclid(f32::consts::TAU)
+pub fn angle_vector(v: &Vector2<f64>) -> f64 {
+    f64::atan2(v.y, v.x).rem_euclid(f64::consts::TAU)
 }
 
-pub fn sort2(x: (f32, f32)) -> (f32, f32) {
+pub fn sort2(x: (f64, f64)) -> (f64, f64) {
     let (x1, x2) = x;
     if x1 < x2 { (x1, x2) } else { (x2, x1) }
 }
 
-pub fn sort4(x: (f32, f32, f32, f32)) -> (f32, f32, f32, f32) {
+pub fn sort4(x: (f64, f64, f64, f64)) -> (f64, f64, f64, f64) {
     let mut tmp = [x.0, x.1, x.2, x.3];
-    tmp.sort_by(f32::total_cmp);
+    tmp.sort_by(f64::total_cmp);
     (tmp[0], tmp[1], tmp[2], tmp[3])
 }
 
-pub fn lerp(x1: f32, x2: f32, t: f32) -> f32 {
+pub fn lerp(x1: f64, x2: f64, t: f64) -> f64 {
     x1 + (x2 - x1) * t
 }
 
-pub fn lerp_inverse(x1: f32, x2: f32, x: f32) -> f32 {
+pub fn lerp_inverse(x1: f64, x2: f64, x: f64) -> f64 {
     (x - x1) / (x2 - x1)
 }
 
@@ -42,8 +42,8 @@ pub fn lerp_inverse(x1: f32, x2: f32, x: f32) -> f32 {
  * Return a linearly spaced series of n values in the closed interval [start, end]. Both endpoints
  * are inclusive.
  */
-pub fn linspace(start: f32, end: f32, n: usize) -> Vec<f32> {
-    (0..n).map(|i| start + (i as f32) / ((n - 1) as f32) * (end - start)).collect::<_>()
+pub fn linspace(start: f64, end: f64, n: usize) -> Vec<f64> {
+    (0..n).map(|i| start + (i as f64) / ((n - 1) as f64) * (end - start)).collect::<_>()
 }
 
 /**
@@ -61,18 +61,18 @@ pub fn unzip_circle<T>(pairs: Vec<(T, T)>) -> Vec<T> {
 /// Ellipse in 2D space, centered on the origin, given by implicit equation:
 /// (m11 x + m12 y)^2 + (m21 x + m22 y)^2 = 1.
 pub struct Ellipse {
-    pub matrix: Matrix2<f32>
+    pub matrix: Matrix2<f64>
 }
 
 impl Ellipse {
     /// Return 0.0 if the point p is on the ellipse, negative if inside, and positive if outside.
-    fn scalar_field(&self, p: &Vector2<f32>) -> f32 {
+    fn scalar_field(&self, p: &Vector2<f64>) -> f64 {
         (self.matrix * p).norm_squared() - 1.0
     }
 
     /// Inverse of 2x2 matrix in the implicit equation. Its columns are vectors parallel to two
     /// conjugate diameters. They are not guaranteed orthogonal.
-    fn inv_matrix(&self) -> Matrix2<f32> {
+    fn inv_matrix(&self) -> Matrix2<f64> {
         self.matrix.try_inverse().unwrap()
     }
 
@@ -85,18 +85,18 @@ impl Ellipse {
     /// 
     /// The handedness convention is chosen so that the cross product v1 x v2 always points in the
     /// positive z direction.
-    pub fn vertices(&self) -> (Vector2<f32>, Vector2<f32>) {
+    pub fn vertices(&self) -> (Vector2<f64>, Vector2<f64>) {
         let m = self.inv_matrix();
         let r1 = Vector2::new(m[(0, 0)], m[(1, 0)]);
         let r2 = Vector2::new(m[(0, 1)], m[(1, 1)]);
         // https://en.wikipedia.org/wiki/Ellipse#General_ellipse_2
         let denom = r1.norm_squared() - r2.norm_squared();
-        let t = if denom.abs() <= f32::EPSILON {
+        let t = if denom.abs() <= f64::EPSILON {
             0.0
         } else {
             (2.0 * r1.dot(&r2) / denom).atan() / 2.0
         };
-        let t2 = t + f32::consts::FRAC_PI_2;
+        let t2 = t + f64::consts::FRAC_PI_2;
         let v1 = r1 * t.cos() + r2 * t.sin();
         let v2 = r1 * t2.cos() + r2 * t2.sin();
 
@@ -159,7 +159,7 @@ mod tests {
 
 /// Given a monotonic function f: [0, 1] -> bool, use bisection search to find an x in [0, 1] so
 /// f(x) is right on the cusp of the switch from "true" to "false" or vice versa.
-pub fn bisection_search<F: Fn(f32) -> bool>(f: F) -> f32 {
+pub fn bisection_search<F: Fn(f64) -> bool>(f: F) -> f64 {
     let mut x_min = 0.0; 
     let mut x_max = 1.0;
     if f(x_min) == f(x_max) {
@@ -180,7 +180,7 @@ pub fn bisection_search<F: Fn(f32) -> bool>(f: F) -> f32 {
     (x_min + x_max) / 2.0
 }
 
-fn normalizing_su2_matrix(vec: &Vector4<f32>) -> Matrix4<f32> {
+fn normalizing_su2_matrix(vec: &Vector4<f64>) -> Matrix4<f64> {
     let norm = vec.norm();
     // U = [
     //    [x* y*]
@@ -195,7 +195,7 @@ fn normalizing_su2_matrix(vec: &Vector4<f32>) -> Matrix4<f32> {
     ) / norm
 }
 
-fn rotate_w_zero(vec: &Vector4<f32>) -> Vector4<f32> {
+fn rotate_w_zero(vec: &Vector4<f64>) -> Vector4<f64> {
     let tmp = vec.z.hypot(vec.w);
     // Matrix: [[a -b], [b a]] [z, w] = [k, 0]
     let a = vec.z / tmp;
@@ -208,11 +208,11 @@ fn rotate_w_zero(vec: &Vector4<f32>) -> Vector4<f32> {
     )
 }
 
-pub fn torus_radius(pipe1: &Vector4<f32>, pipe2: &Vector4<f32>) -> f32 {
+pub fn torus_radius(pipe1: &Vector4<f64>, pipe2: &Vector4<f64>) -> f64 {
     let u = normalizing_su2_matrix(pipe2);
     let k = 1.0 / pipe2.norm();
     let p1n = rotate_w_zero(&(u * pipe1 * k));
-    return 1.0f32.hypot((p1n.x.hypot(p1n.y) + 1.0) / p1n.z.abs()) * k;
+    return 1.0f64.hypot((p1n.x.hypot(p1n.y) + 1.0) / p1n.z.abs()) * k;
 }
 
 #[cfg(test)]

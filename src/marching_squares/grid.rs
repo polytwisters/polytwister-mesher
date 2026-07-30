@@ -5,11 +5,11 @@ pub struct Grid {
 }
 
 impl Grid {
-    pub fn ui_to_u(&self, ui: f32) -> f32 {
+    pub fn ui_to_u(&self, ui: f64) -> f64 {
         self.u_axis.at(ui)
     }
 
-    pub fn vi_to_v(&self, vi: f32) -> f32 {
+    pub fn vi_to_v(&self, vi: f64) -> f64 {
         self.v_axis.at(vi)
     }
 }
@@ -31,36 +31,36 @@ pub enum GridAxisTopology {
 pub struct GridAxis {
     topology: GridAxisTopology,
     size: usize,
-    values: Vec<f32>,
+    values: Vec<f64>,
 }
 
 impl GridAxis {
-    pub fn uniform_linear(size: usize, min: f32, max: f32) -> Self {
+    pub fn uniform_linear(size: usize, min: f64, max: f64) -> Self {
         Self::linear((0..size).map(|i| {
-            let t = (i as f32) / (size - 1) as f32;
+            let t = (i as f64) / (size - 1) as f64;
             min + t * (max - min)
         }).collect())
     }
 
-    pub fn uniform_circular(size: usize, max: f32) -> Self {
+    pub fn uniform_circular(size: usize, max: f64) -> Self {
         Self::circular(
-            (0..size).map(|i| (i as f32) / size as f32 * max).collect()
+            (0..size).map(|i| (i as f64) / size as f64 * max).collect()
         )
     }
 
-    pub fn linear(values: Vec<f32>) -> Self {
+    pub fn linear(values: Vec<f64>) -> Self {
         let size = values.len();
         Self { topology: GridAxisTopology::Linear, size, values }
     }
 
-    pub fn circular(values: Vec<f32>) -> Self {
+    pub fn circular(values: Vec<f64>) -> Self {
         let size = values.len();
         Self { topology: GridAxisTopology::Circular, size, values }
     }
 
     /// Convert from grid coordinate to values. If it is on an integer grid point, return the value
     /// at that grid point. If it is between two grid points, linearly interpolate the values.
-    pub fn at(&self, index: f32) -> f32 {
+    pub fn at(&self, index: f64) -> f64 {
         match self.topology {
             GridAxisTopology::Circular => {
                 let index1 = self.wrap(index as usize);
@@ -71,7 +71,7 @@ impl GridAxis {
             GridAxisTopology::Linear => {
                 let mut index1 = (index as usize).min(self.size - 2);
                 let index2 = index1 + 1;
-                let t = index - index1 as f32;
+                let t = index - index1 as f64;
                 self.values[index1] * (1.0 - t) + self.values[index2] * t
             },
         }

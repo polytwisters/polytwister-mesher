@@ -1,6 +1,6 @@
 enum TorusSection {
     CylinderCylinder(Cylinder, Cylinder),
-    CylinderZPlanes(Cylinder, f32),
+    CylinderZPlanes(Cylinder, f64),
     Empty,
 }
 

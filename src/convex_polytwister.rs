@@ -1,4 +1,4 @@
-use core::f32;
+use core::f64;
 use serde::Deserialize;
 use crate::{c2::C2, elements::Pipe, mesh::Mesh, pipe_section::{self, PipeSection, TwisterSection}, polytwister::Polytwister, ring::RingSection, utils::linspace};
 use crate::config::{CylinderMeshConfig, RingMeshConfig, TorusMeshConfig};
@@ -16,7 +16,7 @@ use na::{Vector4, Point3, Vector3, Point4};
 #[derive(Deserialize, Clone)]
 #[serde(rename_all="camelCase")]
 pub struct ConvexPolytwisterSpec {
-    logs: Vec<Vector4<f32>>,
+    logs: Vec<Vector4<f64>>,
 }
 
 pub struct ConvexPolytwister {
@@ -33,7 +33,7 @@ impl ConvexPolytwisterSpec {
     }
 }
 
-const EPSILON: f32 = 1e-5;
+const EPSILON: f64 = 1e-5;
 
 impl ConvexPolytwister {
     pub fn new(logs: Vec<Log>) -> Self {
@@ -76,11 +76,11 @@ impl ConvexPolytwister {
         Fiber::deduplicate(&result, EPSILON)
     }
 
-    fn contains(&self, point: &C2, epsilon: f32) -> bool {
+    fn contains(&self, point: &C2, epsilon: f64) -> bool {
         self.logs.iter().all(|log| log.contains(&point, epsilon)) 
     }
 
-    fn section_contains(&self, w: f32, point: &Point3<f32>) -> bool {
+    fn section_contains(&self, w: f64, point: &Point3<f64>) -> bool {
         for log in self.logs.iter() {
             let log_section = log.pipe().cross_section(w);
             if !log_section.interior_contains(&point) {
@@ -90,7 +90,7 @@ impl ConvexPolytwister {
         true
     }
 
-    fn section_contains_skip2(&self, w: f32, point: &Point3<f32>, skip_1: usize, skip_2: usize) -> bool {
+    fn section_contains_skip2(&self, w: f64, point: &Point3<f64>, skip_1: usize, skip_2: usize) -> bool {
         for (i, log) in self.logs.iter().enumerate() {
             if i == skip_1 || i == skip_2 {
                 continue;
@@ -103,7 +103,7 @@ impl ConvexPolytwister {
         true
     }
 
-    fn mesh_strip(&self, ccurve: CCurve, w: f32, config: &TorusMeshConfig, skip_1: usize, skip_2: usize) -> Mesh {
+    fn mesh_strip(&self, ccurve: CCurve, w: f64, config: &TorusMeshConfig, skip_1: usize, skip_2: usize) -> Mesh {
         let mut points = vec![];
         for ring in self.rings.iter() {
             ring.cross_section(w).add_points_to_vec(&mut points);
@@ -116,7 +116,7 @@ impl ConvexPolytwister {
             }
         ).collect::<Vec<_>>();
         // Sorry about code dupe with StripSection in uniform polytwisters. I was in a hurry to get this done.
-        t_values.sort_by(f32::total_cmp);
+        t_values.sort_by(f64::total_cmp);
         let mut meshes = vec![];
         for i in 0..t_values.len() {
             let t1 = t_values[i];
@@ -133,16 +133,16 @@ impl ConvexPolytwister {
         Mesh::merge(meshes)
     }
 
-    fn scale(&self, ratio: f32) -> Self {
+    fn scale(&self, ratio: f64) -> Self {
         Self {
             logs: self.logs.iter().map(|log| log.scale(ratio)).collect::<_>(),
             rings: self.rings.iter().map(|ring| ring.scale(ratio)).collect::<_>(),
         }
     }
 
-    fn radius(&self) -> f32 {
+    fn radius(&self) -> f64 {
         // Not actually correct, but gets the job done for now
-        self.rings.iter().map(|ring| ring.radius()).max_by(f32::total_cmp).unwrap_or(1.0)
+        self.rings.iter().map(|ring| ring.radius()).max_by(f64::total_cmp).unwrap_or(1.0)
     }
 
     pub fn normalize(&self) -> Self {
@@ -151,7 +151,7 @@ impl ConvexPolytwister {
 }
 
 impl Polytwister for ConvexPolytwister {
-    fn twister_orbit_as_meshes(&self, w: f32, orbit: u8, config: &Config) -> Vec<Mesh> {
+    fn twister_orbit_as_meshes(&self, w: f64, orbit: u8, config: &Config) -> Vec<Mesh> {
         if orbit != 0 {
             return vec![];
         }
@@ -174,7 +174,7 @@ impl Polytwister for ConvexPolytwister {
         meshes
     }
 
-    fn strips_as_meshes(&self, w: f32, config: &Config) -> Vec<Mesh> {
+    fn strips_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh> {
         let config = config.strips;
         let mut meshes = vec![];
         for i in 0..self.logs.len() {
@@ -191,7 +191,7 @@ impl Polytwister for ConvexPolytwister {
         meshes
     }
 
-    fn rings_as_meshes(&self, w: f32, config: &Config) -> Vec<Mesh> {
+    fn rings_as_meshes(&self, w: f64, config: &Config) -> Vec<Mesh> {
         let mut meshes = vec![];
         for ring in self.rings.iter() {
             let ring_section = ring.cross_section(w);
@@ -208,7 +208,7 @@ struct ConvexTwisterSection {
 }
 
 impl Isosurface for ConvexTwisterSection {
-    fn contains_point(&self, p: &Point3<f32>) -> bool {
+    fn contains_point(&self, p: &Point3<f64>) -> bool {
         for log_section in self.log_sections.iter() {
             if !log_section.interior_contains(p) {
                 return false;
@@ -216,10 +216,10 @@ impl Isosurface for ConvexTwisterSection {
         }
         return true;
     }
-    fn surface_coords_to_point(&self, u: f32, theta: f32) -> Point3<f32> {
+    fn surface_coords_to_point(&self, u: f64, theta: f64) -> Point3<f64> {
         self.pipe_section.as_cylinder().surface_coords_to_cartesian(u, theta)
     }
-    fn surface_coords_to_normal(&self, u: f32, theta: f32) -> Vector3<f32> {
+    fn surface_coords_to_normal(&self, u: f64, theta: f64) -> Vector3<f64> {
         self.pipe_section.as_cylinder().scalar_field_gradient(
             &self.pipe_section.as_cylinder().surface_coords_to_cartesian(u, theta)
         )

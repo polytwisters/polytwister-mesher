@@ -1,4 +1,4 @@
-use core::f32;
+use core::f64;
 use std::io::Empty;
 
 use crate::{cylinder::Cylinder, cylinder_curve::CylinderIntersection, pipe_section::{self, PipeSection}, utils::{angle_vector, linspace}};
@@ -11,8 +11,8 @@ use crate::utils::{squared, sort2, sort4, angle, unzip_circle};
  * A 2D line given by {p + dt | t in R} where p and d are in R^2 and d is a unit vector.
  */
 pub struct Line2D {
-    pub p: Point2<f32>,
-    pub d: Vector2<f32>,
+    pub p: Point2<f64>,
+    pub d: Vector2<f64>,
 }
 
 impl Line2D {
@@ -21,7 +21,7 @@ impl Line2D {
      * Returns either a tuple of two thetas (the same point twice if the line is tangent), or None
      * if the line does not intersect the circle.
      */
-    pub fn intersect_unit_circle(&self) -> Option<(Point2<f32>, Point2<f32>)> {
+    pub fn intersect_unit_circle(&self) -> Option<(Point2<f64>, Point2<f64>)> {
         let px = self.p.x;
         let py = self.p.y;
         let dx = self.d.x;
@@ -47,18 +47,18 @@ impl Line2D {
  */
 #[derive(Debug)]
 pub struct CircularInterval {
-    pub start: f32,
-    pub end: f32
+    pub start: f64,
+    pub end: f64
 }
 
 impl CircularInterval {
-    fn new(start: f32, end: f32) -> Self {
+    fn new(start: f64, end: f64) -> Self {
         CircularInterval { start, end }
     }
 
-    fn contains(&self, x: f32) -> bool {
-        if self.end >= f32::consts::TAU {
-            self.start <= x || x <= self.end - f32::consts::TAU
+    fn contains(&self, x: f64) -> bool {
+        if self.end >= f64::consts::TAU {
+            self.start <= x || x <= self.end - f64::consts::TAU
         } else {
             self.start <= x && x <= self.end
         }
@@ -74,7 +74,7 @@ pub enum CylinderIntersectionSolutions {
 }
 
 impl CylinderIntersectionSolutions {
-    pub fn contains(&self, theta: f32) -> bool {
+    pub fn contains(&self, theta: f64) -> bool {
         match self {
             CylinderIntersectionSolutions::Empty => false,
             CylinderIntersectionSolutions::All => true,
@@ -85,7 +85,7 @@ impl CylinderIntersectionSolutions {
         }
     }
 
-    pub fn values(&self) -> Vec<f32> {
+    pub fn values(&self) -> Vec<f64> {
         match self {
             CylinderIntersectionSolutions::Empty => vec![],
             CylinderIntersectionSolutions::All => vec![],
@@ -109,7 +109,7 @@ impl Cylinder {
      * produce a negative discriminant, these values are needed. I found that this produces simpler
      * code than using an Option for when there are no solutions.
      */
-    pub fn intersect_z_line_core(&self, xy: &Point2<f32>) -> (f32, f32, f32) {
+    pub fn intersect_z_line_core(&self, xy: &Point2<f64>) -> (f64, f64, f64) {
         let m = self.matrix();
         let x = xy.x;
         let y = xy.y;
@@ -131,7 +131,7 @@ impl Cylinder {
     /**
      * Return true if the line (cos(theta), sin(theta), z) intersects the pipe section.
      */
-    pub fn intersects_z_line_theta(&self, theta: f32) -> bool {
+    pub fn intersects_z_line_theta(&self, theta: f64) -> bool {
         let p = Point2::new(theta.cos(), theta.sin());
         self.intersect_z_line_core(&p).0 >= 0.0
     }
@@ -139,7 +139,7 @@ impl Cylinder {
     /**
      * Intersect the line (cos(theta), sin(theta), z). It is assumed that there is an intersection.
      */
-    pub fn intersect_z_line_theta(&self, theta: f32) -> (Point3<f32>, Point3<f32>) {
+    pub fn intersect_z_line_theta(&self, theta: f64) -> (Point3<f64>, Point3<f64>) {
         let p = Point2::new(theta.cos(), theta.sin());
         let (_, z1, z2) = self.intersect_z_line_core(&p);
         (
@@ -167,7 +167,7 @@ impl Cylinder {
             -d.y, d.x,
         );
         let corrected_ellipse_matrix = rotation * self.inv_top_left_matrix();
-        let half_stripe_width = f32::hypot(
+        let half_stripe_width = f64::hypot(
             corrected_ellipse_matrix[(1, 0)],
             corrected_ellipse_matrix[(1, 1)]
         );
@@ -218,7 +218,7 @@ impl Cylinder {
             } else {
                 return CylinderIntersectionSolutions::TwoIntervals(
                     CircularInterval::new(t2, t3),
-                    CircularInterval::new(t4, t1 + f32::consts::TAU),
+                    CircularInterval::new(t4, t1 + f64::consts::TAU),
                 );
             }
         }
@@ -236,7 +236,7 @@ impl Cylinder {
                 );
             } else {
                 return CylinderIntersectionSolutions::OneInterval(
-                    CircularInterval::new(t2, t1 + f32::consts::TAU)
+                    CircularInterval::new(t2, t1 + f64::consts::TAU)
                 );
             }
         }
@@ -250,7 +250,7 @@ impl Cylinder {
 
     /// Intersect this cylinder with a plane at z, parallel to the xy-plane. Return the point on the
     /// resulting ellipse parametrized by angle theta from 0 to 2pi.
-    pub fn intersect_z_plane_parametrized(&self, z: f32, theta: f32) -> Point3<f32> {
+    pub fn intersect_z_plane_parametrized(&self, z: f64, theta: f64) -> Point3<f64> {
         let ellipse_center = self.intersect_axis_line_z_plane(z);
         let xy = Vector2::new(theta.cos(), theta.sin());
         let displacement_2d = self.inv_top_left_matrix() * xy;
@@ -258,7 +258,7 @@ impl Cylinder {
     }
 
     /// Inverse of intersect_z_plane_parametrized, returning the "theta" value.
-    pub fn z_plane_ellipse_theta(&self, z: f32, p: &Point2<f32>) -> f32 {
+    pub fn z_plane_ellipse_theta(&self, z: f64, p: &Point2<f64>) -> f64 {
         let ellipse_center = self.intersect_axis_line_z_plane(z).xy();
         let displacement_2d = p - ellipse_center;
         let xy = self.top_left_matrix() * displacement_2d;
@@ -267,13 +267,13 @@ impl Cylinder {
 
     /// Intersect this cylinder with a plane at z, parallel to the xy-plane. Return the result as a
     /// CCurve.
-    pub fn intersect_z_plane(&self, z: f32) -> CCurve {
+    pub fn intersect_z_plane(&self, z: f64) -> CCurve {
         CCurve::plane(self.clone(), z)
     }
 
     /// Intersect this cylinder with a planes at +z and -z, parallel to the xy-plane. Return the
     /// result as two CCurves.
-    pub fn intersect_z_planes(&self, z: f32) -> CylinderIntersection {
+    pub fn intersect_z_planes(&self, z: f64) -> CylinderIntersection {
         CylinderIntersection {
             ccurves: vec![
                 self.intersect_z_plane(z),
@@ -336,7 +336,7 @@ impl Cylinder {
 
 #[cfg(test)]
 mod test {
-    use core::f32;
+    use core::f64;
     use std::io::pipe;
 
     use approx::*;
@@ -382,7 +382,7 @@ mod test {
             d: Vector2::new(1.0, 1.0).normalize(),
         };
         if let Some(points) = line.intersect_unit_circle() {
-            let tmp = 0.5f32.sqrt();
+            let tmp = 0.5f64.sqrt();
             assert_abs_diff_eq!(points.0, Point2::new(tmp, tmp));
             assert_abs_diff_eq!(points.1, Point2::new(-tmp, -tmp));
         } else {
@@ -447,7 +447,7 @@ mod test {
         let solutions = cylinder.get_critical_thetas();
         let n = 30;
         for i in 0..n {
-            let theta = (i as f32) * f32::consts::TAU / (n as f32);
+            let theta = (i as f64) * f64::consts::TAU / (n as f64);
             let p = Point2::new(theta.cos(), theta.sin());
             let (discriminant, _, _) = cylinder.intersect_z_line_core(&p);
             let contains = solutions.contains(theta);
@@ -478,7 +478,7 @@ mod test {
         for curve in intersection.ccurves {
             let n = 30;
             for i in 0..n {
-                let t = i as f32 / n as f32;
+                let t = i as f64 / n as f64;
                 let point = curve.at(t);
                 assert_abs_diff_eq!(cylinder.scalar_field(&point), 0.0, epsilon = 1e-6);
                 assert_abs_diff_eq!(cylinder2.scalar_field(&point), 0.0, epsilon = 1e-6);
