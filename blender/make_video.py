@@ -5,37 +5,16 @@ import subprocess
 from common import FFMPEG, IMAGEMAGICK_IDENTIFY
 
 
-def make_mp4(in_dir, out_file):
+def make_webm(in_dir, out_file):
     fps = 24
 
-    background_color = "black"
-
-    result = subprocess.run([
-        IMAGEMAGICK_IDENTIFY,
-        "-ping",
-        "-format",
-        "%w %h",
-        next(in_dir.glob("*.png"))
-    ], check=True, capture_output=True, encoding="ascii")
-    width, height = [str(x) for x in result.stdout.split(" ")]
-
-    # The x264 codec does not support transparent video and the alpha channel will be automatically
-    # removed from transparent images. However, this causes some weird jaggies in the output. To
-    # get around that we have to explicitly add a black background.
     command = [
         FFMPEG,
         "-r", f"{fps}",
-        # Create a solid black image.
-        "-f", "lavfi",
-        "-i", f"color={background_color}:s={width}x{height}",
-        # Load in input frames.
         "-i", in_dir / "section_%04d_0001.png",
-        # Superimpose input video on black image.
-        # Use the 'shortest' setting in the framesync options to ensure the length is exactly that
-        # of the video. If shortest=1 is not set, ffmpeg outputs an infinitely long video!
-        "-filter_complex", "overlay=shortest=1",
-        # Set video codec.
-        "-c:v", "libx264",
+        # Set video codec. VP9 supports transparency.
+        "-c:v", "libvpx-vp9",
+        "-b:v", "2M",
         # Do not overwrite.
         "-n",
         out_file
@@ -62,12 +41,12 @@ def main():
     in_dir = Path(args.in_dir)
     out_file = Path(args.out_file)
 
-    if out_file.suffix == ".mp4":
-        make_mp4(in_dir, out_file)
+    if out_file.suffix == ".webm":
+        make_webm(in_dir, out_file)
     elif out_file.suffix == ".gif":
         make_gif(in_dir, out_file)
     else:
-        raise ValueError("Unrecognized output formate, use .mp4 or .gif")
+        raise ValueError("Unrecognized output formate, use .webm or .gif")
 
 
 if __name__ == "__main__":

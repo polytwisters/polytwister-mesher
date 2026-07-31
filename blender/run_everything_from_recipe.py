@@ -73,7 +73,7 @@ def main():
         render_dir,
     )
 
-    make_video.make_mp4(render_dir, out_dir / "out.mp4")
+    make_video.make_mp4(render_dir, out_dir / "out.webm")
 
 if __name__ == "__main__":
     main()
